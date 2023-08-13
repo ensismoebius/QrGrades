@@ -1,73 +1,75 @@
 package org.dedira.qrnotas;
 
 import com.google.android.gms.tasks.Task;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
 
 public class Database {
 
-    private DatabaseReference databaseReference;
-    private FirebaseAuth firebaseAuth;
+    static private FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-
-
-    public Database() {
-        // Initialize Firebase
-        FirebaseDatabase database = FirebaseDatabase.getInstance();
-        databaseReference = database.getReference("students");
-
-        // Initialize Firebase Authentication
-        firebaseAuth = FirebaseAuth.getInstance();
+    static public void saveStudent(Student s, final OnSaveListener<Student> listener) {
+        Task<DocumentReference> students = db.collection("students").add(s).addOnSuccessListener(docRef -> {
+            s.id = docRef.getId();
+            listener.onSaveComplete(true, s);
+        }).addOnFailureListener(error -> {
+            listener.onSaveComplete(false, s);
+        });
     }
 
-    public void insertStudent(Student student) {
-        // Generate a new unique key for the student
-        String studentKey = databaseReference.push().getKey();
+    static public void loadStudent(String id, final OnLoadListener<Student> listener) {
+        DocumentReference studentRef = db.collection("students").document(id);
 
-        // Insert the student into the database using the generated key
-        databaseReference.child(studentKey).setValue(student);
-    }
-
-    public void updateStudent(String studentKey, Student updatedStudent) {
-        // Update the student with the given key
-        databaseReference.child(studentKey).setValue(updatedStudent);
-    }
-
-    public void deleteStudent(String studentKey) {
-        // Delete the student with the given key
-        databaseReference.child(studentKey).removeValue();
-    }
-
-
-    public List<Student> getStudentsWithKey(String key) {
-        Task<DataSnapshot> dataSnapshot = databaseReference.child(key).get();
-        List<Student> students = new ArrayList<>();
-
-        for (DataSnapshot snapshot : dataSnapshot.getResult().getChildren()) {
-            Student student = snapshot.getValue(Student.class);
-            students.add(student);
+        if(studentRef == null){
+            listener.onLoadComplete(false, null);
+            return;
         }
 
-        return students;
+        studentRef.get().addOnCompleteListener(task -> {
+            if(task.getResult().toObject(Student.class) == null){
+                listener.onLoadComplete(false, null);
+                return;
+            }
+
+            Student s = task.getResult().toObject(Student.class);
+            s.id = studentRef.getId();
+            listener.onLoadComplete(true, s);
+        }).addOnFailureListener(task -> listener.onLoadComplete(false, null));
+    }
+
+    static public void updateStudentFull(String id, Student updatedStudent, final OnUpdateListener<Student> listener) {
+        DocumentReference studentRef = db.collection("students").document(id);
+
+        studentRef.set(updatedStudent).addOnSuccessListener(aVoid -> {
+            updatedStudent.id = id; // Update the id in the updatedStudent object
+            listener.onUpdateComplete(true, updatedStudent);
+        }).addOnFailureListener(e -> {
+            listener.onUpdateComplete(false, null);
+        });
     }
 
 
-    public void signIn(String email, String password) {
-        firebaseAuth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        FirebaseUser user = firebaseAuth.getCurrentUser();
-                    }
-                });
+    static public void updateStudentFields(String id, Map<String, Object> updatedFields, final OnUpdateListener<Student> listener) {
+        DocumentReference studentRef = db.collection("students").document(id);
+
+        studentRef.update(updatedFields)
+                .addOnSuccessListener(e -> listener.onUpdateComplete(true, null))
+                .addOnFailureListener(e -> listener.onUpdateComplete(false, null));
     }
 
-    public void signOut() {
-        firebaseAuth.signOut();
+
+    interface OnUpdateListener<T> {
+        void onUpdateComplete(boolean success, T object);
     }
+
+    interface OnSaveListener<T> {
+        void onSaveComplete(boolean success, T object);
+    }
+
+    interface OnLoadListener<T> {
+        void onLoadComplete(boolean success, T object);
+    }
+
 }

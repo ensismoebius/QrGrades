@@ -1,27 +1,24 @@
 package org.dedira.qrnotas;
 
-import android.graphics.Bitmap;
-
 import com.google.firebase.database.IgnoreExtraProperties;
 import com.google.firebase.database.PropertyName;
 
-import java.util.ArrayList;
-
 @IgnoreExtraProperties
 public class Student {
-    public String key;
-    public String name;
-    public ArrayList<Integer> grades;
-    public Bitmap photo;
+    public String id;
 
-    @PropertyName("key")
-    public String getKey() {
-        return key;
+    public String name;
+    public Integer grades = 0;
+    public String photo;
+
+    @PropertyName("id")
+    public String getId() {
+        return id;
     }
 
-    @PropertyName("key")
-    public void setKey(String key) {
-        this.key = key;
+    @PropertyName("id")
+    public void setId(String id) {
+        this.id = id;
     }
 
     @PropertyName("name")
@@ -35,22 +32,22 @@ public class Student {
     }
 
     @PropertyName("grades")
-    public ArrayList<Integer> getGrades() {
+    public Integer getGrades() {
         return grades;
     }
 
     @PropertyName("grades")
-    public void setGrades(ArrayList<Integer> grades) {
+    public void setGrades(Integer grades) {
         this.grades = grades;
     }
 
     @PropertyName("photo")
-    public Bitmap getPhoto() {
+    public String getPhoto() {
         return photo;
     }
 
     @PropertyName("photo")
-    public void setPhoto(Bitmap photo) {
+    public void setPhoto(String photo) {
         this.photo = photo;
     }
 }
