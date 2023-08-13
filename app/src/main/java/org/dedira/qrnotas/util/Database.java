@@ -55,7 +55,15 @@ public class Database {
     }
 
     public void loadStudent(String id, final IDatabaseOnLoad<Student> listener) {
-        DocumentReference studentRef = db.collection("students").document(id);
+
+        DocumentReference studentRef;
+
+        try {
+            studentRef = db.collection("students").document(id);
+        } catch (Exception e){
+            listener.onLoadComplete(false, null);
+            return;
+        }
 
         studentRef.get().addOnCompleteListener(task -> {
             if (task.getResult().toObject(Student.class) == null) {
