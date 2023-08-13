@@ -1,54 +1,70 @@
 package org.dedira.qrnotas;
 
-import android.content.DialogInterface;
+import android.app.Activity;
 import android.os.Bundle;
-import android.widget.Button;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.View;
+import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.appcompat.app.AlertDialog;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.journeyapps.barcodescanner.ScanContract;
-import com.journeyapps.barcodescanner.ScanOptions;
+import com.budiyev.android.codescanner.CodeScanner;
+import com.budiyev.android.codescanner.CodeScannerView;
+import com.budiyev.android.codescanner.DecodeCallback;
+import com.google.zxing.Result;
 
 public class MainActivity extends AppCompatActivity {
-
-    private Button btnScan;
+    private CodeScanner mCodeScanner;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        CodeScannerView scannerView = findViewById(R.id.scnView);
 
-        this.btnScan = this.findViewById(R.id.btnScan);
-        this.btnScan.setOnClickListener(v -> this.scanCode());
-    }
-
-    private void scanCode(){
-        ScanOptions options = new ScanOptions();
-        options.setPrompt("Raise the volume to activate the flash");
-        options.setBeepEnabled(true);
-        options.setCaptureActivity(CaptureActivity.class);
-
-        barLauncher.launch(options);
-
-    }
-
-    ActivityResultLauncher<ScanOptions> barLauncher = registerForActivityResult(
-            new ScanContract(), result -> {
-                if(result.getContents() != null){
-                    AlertDialog.Builder builder=  new AlertDialog.Builder(
-                            MainActivity.this
-                    );
-                    builder.setTitle("Result");
-                    builder.setMessage(result.getContents());
-                    builder.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                             dialog.dismiss();
-                        }
-                    }).show();
-                }
+        this.mCodeScanner = new CodeScanner(this, scannerView);
+        this.mCodeScanner.setDecodeCallback(new DecodeCallback() {
+            /**
+             * Called when decoder has successfully decoded the code
+             * Note that this method always called on a worker thread
+             *
+             * @param result Encapsulates the result of decoding a barcode within an image
+             * @see Handler
+             * @see Looper#getMainLooper()
+             * @see Activity#runOnUiThread(Runnable)
+             */
+            @Override
+            public void onDecoded(@NonNull Result result) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, result.getText(), Toast.LENGTH_SHORT).show();
+                    }
+                });
             }
-    );
+        });
+
+
+
+        scannerView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mCodeScanner.startPreview();
+            }
+        });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mCodeScanner.startPreview();
+    }
+
+    @Override
+    protected void onPause() {
+        mCodeScanner.releaseResources();
+        super.onPause();
+    }
 }
