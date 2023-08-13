@@ -1,3 +1,16 @@
 <resources>
     <string name="app_name">QrNotas</string>
+    <string name="student_photo">Student photo</string>
+    <string name="edit_student">Edit student</string>
+    <string name="qr_code_image">Qr code image</string>
+    <string name="student_photo_text">Student photo</string>
+    <string name="save">Save</string>
+    <string name="student_photo_text2">Student photo</string>
+    <string name="add_button">Add</string>
+    <string name="sub_button">Sub</string>
+    <string name="save_button">Save</string>
+    <string name="intial_points">1</string>
+    <string name="options_text">Options</string>
+    <string name="add_student">Add student</string>
+    <string name="show_all_students">Show all students</string>
 </resources>
