@@ -1,10 +1,13 @@
-package org.dedira.qrnotas;
+package org.dedira.qrnotas.activities;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.drawable.BitmapDrawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.widget.Button;
@@ -12,8 +15,6 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
@@ -24,17 +25,22 @@ import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 
+import org.dedira.qrnotas.R;
+import org.dedira.qrnotas.dialogs.LoadingDialog;
+import org.dedira.qrnotas.model.Student;
+import org.dedira.qrnotas.util.BitmapCoverter;
+import org.dedira.qrnotas.util.Database;
+
+import java.io.ByteArrayOutputStream;
 
 public class AddStudent extends AppCompatActivity {
 
-
+    Database database;
+    private LoadingDialog loadingDialog;
     private ImageView imgPhoto;
     private ImageView imgQrcode;
-
     private Bitmap btmPhoto;
-
     private EditText txtName;
-
     private ActivityResultLauncher<Intent> cameraLauncher;
 
     private void generateQRCode(String data) {
@@ -55,46 +61,76 @@ public class AddStudent extends AppCompatActivity {
         }
     }
 
+    // Method to get URI from Bitmap
+    private Uri getImageUri(Context context, Bitmap bitmap) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, bytes);
+        String path = MediaStore.Images.Media.insertImage(context.getContentResolver(), bitmap, "QR_Code", null);
+        return Uri.parse(path);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_student);
 
+        this.database = new Database();
+
         this.imgQrcode = this.findViewById(R.id.imgQrcode);
-        this.imgPhoto = this.findViewById(R.id.imgFoto);
+        this.imgPhoto = this.findViewById(R.id.imgPhoto);
         this.txtName = this.findViewById(R.id.txtName);
         Button btnSave = this.findViewById(R.id.btnSave);
 
+        this.loadingDialog = new LoadingDialog(this);
+
+        imgQrcode.setOnClickListener(v -> {
+            // Get the QR code image from the ImageView
+            Bitmap qrCodeBitmap = ((BitmapDrawable) imgQrcode.getDrawable()).getBitmap();
+
+            // Convert the QR code bitmap to a URI
+            Uri qrCodeUri = getImageUri(this, qrCodeBitmap);
+
+            // Create a sharing intent
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("image/png");
+            shareIntent.putExtra(Intent.EXTRA_STREAM, qrCodeUri);
+            shareIntent.putExtra(Intent.EXTRA_SUBJECT, "QR Code Share");
+
+            // Show the sharing chooser
+            startActivity(Intent.createChooser(shareIntent, "Share QR Code"));
+        });
+
         btnSave.setOnClickListener(v -> {
+
+            AddStudent.this.loadingDialog.show();
+
             Student s = new Student();
             s.name = this.txtName.getText().toString();
             s.photo = BitmapCoverter.stringToBitmap(this.btmPhoto);
 
-            Database.saveStudent(s, (success, student) -> {
+            this.database.saveStudent(s, (success, student) -> {
                 if (success) {
                     AddStudent.this.generateQRCode(student.id);
                     Toast.makeText(this, "Student saved" + student.id, Toast.LENGTH_LONG).show();
                 } else {
                     Toast.makeText(this, "Student not saved!", Toast.LENGTH_LONG).show();
                 }
+                AddStudent.this.loadingDialog.dismiss();
             });
         });
 
 
         cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
-                new ActivityResultCallback<ActivityResult>() {
-                    @Override
-                    public void onActivityResult(ActivityResult result) {
-                        if (result.getResultCode() == RESULT_OK) {
-                            Intent data = result.getData();
-                            Bundle extras = data.getExtras();
-                            AddStudent.this.btmPhoto = BitmapCoverter.scaleBitmap((Bitmap) extras.get("data"),150,150);
-                            AddStudent.this.imgPhoto.setImageBitmap(AddStudent.this.btmPhoto);
-                        }
+                result -> {
+                    if (result.getResultCode() == RESULT_OK) {
+                        Intent data = result.getData();
+                        Bundle extras = data.getExtras();
+                        AddStudent.this.btmPhoto = BitmapCoverter.scaleBitmap((Bitmap) extras.get("data"), 150, 150);
+                        AddStudent.this.imgPhoto.setImageBitmap(AddStudent.this.btmPhoto);
                     }
                 });
 
-        findViewById(R.id.imgFoto).setOnClickListener(v -> {
+        findViewById(R.id.imgPhoto).setOnClickListener(v -> {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                     == PackageManager.PERMISSION_GRANTED) {
                 Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);

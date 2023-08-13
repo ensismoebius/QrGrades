@@ -8,19 +8,21 @@
 
     <ImageView
         android:id="@+id/imgQrcode"
-        android:layout_width="300dp"
-        android:layout_height="300dp"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="8dp"
-        app:layout_constraintBottom_toTopOf="@+id/imgFoto"
+        app:layout_constraintBottom_toTopOf="@+id/imgPhoto"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        android:contentDescription="@string/qr_code_image"
+        />
 
     <ImageView
-        android:id="@+id/imgFoto"
+        android:id="@+id/imgPhoto"
         android:layout_width="150dp"
         android:layout_height="200dp"
         android:layout_marginStart="8dp"
@@ -32,24 +34,27 @@
         app:layout_constraintEnd_toStartOf="@+id/txtName"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/imgQrcode"
-        tools:srcCompat="@tools:sample/avatars" />
+        tools:srcCompat="@tools:sample/avatars"
+        android:contentDescription="@string/student_photo_text"
+        />
 
     <EditText
         android:id="@+id/txtName"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="8dp"
-        android:layout_marginBottom="134dp"
-        android:text="Nome"
+        android:layout_marginBottom="8dp"
+        android:inputType="textMultiLine"
         android:textColor="?android:attr/textColorPrimary"
         android:textSize="34sp"
         app:layout_constraintBottom_toTopOf="@+id/btnSave"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toEndOf="@+id/imgFoto"
-        app:layout_constraintTop_toBottomOf="@+id/imgQrcode" />
+        app:layout_constraintStart_toEndOf="@+id/imgPhoto"
+        app:layout_constraintTop_toBottomOf="@+id/imgQrcode"
+        android:autofillHints="" />
 
     <Button
         android:id="@+id/btnSave"
@@ -59,10 +64,10 @@
         android:layout_marginTop="8dp"
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="16dp"
-        android:text="Save"
+        android:text="@string/save"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/imgFoto" />
+        app:layout_constraintTop_toBottomOf="@+id/imgPhoto" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

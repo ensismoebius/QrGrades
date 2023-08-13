@@ -1,4 +1,4 @@
-package org.dedira.qrnotas;
+package org.dedira.qrnotas.util;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;

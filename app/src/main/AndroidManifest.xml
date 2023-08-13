@@ -19,13 +19,16 @@
         android:theme="@style/Theme.QrNotas"
         tools:targetApi="31">
         <activity
-            android:name=".LoadingDialog"
+            android:name=".activities.ListStudents"
             android:exported="false" />
         <activity
-            android:name=".AddStudent"
+            android:name=".dialogs.LoadingDialog"
             android:exported="false" />
         <activity
-            android:name=".MainActivity"
+            android:name=".activities.AddStudent"
+            android:exported="false" />
+        <activity
+            android:name=".activities.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

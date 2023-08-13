@@ -1,4 +1,4 @@
-package org.dedira.qrnotas;
+package org.dedira.qrnotas.activities;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -19,8 +19,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.budiyev.android.codescanner.CodeScanner;
 import com.budiyev.android.codescanner.CodeScannerView;
 import com.budiyev.android.codescanner.DecodeCallback;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.zxing.Result;
+
+import org.dedira.qrnotas.R;
+import org.dedira.qrnotas.dialogs.LoadingDialog;
+import org.dedira.qrnotas.model.Student;
+import org.dedira.qrnotas.util.BitmapCoverter;
+import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.util.IDatabaseOnLoad;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -29,15 +37,13 @@ public class MainActivity extends AppCompatActivity {
     private LoadingDialog loadingDialog;
     private Ringtone notificationSound;
     private CodeScanner mCodeScanner;
-    private FloatingActionButton btnAddStudent;
     private TextView txtName;
     private TextView txtPoints;
     private ImageView imgPhoto;
-    private Button btnPlus;
-    private Button btnLess;
-    private Button btnSave;
     private Student student;
     private Integer extraPoints = 1;
+    private boolean isExpanded = false;
+    private Database database;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,30 +51,32 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        this.database = new Database();
+
         this.notificationSound = RingtoneManager.getRingtone(this, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
 
         this.loadingDialog = new LoadingDialog(this);
 
         this.txtName = this.findViewById(R.id.txtName);
         this.txtPoints = this.findViewById(R.id.txtPoints);
-        this.imgPhoto = this.findViewById(R.id.imgFoto);
+        this.imgPhoto = this.findViewById(R.id.imgPhoto);
 
-        this.btnPlus = this.findViewById(R.id.btnPlus);
-        this.btnPlus.setOnClickListener(v -> {
+        Button btnPlus = this.findViewById(R.id.btnPlus);
+        btnPlus.setOnClickListener(v -> {
             if (this.extraPoints > 4) return;
             this.extraPoints++;
             this.txtPoints.setText(this.extraPoints.toString());
         });
 
-        this.btnLess = this.findViewById(R.id.btnLess);
-        this.btnLess.setOnClickListener(v -> {
+        Button btnLess = this.findViewById(R.id.btnLess);
+        btnLess.setOnClickListener(v -> {
             if (this.extraPoints < 2) return;
             this.extraPoints--;
             this.txtPoints.setText(this.extraPoints.toString());
         });
 
-        this.btnSave = this.findViewById(R.id.btnSave);
-        this.btnSave.setOnClickListener(v -> {
+        Button btnSave = this.findViewById(R.id.btnSave);
+        btnSave.setOnClickListener(v -> {
 
             MainActivity.this.loadingDialog.show();
 
@@ -76,7 +84,7 @@ public class MainActivity extends AppCompatActivity {
             this.student.grades += this.extraPoints;
             selection.put("grades", this.student.grades);
 
-            Database.updateStudentFields(
+            this.database.updateStudentFields(
                     MainActivity.this.student.id,
                     selection,
                     (success, object) -> {
@@ -86,10 +94,30 @@ public class MainActivity extends AppCompatActivity {
             );
         });
 
-        this.btnAddStudent = this.findViewById(R.id.btnAddStudent);
-        this.btnAddStudent.setOnClickListener(v -> {
+        MaterialButton btnAddStudent = this.findViewById(R.id.btnAddStudent);
+        btnAddStudent.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, AddStudent.class);
             startActivity(intent);
+        });
+
+        MaterialButton btnListStudent = this.findViewById(R.id.btnListStudents);
+        btnListStudent.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, ListStudents.class);
+            startActivity(intent);
+        });
+
+        FloatingActionButton btnOptions = this.findViewById(R.id.btnOptions);
+        btnOptions.setOnClickListener(v -> {
+            if (isExpanded) {
+                // Collapse
+                btnAddStudent.setVisibility(View.GONE);
+                btnListStudent.setVisibility(View.GONE);
+            } else {
+                // Expand
+                btnAddStudent.setVisibility(View.VISIBLE);
+                btnListStudent.setVisibility(View.VISIBLE);
+            }
+            isExpanded = !isExpanded;
         });
 
         CodeScannerView scannerView = findViewById(R.id.scnView);
@@ -107,43 +135,35 @@ public class MainActivity extends AppCompatActivity {
              */
             @Override
             public void onDecoded(@NonNull Result result) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
+                runOnUiThread(() -> {
 
-                        if (notificationSound != null) {
-                            MainActivity.this.notificationSound.play();
-                        }
-
-                        MainActivity.this.loadingDialog.show();
-                        MainActivity.this.loadingDialog.setCancelable(false);
-                        MainActivity.this.loadingDialog.setCanceledOnTouchOutside(false);
-                        Database.loadStudent("vCWyyQKZTxFMYYob5KX9", new Database.OnLoadListener<Student>() {
-                            @Override
-                            public void onLoadComplete(boolean success, Student object) {
-
-                                if (!success) {
-                                    Toast.makeText(MainActivity.this, "Student non existent!", Toast.LENGTH_SHORT).show();
-                                } else {
-                                    MainActivity.this.student = object;
-                                    MainActivity.this.txtName.setText(object.name);
-                                    MainActivity.this.imgPhoto.setImageBitmap(BitmapCoverter.stringToBitmap(object.photo));
-                                }
-                                MainActivity.this.loadingDialog.dismiss();
-                            }
-                        });
+                    if (notificationSound != null) {
+                        MainActivity.this.notificationSound.play();
                     }
+
+                    MainActivity.this.loadingDialog.show();
+                    MainActivity.this.loadingDialog.setCancelable(false);
+                    MainActivity.this.loadingDialog.setCanceledOnTouchOutside(false);
+                    MainActivity.this.database.loadStudent(result.getText(), new IDatabaseOnLoad<Student>() {
+                        @Override
+                        public void onLoadComplete(boolean success, Student object) {
+
+                            if (!success) {
+                                Toast.makeText(MainActivity.this, "Student non existent!", Toast.LENGTH_SHORT).show();
+                            } else {
+                                MainActivity.this.student = object;
+                                MainActivity.this.txtName.setText(object.name);
+                                MainActivity.this.imgPhoto.setImageBitmap(BitmapCoverter.stringToBitmap(object.photo));
+                            }
+                            MainActivity.this.loadingDialog.dismiss();
+                        }
+                    });
                 });
             }
         });
 
 
-        scannerView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                mCodeScanner.startPreview();
-            }
-        });
+        scannerView.setOnClickListener(view -> mCodeScanner.startPreview());
     }
 
     @Override
