@@ -66,8 +66,6 @@ public class Database {
                 listener.onSaveComplete(true, s);
             }).addOnFailureListener(error -> listener.onSaveComplete(false, s));
         } else {
-            //String id, Map<String, Object> updatedFields, final IDatabaseOnUpdate<Student> listener) {
-
             Map<String, Object> fields = new HashMap<>();
             fields.put("name", s.name);
             fields.put("grades", s.grades);
