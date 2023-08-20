@@ -58,7 +58,7 @@ public class Database {
     public void saveStudent(Student s, final IDatabaseOnSave<Student> listener) {
 
         // Is a new student?
-        if (s.id.trim().isEmpty()) {
+        if (s.id == null) {
 
             // Save new student
             db.collection("students").add(s).addOnSuccessListener(docRef -> {
