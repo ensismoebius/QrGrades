@@ -7,6 +7,7 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 import org.dedira.qrnotas.model.Student;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 
 public class Database {
@@ -16,19 +17,26 @@ public class Database {
         db = FirebaseFirestore.getInstance();
     }
 
-    public void updateStudentFull(String id, Student updatedStudent, final IDatabaseOnUpdate<Student> listener) {
-        DocumentReference studentRef = db.collection("students").document(id);
+    public void deleteStudent(String studentId, final IDatabaseOnDelete listener) {
+        DocumentReference studentRef = db.collection("students").document(studentId);
 
-        studentRef.set(updatedStudent).addOnSuccessListener(aVoid -> {
-            updatedStudent.id = id; // Update the id in the updatedStudent object
-            listener.onUpdateComplete(true, updatedStudent);
-        }).addOnFailureListener(e -> listener.onUpdateComplete(false, null));
+        studentRef.delete().addOnSuccessListener(aVoid -> listener.onLoadComplete(true, null)).addOnFailureListener(e -> listener.onLoadComplete(false, null));
     }
 
     public void updateStudentFields(String id, Map<String, Object> updatedFields, final IDatabaseOnUpdate<Student> listener) {
         DocumentReference studentRef = db.collection("students").document(id);
 
-        studentRef.update(updatedFields).addOnSuccessListener(e -> listener.onUpdateComplete(true, null)).addOnFailureListener(e -> listener.onUpdateComplete(false, null));
+        studentRef.update(updatedFields).addOnSuccessListener(aVoid -> {
+            // Get the updated student document to provide in the callback
+            studentRef.get().addOnSuccessListener(documentSnapshot -> {
+                if (documentSnapshot.exists()) {
+                    Student updatedStudent = documentSnapshot.toObject(Student.class);
+                    listener.onUpdateComplete(true, updatedStudent);
+                } else {
+                    listener.onUpdateComplete(false, null);
+                }
+            }).addOnFailureListener(e -> listener.onUpdateComplete(false, null));
+        }).addOnFailureListener(e -> listener.onUpdateComplete(false, null));
     }
 
     public void loadAllStudents(final IDatabaseOnLoad<ArrayList<Student>> listener) {
@@ -48,10 +56,30 @@ public class Database {
     }
 
     public void saveStudent(Student s, final IDatabaseOnSave<Student> listener) {
-        db.collection("students").add(s).addOnSuccessListener(docRef -> {
-            s.id = docRef.getId();
-            listener.onSaveComplete(true, s);
-        }).addOnFailureListener(error -> listener.onSaveComplete(false, s));
+
+        // Is a new student?
+        if (s.id.trim().isEmpty()) {
+
+            // Save new student
+            db.collection("students").add(s).addOnSuccessListener(docRef -> {
+                s.id = docRef.getId();
+                listener.onSaveComplete(true, s);
+            }).addOnFailureListener(error -> listener.onSaveComplete(false, s));
+        } else {
+            //String id, Map<String, Object> updatedFields, final IDatabaseOnUpdate<Student> listener) {
+
+            Map<String, Object> fields = new HashMap<>();
+            fields.put("name", s.name);
+            fields.put("grades", s.grades);
+            fields.put("photo", s.photo);
+
+            updateStudentFields(s.id, fields, new IDatabaseOnUpdate<Student>() {
+                @Override
+                public void onUpdateComplete(boolean success, Student object) {
+                    listener.onSaveComplete(success, object);
+                }
+            });
+        }
     }
 
     public void loadStudent(String id, final IDatabaseOnLoad<Student> listener) {
@@ -60,7 +88,7 @@ public class Database {
 
         try {
             studentRef = db.collection("students").document(id);
-        } catch (Exception e){
+        } catch (Exception e) {
             listener.onLoadComplete(false, null);
             return;
         }

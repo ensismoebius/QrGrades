@@ -3,12 +3,14 @@ package org.dedira.qrnotas.activities;
 import android.os.Bundle;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.util.StudentAdapter;
 
 import java.util.ArrayList;
 
@@ -26,19 +28,20 @@ public class ListStudents extends AppCompatActivity {
         this.database = new Database();
 
         this.arrStudents = new ArrayList<>();
-        this.arrStudentsAdapter = new ArrayAdapter<>(this, R.layout.line, R.id.txtNameList, arrStudents); // Adaptador
+
+        this.arrStudentsAdapter = new StudentAdapter(this, arrStudents);
 
         this.lstStudents = this.findViewById(R.id.lstStudents);
         this.lstStudents.setAdapter(this.arrStudentsAdapter);
 
-        this.lstStudents.setOnItemClickListener((parent, view, position, id) -> {
-            // Edit student
-        });
-
-        this.database.loadAllStudents((success, object) -> {
-            ListStudents.this.arrStudents = object;
-            arrStudentsAdapter.notifyDataSetChanged();
+        this.database.loadAllStudents((success, students) -> {
+            if (success) {
+                arrStudents.clear();
+                arrStudents.addAll(students);
+                arrStudentsAdapter.notifyDataSetChanged();
+            } else {
+                Toast.makeText(this, "Failed to load students data.", Toast.LENGTH_SHORT).show();
+            }
         });
     }
-
 }

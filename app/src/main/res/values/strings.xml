@@ -13,4 +13,5 @@
     <string name="options_text">Options</string>
     <string name="add_student">Add student</string>
     <string name="show_all_students">Show all students</string>
+    <string name="delete_student">Delete student</string>
 </resources>

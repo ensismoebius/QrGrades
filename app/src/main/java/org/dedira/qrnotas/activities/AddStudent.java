@@ -35,13 +35,15 @@ import java.io.ByteArrayOutputStream;
 
 public class AddStudent extends AppCompatActivity {
 
-    Database database;
+    private Database database;
     private LoadingDialog loadingDialog;
     private ImageView imgPhoto;
     private ImageView imgQrcode;
     private Bitmap btmPhoto;
     private EditText txtName;
     private ActivityResultLauncher<Intent> cameraLauncher;
+
+    private Student loadedStudent;
 
     private void generateQRCode(String data) {
         QRCodeWriter qrCodeWriter = new QRCodeWriter();
@@ -74,14 +76,22 @@ public class AddStudent extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_student);
 
-        this.database = new Database();
-
         this.imgQrcode = this.findViewById(R.id.imgQrcode);
         this.imgPhoto = this.findViewById(R.id.imgPhoto);
         this.txtName = this.findViewById(R.id.txtName);
-        Button btnSave = this.findViewById(R.id.btnSave);
-
         this.loadingDialog = new LoadingDialog(this);
+        this.database = new Database();
+
+        String selectedStudentId = getIntent().getStringExtra("selectedStudentId");
+        if (selectedStudentId != null) {
+            AddStudent.this.database.loadStudent(selectedStudentId, (success, object) -> {
+                AddStudent.this.loadedStudent = object;
+                AddStudent.this.generateQRCode(object.id);
+                AddStudent.this.btmPhoto = BitmapCoverter.stringToBitmap(object.photo);
+                AddStudent.this.imgPhoto.setImageBitmap(AddStudent.this.btmPhoto);
+                AddStudent.this.txtName.setText(object.name);
+            });
+        }
 
         imgQrcode.setOnClickListener(v -> {
             // Get the QR code image from the ImageView
@@ -100,39 +110,41 @@ public class AddStudent extends AppCompatActivity {
             startActivity(Intent.createChooser(shareIntent, "Share QR Code"));
         });
 
+        Button btnSave = this.findViewById(R.id.btnSave);
         btnSave.setOnClickListener(v -> {
 
-            AddStudent.this.loadingDialog.show();
+            this.loadingDialog.show();
 
-            Student s = new Student();
-            s.name = this.txtName.getText().toString();
-            s.photo = BitmapCoverter.stringToBitmap(this.btmPhoto);
+            if (AddStudent.this.loadedStudent == null) {
+                this.loadedStudent = new Student();
+            }
 
-            this.database.saveStudent(s, (success, student) -> {
+            this.loadedStudent.name = this.txtName.getText().toString();
+            this.loadedStudent.photo = BitmapCoverter.bitmapToString(this.btmPhoto);
+
+            this.database.saveStudent(this.loadedStudent, (success, student) -> {
                 if (success) {
-                    AddStudent.this.generateQRCode(student.id);
+                    this.generateQRCode(student.id);
                     Toast.makeText(this, "Student saved" + student.id, Toast.LENGTH_LONG).show();
                 } else {
                     Toast.makeText(this, "Student not saved!", Toast.LENGTH_LONG).show();
                 }
-                AddStudent.this.loadingDialog.dismiss();
+                this.loadingDialog.dismiss();
             });
+
         });
 
-
-        cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    if (result.getResultCode() == RESULT_OK) {
-                        Intent data = result.getData();
-                        Bundle extras = data.getExtras();
-                        AddStudent.this.btmPhoto = BitmapCoverter.scaleBitmap((Bitmap) extras.get("data"), 150, 150);
-                        AddStudent.this.imgPhoto.setImageBitmap(AddStudent.this.btmPhoto);
-                    }
-                });
+        cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() == RESULT_OK) {
+                Intent data = result.getData();
+                Bundle extras = data.getExtras();
+                AddStudent.this.btmPhoto = BitmapCoverter.scaleBitmap((Bitmap) extras.get("data"), 150, 150);
+                AddStudent.this.imgPhoto.setImageBitmap(AddStudent.this.btmPhoto);
+            }
+        });
 
         findViewById(R.id.imgPhoto).setOnClickListener(v -> {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                    == PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                 Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
                 cameraLauncher.launch(takePictureIntent);
             } else {
