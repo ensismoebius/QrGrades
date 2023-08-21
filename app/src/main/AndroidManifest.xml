@@ -25,10 +25,10 @@
             android:name=".dialogs.LoadingDialog"
             android:exported="false" />
         <activity
-            android:name=".activities.AddStudent"
+            android:name=".activities.AddOrEditStudent"
             android:exported="false" />
         <activity
-            android:name=".activities.MainActivity"
+            android:name=".activities.Main"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

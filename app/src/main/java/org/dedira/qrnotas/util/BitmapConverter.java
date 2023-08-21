@@ -6,7 +6,7 @@ import android.util.Base64;
 
 import java.io.ByteArrayOutputStream;
 
-public class BitmapCoverter {
+public class BitmapConverter {
     static public String bitmapToString(Bitmap btm) {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         btm.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);

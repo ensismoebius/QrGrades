@@ -13,8 +13,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+
 import org.dedira.qrnotas.R;
-import org.dedira.qrnotas.activities.AddStudent;
+import org.dedira.qrnotas.activities.AddOrEditStudent;
 import org.dedira.qrnotas.model.Student;
 
 import java.util.ArrayList;
@@ -25,6 +27,7 @@ public class StudentAdapter extends ArrayAdapter<Student> {
         super(context, 0, students);
     }
 
+    @NonNull
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
         // Get the student at the current position
@@ -45,12 +48,12 @@ public class StudentAdapter extends ArrayAdapter<Student> {
             txtName.setText(student.name);
 
             // Load the student photo into the ImageView using your BitmapConverter logic
-            Bitmap studentPhotoBitmap = BitmapCoverter.stringToBitmap(student.photo);
+            Bitmap studentPhotoBitmap = BitmapConverter.stringToBitmap(student.photo);
             imgPhoto.setImageBitmap(studentPhotoBitmap);
 
             // Set an onClickListener for the edit button
             btnEditStudent.setOnClickListener(v -> {
-                Intent intent = new Intent(parent.getContext(), AddStudent.class);
+                Intent intent = new Intent(parent.getContext(), AddOrEditStudent.class);
                 intent.putExtra("selectedStudentId", student.id); // Pass the selected student as an extra
                 parent.getContext().startActivity(intent);
             });
