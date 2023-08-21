@@ -20,7 +20,11 @@ public class Database {
     public void deleteStudent(String studentId, final IDatabaseOnDelete listener) {
         DocumentReference studentRef = db.collection("students").document(studentId);
 
-        studentRef.delete().addOnSuccessListener(aVoid -> listener.onLoadComplete(true, null)).addOnFailureListener(e -> listener.onLoadComplete(false, null));
+        studentRef.delete().addOnSuccessListener(
+                aVoid -> listener.onLoadComplete(true, null)
+        ).addOnFailureListener(
+                e -> listener.onLoadComplete(false, null)
+        );
     }
 
     public void updateStudentFields(String id, Map<String, Object> updatedFields, final IDatabaseOnUpdate<Student> listener) {
@@ -35,8 +39,12 @@ public class Database {
                 } else {
                     listener.onUpdateComplete(false, null);
                 }
-            }).addOnFailureListener(e -> listener.onUpdateComplete(false, null));
-        }).addOnFailureListener(e -> listener.onUpdateComplete(false, null));
+            }).addOnFailureListener(
+                    e -> listener.onUpdateComplete(false, null)
+            );
+        }).addOnFailureListener(
+                e -> listener.onUpdateComplete(false, null)
+        );
     }
 
     public void loadAllStudents(final IDatabaseOnLoad<ArrayList<Student>> listener) {
@@ -64,19 +72,16 @@ public class Database {
             db.collection("students").add(s).addOnSuccessListener(docRef -> {
                 s.id = docRef.getId();
                 listener.onSaveComplete(true, s);
-            }).addOnFailureListener(error -> listener.onSaveComplete(false, s));
+            }).addOnFailureListener(
+                    error -> listener.onSaveComplete(false, s)
+            );
         } else {
             Map<String, Object> fields = new HashMap<>();
             fields.put("name", s.name);
             fields.put("grades", s.grades);
             fields.put("photo", s.photo);
 
-            updateStudentFields(s.id, fields, new IDatabaseOnUpdate<Student>() {
-                @Override
-                public void onUpdateComplete(boolean success, Student object) {
-                    listener.onSaveComplete(success, object);
-                }
-            });
+            updateStudentFields(s.id, fields, (success, object) -> listener.onSaveComplete(success, object));
         }
     }
 

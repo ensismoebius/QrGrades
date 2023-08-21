@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Bundle;
@@ -20,16 +19,12 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.WriterException;
-import com.google.zxing.common.BitMatrix;
-import com.google.zxing.qrcode.QRCodeWriter;
-
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.dialogs.LoadingDialog;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.util.BitmapCoverter;
 import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.util.QrCode;
 
 import java.io.ByteArrayOutputStream;
 
@@ -45,23 +40,6 @@ public class AddStudent extends AppCompatActivity {
 
     private Student loadedStudent;
 
-    private void generateQRCode(String data) {
-        QRCodeWriter qrCodeWriter = new QRCodeWriter();
-        try {
-            BitMatrix bitMatrix = qrCodeWriter.encode(data, BarcodeFormat.QR_CODE, 300, 300);
-            int width = bitMatrix.getWidth();
-            int height = bitMatrix.getHeight();
-            Bitmap btmQrcode = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
-            for (int x = 0; x < width; x++) {
-                for (int y = 0; y < height; y++) {
-                    btmQrcode.setPixel(x, y, bitMatrix.get(x, y) ? Color.BLACK : Color.WHITE);
-                }
-            }
-            imgQrcode.setImageBitmap(btmQrcode);
-        } catch (WriterException e) {
-            e.printStackTrace();
-        }
-    }
 
     // Method to get URI from Bitmap
     private Uri getImageUri(Context context, Bitmap bitmap) {
@@ -86,7 +64,7 @@ public class AddStudent extends AppCompatActivity {
         if (selectedStudentId != null) {
             AddStudent.this.database.loadStudent(selectedStudentId, (success, object) -> {
                 AddStudent.this.loadedStudent = object;
-                AddStudent.this.generateQRCode(object.id);
+                imgQrcode.setImageBitmap(QrCode.generateQRCode(object.id));
                 AddStudent.this.btmPhoto = BitmapCoverter.stringToBitmap(object.photo);
                 AddStudent.this.imgPhoto.setImageBitmap(AddStudent.this.btmPhoto);
                 AddStudent.this.txtName.setText(object.name);
@@ -124,7 +102,7 @@ public class AddStudent extends AppCompatActivity {
 
             this.database.saveStudent(this.loadedStudent, (success, student) -> {
                 if (success) {
-                    this.generateQRCode(student.id);
+                    imgQrcode.setImageBitmap(QrCode.generateQRCode(student.id));
                     Toast.makeText(this, "Student saved" + student.id, Toast.LENGTH_LONG).show();
                 } else {
                     Toast.makeText(this, "Student not saved!", Toast.LENGTH_LONG).show();
