@@ -2,6 +2,8 @@ package org.dedira.qrnotas.util;
 
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreSettings;
+import com.google.firebase.firestore.PersistentCacheSettings;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import org.dedira.qrnotas.model.Student;
@@ -14,7 +16,18 @@ public class Database {
     private final FirebaseFirestore db;
 
     public Database() {
+
         db = FirebaseFirestore.getInstance();
+
+        FirebaseFirestoreSettings.Builder builder = new FirebaseFirestoreSettings.Builder(db.getFirestoreSettings());
+        builder.setLocalCacheSettings(PersistentCacheSettings.newBuilder().build());// Use persistent disk cache (default)
+        FirebaseFirestoreSettings settings = builder.build();
+
+        //// Use memory-only cache
+        //.setLocalCacheSettings(
+        //        MemoryCacheSettings.newBuilder().build()
+        //)
+        db.setFirestoreSettings(settings);
     }
 
     public void deleteStudent(String studentId, final IDatabaseOnDelete listener) {

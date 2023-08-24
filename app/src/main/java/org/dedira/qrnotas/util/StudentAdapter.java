@@ -29,19 +29,19 @@ public class StudentAdapter extends ArrayAdapter<Student> {
 
     @NonNull
     @Override
-    public View getView(int position, View convertView, ViewGroup parent) {
+    public View getView(int position, View preloadedView, ViewGroup parent) {
         // Get the student at the current position
         Student student = getItem(position);
 
-        if (convertView == null) {
-            convertView = LayoutInflater.from(getContext()).inflate(R.layout.line, parent, false);
+        if (preloadedView == null) {
+            preloadedView = LayoutInflater.from(getContext()).inflate(R.layout.line, parent, false);
         }
 
         // Find the views in the custom layout
-        TextView txtName = convertView.findViewById(R.id.txtNameList);
-        ImageView imgPhoto = convertView.findViewById(R.id.imgPhotoList);
-        ImageButton btnEditStudent = convertView.findViewById(R.id.btnEditStudent);
-        ImageButton btnDelStudent = convertView.findViewById(R.id.btnDeleteStudent);
+        TextView txtName = preloadedView.findViewById(R.id.txtNameList);
+        ImageView imgPhoto = preloadedView.findViewById(R.id.imgPhotoList);
+        ImageButton btnEditStudent = preloadedView.findViewById(R.id.btnEditStudent);
+        ImageButton btnDelStudent = preloadedView.findViewById(R.id.btnDeleteStudent);
 
         // Populate the views with student data
         if (student != null) {
@@ -75,7 +75,7 @@ public class StudentAdapter extends ArrayAdapter<Student> {
             });
         }
 
-        return convertView;
+        return preloadedView;
     }
 }
 
