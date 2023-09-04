@@ -1,6 +1,7 @@
 package org.dedira.qrnotas.activities;
 
 import android.content.Intent;
+import android.media.MediaPlayer;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.os.Bundle;
@@ -37,11 +38,17 @@ public class Main extends AppCompatActivity {
     private Integer extraPoints = 1;
     private boolean isExpanded = false;
     private Database database;
+    private MediaPlayer mediaPlayer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        /********************************************/
+        /********** Create media player *************/
+        /********************************************/
+        mediaPlayer = MediaPlayer.create(this, R.raw.qr_scanned);
 
         /********************************************/
         /************** Text objects ****************/
@@ -57,7 +64,6 @@ public class Main extends AppCompatActivity {
         this.database = new Database();
 
         this.notificationSound = RingtoneManager.getRingtone(this, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
-
 
         /******************************************************/
         /**************** Buttons and actions *****************/
@@ -104,14 +110,10 @@ public class Main extends AppCompatActivity {
             this.student.grades += this.extraPoints;
             selection.put("grades", this.student.grades);
 
-            this.database.updateStudentFields(
-                    this.student.id,
-                    selection,
-                    (success, object) -> {
-                        if (success) Main.this.notificationSound.play();
-                        this.loadingDialog.dismiss();
-                    }
-            );
+            this.database.updateStudentFields(this.student.id, selection, (success, object) -> {
+                if (success) Main.this.notificationSound.play();
+                this.loadingDialog.dismiss();
+            });
         });
 
         FloatingActionButton btnOptions = this.findViewById(R.id.btnOptions);
@@ -136,7 +138,7 @@ public class Main extends AppCompatActivity {
         this.mCodeScanner = new CodeScanner(this, scannerView);
         this.mCodeScanner.setDecodeCallback(result -> runOnUiThread(() -> {
 
-            if (notificationSound != null) this.notificationSound.play();
+            mediaPlayer.start();
 
             this.loadingDialog.show();
             this.loadingDialog.setCancelable(false);
@@ -159,11 +161,27 @@ public class Main extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         mCodeScanner.startPreview();
+        mediaPlayer = MediaPlayer.create(this, R.raw.qr_scanned);
     }
 
     @Override
     protected void onPause() {
         mCodeScanner.releaseResources();
         super.onPause();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        try {
+            if (mediaPlayer != null) {
+                mediaPlayer.stop();
+                mediaPlayer.release();
+            }
+        } catch (Exception e) {
+
+        }
+
     }
 }
