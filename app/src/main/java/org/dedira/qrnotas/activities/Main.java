@@ -2,8 +2,6 @@ package org.dedira.qrnotas.activities;
 
 import android.content.Intent;
 import android.media.MediaPlayer;
-import android.media.Ringtone;
-import android.media.RingtoneManager;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -29,7 +27,6 @@ import java.util.Map;
 
 public class Main extends AppCompatActivity {
     private LoadingDialog loadingDialog;
-    private Ringtone notificationSound;
     private CodeScanner mCodeScanner;
     private TextView txtName;
     private TextView txtPoints;
@@ -62,8 +59,6 @@ public class Main extends AppCompatActivity {
         /******* Database ***********/
         /****************************/
         this.database = new Database();
-
-        this.notificationSound = RingtoneManager.getRingtone(this, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
 
         /******************************************************/
         /**************** Buttons and actions *****************/
@@ -111,7 +106,7 @@ public class Main extends AppCompatActivity {
             selection.put("grades", this.student.grades);
 
             this.database.updateStudentFields(this.student.id, selection, (success, object) -> {
-                if (success) Main.this.notificationSound.play();
+                if (success) Main.this.mediaPlayer.start();
                 this.loadingDialog.dismiss();
             });
         });
@@ -179,7 +174,7 @@ public class Main extends AppCompatActivity {
                 mediaPlayer.stop();
                 mediaPlayer.release();
             }
-        } catch (Exception e) {
+        } catch (Exception ignored) {
 
         }
 
