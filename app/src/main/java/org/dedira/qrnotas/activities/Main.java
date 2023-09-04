@@ -51,8 +51,8 @@ public class Main extends AppCompatActivity {
         /************** Text objects ****************/
         /********************************************/
         this.txtName = this.findViewById(R.id.txtName);
-        this.txtPoints = this.findViewById(R.id.txtPoints);
         this.imgPhoto = this.findViewById(R.id.imgPhoto);
+        this.txtPoints = this.findViewById(R.id.txtPoints);
         this.loadingDialog = new LoadingDialog(this);
 
         /****************************/
