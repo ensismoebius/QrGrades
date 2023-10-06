@@ -20,13 +20,9 @@ public class Database {
         db = FirebaseFirestore.getInstance();
 
         FirebaseFirestoreSettings.Builder builder = new FirebaseFirestoreSettings.Builder(db.getFirestoreSettings());
-        builder.setLocalCacheSettings(PersistentCacheSettings.newBuilder().build());// Use persistent disk cache (default)
+        builder.setLocalCacheSettings(PersistentCacheSettings.newBuilder().build()); // Use persistent disk cache (default)
         FirebaseFirestoreSettings settings = builder.build();
 
-        //// Use memory-only cache
-        //.setLocalCacheSettings(
-        //        MemoryCacheSettings.newBuilder().build()
-        //)
         db.setFirestoreSettings(settings);
     }
 
@@ -94,7 +90,7 @@ public class Database {
             fields.put("grades", s.grades);
             fields.put("photo", s.photo);
 
-            updateStudentFields(s.id, fields, (success, object) -> listener.onSaveComplete(success, object));
+            updateStudentFields(s.id, fields, listener::onSaveComplete);
         }
     }
 
