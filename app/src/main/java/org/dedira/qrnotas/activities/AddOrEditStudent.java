@@ -36,8 +36,6 @@ public class AddOrEditStudent extends AppCompatActivity {
     private ImageView imgQrcode;
     private Bitmap btmPhoto;
     private EditText txtName;
-    private ActivityResultLauncher<Intent> cameraLauncher;
-
     private Student loadedStudent;
 
     private Uri getImageUri(Context context, Bitmap bitmap) {
@@ -57,6 +55,20 @@ public class AddOrEditStudent extends AppCompatActivity {
         this.txtName = this.findViewById(R.id.txtName);
         this.loadingDialog = new LoadingDialog(this);
 
+        /*********************************************************/
+        /***** Opens the camera to take a student photo **********/
+        /*********************************************************/
+        ActivityResultLauncher<Intent> cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() == RESULT_OK) {
+                Intent data = result.getData();
+                Bundle extras = data.getExtras();
+                AddOrEditStudent.this.btmPhoto = BitmapConverter.scaleBitmap((Bitmap) extras.get("data"), 150, 150);
+                AddOrEditStudent.this.imgPhoto.setImageBitmap(AddOrEditStudent.this.btmPhoto);
+            }
+        });
+
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+
         /**********************************************************************/
         /********* Get student id (if any) from previous activity *************/
         /**********************************************************************/
@@ -75,9 +87,12 @@ public class AddOrEditStudent extends AppCompatActivity {
         /********* Opens the share activity for generated qrCode **************/
         /**********************************************************************/
         this.imgQrcode = this.findViewById(R.id.imgQrcode);
+
         imgQrcode.setOnClickListener(v -> {
             // Get the QR code image from the ImageView
             Bitmap qrCodeBitmap = ((BitmapDrawable) imgQrcode.getDrawable()).getBitmap();
+
+            if (qrCodeBitmap == null) return;
 
             // Convert the QR code bitmap to a URI
             Uri qrCodeUri = getImageUri(this, qrCodeBitmap);
@@ -119,21 +134,9 @@ public class AddOrEditStudent extends AppCompatActivity {
 
         });
 
-        /*********************************************************/
-        /***** Opens the camera to take a student photo **********/
-        /*********************************************************/
-        cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-            if (result.getResultCode() == RESULT_OK) {
-                Intent data = result.getData();
-                Bundle extras = data.getExtras();
-                AddOrEditStudent.this.btmPhoto = BitmapConverter.scaleBitmap((Bitmap) extras.get("data"), 150, 150);
-                AddOrEditStudent.this.imgPhoto.setImageBitmap(AddOrEditStudent.this.btmPhoto);
-            }
-        });
         this.imgPhoto = this.findViewById(R.id.imgPhoto);
         this.imgPhoto.setOnClickListener(v -> {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
                 cameraLauncher.launch(takePictureIntent);
             } else {
                 Toast.makeText(this, "No permission to access the camera!", Toast.LENGTH_LONG).show();

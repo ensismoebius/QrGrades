@@ -30,6 +30,7 @@
         app:layout_constraintEnd_toStartOf="@+id/txtPoints"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/txtName"
+        tools:ignore="ImageContrastCheck"
         tools:srcCompat="@tools:sample/avatars" />
 
     <TextView
@@ -85,7 +86,8 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/imgPhoto" />
+        app:layout_constraintTop_toBottomOf="@+id/imgPhoto"
+        tools:ignore="VisualLintButtonSize" />
 
     <TextView
         android:id="@+id/txtPoints"

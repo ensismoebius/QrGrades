@@ -161,8 +161,9 @@ public class Main extends AppCompatActivity {
 
     @Override
     protected void onPause() {
-        mCodeScanner.releaseResources();
         super.onPause();
+        mCodeScanner.stopPreview();
+        mCodeScanner.releaseResources();
     }
 
     @Override

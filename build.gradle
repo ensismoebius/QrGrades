@@ -1,10 +1,15 @@
 buildscript {
-    dependencies {
-        classpath 'com.google.gms:google-services:4.4.0'
+    repositories {
+        google() // Add Google's Maven repository
+        // other repositories if needed
     }
-}// Top-level build file where you can add configuration options common to all sub-projects/modules.
+    dependencies {
+        classpath 'com.android.tools.build:gradle:4.2.2'
+        classpath 'com.google.gms:google-services:4.4.1' // Google services plugin
+    }
+}
 plugins {
-    id 'com.android.application' version '8.1.0' apply false
+    id 'com.android.application' version '8.2.2' apply false
     id 'com.android.library' version '8.1.0' apply false
 }
 
