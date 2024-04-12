@@ -3,8 +3,10 @@ package org.dedira.qrnotas.activities;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.Matrix;
 import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Bundle;
@@ -38,6 +40,13 @@ public class AddOrEditStudent extends AppCompatActivity {
     private EditText txtName;
     private Student loadedStudent;
 
+    // Add a new method to rotate the bitmap
+    private Bitmap rotateBitmap(Bitmap source, float angle) {
+        Matrix matrix = new Matrix();
+        matrix.postRotate(angle);
+        return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
+    }
+
     private Uri getImageUri(Context context, Bitmap bitmap) {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, bytes);
@@ -62,12 +71,18 @@ public class AddOrEditStudent extends AppCompatActivity {
             if (result.getResultCode() == RESULT_OK) {
                 Intent data = result.getData();
                 Bundle extras = data.getExtras();
-                AddOrEditStudent.this.btmPhoto = BitmapConverter.scaleBitmap((Bitmap) extras.get("data"), 150, 150);
+                Bitmap capturedImage = (Bitmap) extras.get("data");
+
+                // Rotate the bitmap by 90 degrees
+                Bitmap rotatedImage = rotateBitmap(capturedImage, 90);
+
+                AddOrEditStudent.this.btmPhoto = BitmapConverter.scaleBitmap(rotatedImage, 150, 200);
                 AddOrEditStudent.this.imgPhoto.setImageBitmap(AddOrEditStudent.this.btmPhoto);
             }
         });
 
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        takePictureIntent.putExtra(MediaStore.EXTRA_SCREEN_ORIENTATION, ActivityInfo.SCREEN_ORIENTATION_LOCKED);
 
         /**********************************************************************/
         /********* Get student id (if any) from previous activity *************/
