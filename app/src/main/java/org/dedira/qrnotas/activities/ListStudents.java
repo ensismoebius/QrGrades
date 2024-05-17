@@ -1,11 +1,11 @@
 package org.dedira.qrnotas.activities;
 
 import android.os.Bundle;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.model.Student;
@@ -16,8 +16,8 @@ import java.util.ArrayList;
 
 public class ListStudents extends AppCompatActivity {
     ArrayList<Student> arrStudents;
-    ArrayAdapter<Student> arrStudentsAdapter;
-    ListView lstStudents;
+    StudentAdapter arrStudentsAdapter;
+    RecyclerView lstStudents;
     private Database database;
 
     @Override
@@ -26,12 +26,11 @@ public class ListStudents extends AppCompatActivity {
         setContentView(R.layout.activity_list_students);
 
         this.database = new Database();
-
         this.arrStudents = new ArrayList<>();
-
         this.arrStudentsAdapter = new StudentAdapter(this, arrStudents);
 
         this.lstStudents = this.findViewById(R.id.lstStudents);
+        this.lstStudents.setLayoutManager(new LinearLayoutManager(this));
         this.lstStudents.setAdapter(this.arrStudentsAdapter);
 
         this.database.loadAllStudents((success, students) -> {

@@ -16,7 +16,6 @@ public class Database {
     private final FirebaseFirestore db;
 
     public Database() {
-
         db = FirebaseFirestore.getInstance();
 
         FirebaseFirestoreSettings.Builder builder = new FirebaseFirestoreSettings.Builder(db.getFirestoreSettings());
@@ -26,14 +25,9 @@ public class Database {
         db.setFirestoreSettings(settings);
     }
 
-    public void deleteStudent(String studentId, final IDatabaseOnDelete listener) {
+    public void deleteStudent(String studentId, final IDatabaseOnDelete<Student> listener) {
         DocumentReference studentRef = db.collection("students").document(studentId);
-
-        studentRef.delete().addOnSuccessListener(
-                aVoid -> listener.onLoadComplete(true, null)
-        ).addOnFailureListener(
-                e -> listener.onLoadComplete(false, null)
-        );
+        studentRef.delete().addOnSuccessListener(aVoid -> listener.onLoadComplete(true, null)).addOnFailureListener(e -> listener.onLoadComplete(false, null));
     }
 
     public void updateStudentFields(String id, Map<String, Object> updatedFields, final IDatabaseOnUpdate<Student> listener) {
@@ -48,12 +42,8 @@ public class Database {
                 } else {
                     listener.onUpdateComplete(false, null);
                 }
-            }).addOnFailureListener(
-                    e -> listener.onUpdateComplete(false, null)
-            );
-        }).addOnFailureListener(
-                e -> listener.onUpdateComplete(false, null)
-        );
+            }).addOnFailureListener(e -> listener.onUpdateComplete(false, null));
+        }).addOnFailureListener(e -> listener.onUpdateComplete(false, null));
     }
 
     public void loadAllStudents(final IDatabaseOnLoad<ArrayList<Student>> listener) {
@@ -81,9 +71,7 @@ public class Database {
             db.collection("students").add(s).addOnSuccessListener(docRef -> {
                 s.id = docRef.getId();
                 listener.onSaveComplete(true, s);
-            }).addOnFailureListener(
-                    error -> listener.onSaveComplete(false, s)
-            );
+            }).addOnFailureListener(error -> listener.onSaveComplete(false, s));
         } else {
             Map<String, Object> fields = new HashMap<>();
             fields.put("name", s.name);

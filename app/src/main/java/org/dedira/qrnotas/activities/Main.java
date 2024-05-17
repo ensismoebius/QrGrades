@@ -23,6 +23,7 @@ import org.dedira.qrnotas.util.BitmapConverter;
 import org.dedira.qrnotas.util.Database;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class Main extends AppCompatActivity {
@@ -67,14 +68,24 @@ public class Main extends AppCompatActivity {
         btnPlus.setOnClickListener(v -> {
             if (this.extraPoints > 4) return;
             this.extraPoints++;
-            this.txtPoints.setText(this.extraPoints.toString());
+            this.txtPoints.setText(
+                    String.format(
+                            Locale.getDefault(),
+                            "%s",
+                            this.extraPoints.toString()
+                    ));
         });
 
         Button btnLess = this.findViewById(R.id.btnLess);
         btnLess.setOnClickListener(v -> {
             if (this.extraPoints < 2) return;
             this.extraPoints--;
-            this.txtPoints.setText(this.extraPoints.toString());
+            this.txtPoints.setText(
+                    String.format(
+                            Locale.getDefault(),
+                            "%s",
+                            this.extraPoints.toString()
+                    ));
         });
 
         MaterialButton btnAddStudent = this.findViewById(R.id.btnAddStudent);
