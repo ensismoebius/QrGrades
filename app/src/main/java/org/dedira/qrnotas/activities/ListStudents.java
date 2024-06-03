@@ -6,6 +6,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.model.Student;
@@ -30,7 +31,7 @@ public class ListStudents extends AppCompatActivity {
         this.arrStudentsAdapter = new StudentAdapter(this, arrStudents);
 
         this.lstStudents = this.findViewById(R.id.lstStudents);
-        this.lstStudents.setLayoutManager(new LinearLayoutManager(this));
+        this.lstStudents.setLayoutManager(new StaggeredGridLayoutManager(3,StaggeredGridLayoutManager.VERTICAL));
         this.lstStudents.setAdapter(this.arrStudentsAdapter);
 
         this.database.loadAllStudents((success, students) -> {

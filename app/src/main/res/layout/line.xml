@@ -2,65 +2,60 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="5dp"
+    android:background="#ADA5A5">
 
     <ImageView
         android:id="@+id/imgPhotoList"
-        android:background="#FF5722"
-        android:layout_width="150dp"
-        android:layout_height="200dp"
-        android:layout_marginStart="8dp"
+        android:layout_width="0dp"
+        android:layout_height="180dp"
         android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
+        android:background="@drawable/ic_code_scanner_auto_focus_off"
         android:contentDescription="@string/student_photo"
+        android:scaleType="fitCenter"
         android:tintMode="screen"
-        app:layout_constraintBottom_toTopOf="@+id/btnEditStudent"
-        app:layout_constraintEnd_toStartOf="@+id/txtNameList"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/txtNameList"
         android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
+        android:layout_height="wrap_content"
+        android:alpha=".7"
         android:background="#646464"
         android:maxLines="5"
         android:textAlignment="center"
         android:textColor="@color/design_default_color_on_primary"
         android:textSize="18sp"
         android:textStyle="bold"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toEndOf="@+id/imgPhotoList"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <ImageButton
-        android:id="@+id/btnEditStudent"
-        android:layout_width="wrap_content"
-        android:layout_height="50dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="8dp"
-        android:contentDescription="@string/delete_student"
-        android:src="@android:drawable/ic_menu_edit"
+        app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/imgPhotoList" />
 
     <ImageButton
+        android:id="@+id/btnEditStudent"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:background="#ff0000"
+        android:contentDescription="@string/delete_student"
+        android:src="@android:drawable/ic_menu_edit"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageButton
         android:id="@+id/btnDeleteStudent"
-        android:layout_width="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="16dp"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:background="#ffff00"
         android:contentDescription="@string/edit_student"
         android:src="@android:drawable/ic_input_delete"
-        app:layout_constraintEnd_toStartOf="@+id/txtNameList"
-        app:layout_constraintTop_toBottomOf="@+id/imgPhotoList"
-        android:layout_height="wrap_content"/>
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toEndOf="@+id/btnEditStudent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

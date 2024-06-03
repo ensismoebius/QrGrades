@@ -122,7 +122,7 @@ public class AddOrEditStudent extends AppCompatActivity {
             startActivity(Intent.createChooser(shareIntent, "Share QR Code"));
         });
 
-        /*********************************************************/
+        /*******************************************************/
         /********* Save student and generate qrCode **************/
         /*********************************************************/
         Button btnSave = this.findViewById(R.id.btnSave);
