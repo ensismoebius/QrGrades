@@ -1,6 +1,7 @@
 package org.dedira.qrnotas.activities;
 
 import android.Manifest;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -22,18 +23,20 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import org.dedira.qrnotas.R;
-import org.dedira.qrnotas.dialogs.LoadingDialog;
-import org.dedira.qrnotas.model.Student;
+import org.dedira.qrnotas.dialogs.dialog_loading;
+import org.dedira.qrnotas.model.Database;
+import org.dedira.qrnotas.model.entities.Student;
 import org.dedira.qrnotas.util.BitmapConverter;
-import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.QrCode;
 
-import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.Objects;
 
-public class AddOrEditStudent extends AppCompatActivity {
+public class activity_add_or_edit_student extends AppCompatActivity {
 
     private Database database;
-    private LoadingDialog loadingDialog;
+    private dialog_loading dialogLoading;
     private ImageView imgPhoto;
     private ImageView imgQrcode;
     private Bitmap btmPhoto;
@@ -47,11 +50,16 @@ public class AddOrEditStudent extends AppCompatActivity {
         return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
     }
 
-    private Uri getImageUri(Context context, Bitmap bitmap) {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, bytes);
-        String path = MediaStore.Images.Media.insertImage(context.getContentResolver(), bitmap, "QR_Code", null);
-        return Uri.parse(path);
+    private Uri getImageUri(Context context, Bitmap bitmap) throws IOException {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.TITLE, "QR_Code");
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+
+        Uri uri = context.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+        try (OutputStream outStream = context.getContentResolver().openOutputStream(Objects.requireNonNull(uri))) {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, Objects.requireNonNull(outStream));
+        }
+        return uri;
     }
 
     @Override
@@ -62,31 +70,31 @@ public class AddOrEditStudent extends AppCompatActivity {
         this.database = new Database();
 
         this.txtName = this.findViewById(R.id.txtName);
-        this.loadingDialog = new LoadingDialog(this);
+        this.dialogLoading = new dialog_loading(this);
 
-        /*********************************************************/
-        /***** Opens the camera to take a student photo **********/
-        /*********************************************************/
+        /* Opens the camera to take a student photo */
         ActivityResultLauncher<Intent> cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
             if (result.getResultCode() == RESULT_OK) {
                 Intent data = result.getData();
-                Bundle extras = data.getExtras();
-                Bitmap capturedImage = (Bitmap) extras.get("data");
+                if (data != null && data.getExtras() != null) {
+                    Bundle extras = data.getExtras();
+                    Bitmap capturedImage = extras.getParcelable("data", Bitmap.class);
 
-                // Rotate the bitmap by 90 degrees
-                Bitmap rotatedImage = rotateBitmap(capturedImage, 90);
+                    if (capturedImage != null) {
+                        // Rotate the bitmap by 270 degrees
+                        Bitmap rotatedImage = rotateBitmap(capturedImage, 270);
 
-                AddOrEditStudent.this.btmPhoto = BitmapConverter.scaleBitmap(rotatedImage, 150, 200);
-                AddOrEditStudent.this.imgPhoto.setImageBitmap(AddOrEditStudent.this.btmPhoto);
+                        activity_add_or_edit_student.this.btmPhoto = BitmapConverter.scaleBitmap(rotatedImage, 150, 200);
+                        activity_add_or_edit_student.this.imgPhoto.setImageBitmap(activity_add_or_edit_student.this.btmPhoto);
+                    }
+                }
             }
         });
 
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         takePictureIntent.putExtra(MediaStore.EXTRA_SCREEN_ORIENTATION, ActivityInfo.SCREEN_ORIENTATION_LOCKED);
 
-        /**********************************************************************/
-        /********* Get student id (if any) from previous activity *************/
-        /**********************************************************************/
+        /* Get student id (if any) from previous activity */
         String selectedStudentId = getIntent().getStringExtra("selectedStudentId");
         if (selectedStudentId != null) {
             this.database.loadStudent(selectedStudentId, (success, object) -> {
@@ -98,9 +106,7 @@ public class AddOrEditStudent extends AppCompatActivity {
             });
         }
 
-        /**********************************************************************/
-        /********* Opens the share activity for generated qrCode **************/
-        /**********************************************************************/
+        /* Opens the share activity for generated qrCode */
         this.imgQrcode = this.findViewById(R.id.imgQrcode);
 
         imgQrcode.setOnClickListener(v -> {
@@ -110,27 +116,30 @@ public class AddOrEditStudent extends AppCompatActivity {
             if (qrCodeBitmap == null) return;
 
             // Convert the QR code bitmap to a URI
-            Uri qrCodeUri = getImageUri(this, qrCodeBitmap);
+            Uri qrCodeUri;
+            try {
+                qrCodeUri = getImageUri(this, qrCodeBitmap);
 
-            // Create a sharing intent
-            Intent shareIntent = new Intent(Intent.ACTION_SEND);
-            shareIntent.setType("image/png");
-            shareIntent.putExtra(Intent.EXTRA_STREAM, qrCodeUri);
-            shareIntent.putExtra(Intent.EXTRA_SUBJECT, "QR Code Share");
+                // Create a sharing intent
+                Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                shareIntent.setType("image/png");
+                shareIntent.putExtra(Intent.EXTRA_STREAM, qrCodeUri);
+                shareIntent.putExtra(Intent.EXTRA_SUBJECT, "QR Code Share");
 
-            // Show the sharing chooser
-            startActivity(Intent.createChooser(shareIntent, "Share QR Code"));
+                // Show the sharing chooser
+                startActivity(Intent.createChooser(shareIntent, "Share QR Code"));
+            } catch (IOException e) {
+                Toast.makeText(this, "Failed to share QR code", Toast.LENGTH_LONG).show();
+            }
         });
 
-        /*******************************************************/
-        /********* Save student and generate qrCode **************/
-        /*********************************************************/
+        /* Save student and generate qrCode */
         Button btnSave = this.findViewById(R.id.btnSave);
         btnSave.setOnClickListener(v -> {
 
-            this.loadingDialog.show();
+            this.dialogLoading.show();
 
-            if (AddOrEditStudent.this.loadedStudent == null) {
+            if (activity_add_or_edit_student.this.loadedStudent == null) {
                 this.loadedStudent = new Student();
             }
 
@@ -144,7 +153,7 @@ public class AddOrEditStudent extends AppCompatActivity {
                 } else {
                     Toast.makeText(this, "Student not saved!", Toast.LENGTH_LONG).show();
                 }
-                this.loadingDialog.dismiss();
+                this.dialogLoading.dismiss();
             });
 
         });

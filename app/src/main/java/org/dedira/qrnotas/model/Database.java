@@ -1,4 +1,4 @@
-package org.dedira.qrnotas.util;
+package org.dedira.qrnotas.model;
 
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -6,7 +6,7 @@ import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.google.firebase.firestore.PersistentCacheSettings;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
-import org.dedira.qrnotas.model.Student;
+import org.dedira.qrnotas.model.entities.Student;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,18 +33,29 @@ public class Database {
     public void updateStudentFields(String id, Map<String, Object> updatedFields, final IDatabaseOnUpdate<Student> listener) {
         DocumentReference studentRef = db.collection("students").document(id);
 
-        studentRef.update(updatedFields).addOnSuccessListener(aVoid -> {
-            // Get the updated student document to provide in the callback
-            studentRef.get().addOnSuccessListener(documentSnapshot -> {
-                if (documentSnapshot.exists()) {
-                    Student updatedStudent = documentSnapshot.toObject(Student.class);
-                    listener.onUpdateComplete(true, updatedStudent);
-                } else {
+        studentRef.update(updatedFields)
+                .addOnSuccessListener(aVoid -> {
+                    // Fetch the updated student data after the update succeeds
+                    studentRef.get().addOnSuccessListener(documentSnapshot -> {
+                        if (documentSnapshot.exists()) {
+                            // Convert the updated documentSnapshot to a Student object
+                            Student updatedStudent = documentSnapshot.toObject(Student.class);
+                            listener.onUpdateComplete(true, updatedStudent);
+                        } else {
+                            // Handle the case where the document does not exist after update
+                            listener.onUpdateComplete(false, null);
+                        }
+                    }).addOnFailureListener(e -> {
+                        // Handle any errors that occurred while fetching the updated document
+                        listener.onUpdateComplete(false, null);
+                    });
+                })
+                .addOnFailureListener(e -> {
+                    // Handle any errors that occurred during the update operation
                     listener.onUpdateComplete(false, null);
-                }
-            }).addOnFailureListener(e -> listener.onUpdateComplete(false, null));
-        }).addOnFailureListener(e -> listener.onUpdateComplete(false, null));
+                });
     }
+
 
     public void loadAllStudents(final IDatabaseOnLoad<ArrayList<Student>> listener) {
         db.collection("students").get().addOnCompleteListener(task -> {
@@ -66,7 +77,6 @@ public class Database {
 
         // Is a new student?
         if (s.id == null) {
-
             // Save new student
             db.collection("students").add(s).addOnSuccessListener(docRef -> {
                 s.id = docRef.getId();

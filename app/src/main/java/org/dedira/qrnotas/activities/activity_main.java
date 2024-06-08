@@ -21,17 +21,17 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import org.dedira.qrnotas.R;
-import org.dedira.qrnotas.dialogs.LoadingDialog;
-import org.dedira.qrnotas.model.Student;
+import org.dedira.qrnotas.dialogs.dialog_loading;
+import org.dedira.qrnotas.model.entities.Student;
 import org.dedira.qrnotas.util.BitmapConverter;
-import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.model.Database;
 
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-public class Main extends AppCompatActivity {
-    private LoadingDialog loadingDialog;
+public class activity_main extends AppCompatActivity {
+    private dialog_loading dialogloading;
     private CodeScanner mCodeScanner;
     private TextView txtName;
     private TextView txtPoints;
@@ -53,27 +53,19 @@ public class Main extends AppCompatActivity {
             return insets;
         });
 
-        /********************************************/
-        /********** Create media player *************/
-        /********************************************/
+        /* Create media player */
         mediaPlayer = MediaPlayer.create(this, R.raw.qr_scanned);
 
-        /********************************************/
-        /************** Text objects ****************/
-        /********************************************/
+        /* Text objects */
         this.txtName = this.findViewById(R.id.txtName);
         this.imgPhoto = this.findViewById(R.id.imgPhoto);
         this.txtPoints = this.findViewById(R.id.txtPoints);
-        this.loadingDialog = new LoadingDialog(this);
+        this.dialogloading = new dialog_loading(this);
 
-        /****************************/
-        /******* Database ***********/
-        /****************************/
+        /* Database */
         this.database = new Database();
 
-        /******************************************************/
-        /**************** Buttons and actions *****************/
-        /******************************************************/
+        /* Buttons and actions */
         Button btnPlus = this.findViewById(R.id.btnPlus);
         btnPlus.setOnClickListener(v -> {
             if (this.extraPoints > 4) return;
@@ -102,7 +94,7 @@ public class Main extends AppCompatActivity {
         MaterialButton btnListStudent = this.findViewById(R.id.btnListStudents);
 
         btnAddStudent.setOnClickListener(v -> {
-            Intent intent = new Intent(Main.this, AddOrEditStudent.class);
+            Intent intent = new Intent(activity_main.this, activity_add_or_edit_student.class);
             startActivity(intent);
             btnAddStudent.setVisibility(View.GONE);
             btnListStudent.setVisibility(View.GONE);
@@ -110,7 +102,7 @@ public class Main extends AppCompatActivity {
         });
 
         btnListStudent.setOnClickListener(v -> {
-            Intent intent = new Intent(Main.this, ListStudents.class);
+            Intent intent = new Intent(activity_main.this, activity_list_students.class);
             startActivity(intent);
             btnAddStudent.setVisibility(View.GONE);
             btnListStudent.setVisibility(View.GONE);
@@ -120,15 +112,15 @@ public class Main extends AppCompatActivity {
         Button btnSave = this.findViewById(R.id.btnSave);
         btnSave.setOnClickListener(v -> {
 
-            this.loadingDialog.show();
+            this.dialogloading.show();
 
             Map<String, Object> selection = new HashMap<>();
             this.student.grades += this.extraPoints;
             selection.put("grades", this.student.grades);
 
             this.database.updateStudentFields(this.student.id, selection, (success, object) -> {
-                if (success) Main.this.mediaPlayer.start();
-                this.loadingDialog.dismiss();
+                if (success) activity_main.this.mediaPlayer.start();
+                this.dialogloading.dismiss();
             });
         });
 
@@ -146,9 +138,7 @@ public class Main extends AppCompatActivity {
             isExpanded = !isExpanded;
         });
 
-        /******************************************************/
-        /****************** Code scanner events ***************/
-        /******************************************************/
+        /* Code scanner events */
         CodeScannerView scannerView = findViewById(R.id.scnView);
         scannerView.setOnClickListener(view -> mCodeScanner.startPreview());
         this.mCodeScanner = new CodeScanner(this, scannerView);
@@ -156,9 +146,9 @@ public class Main extends AppCompatActivity {
 
             mediaPlayer.start();
 
-            this.loadingDialog.show();
-            this.loadingDialog.setCancelable(false);
-            this.loadingDialog.setCanceledOnTouchOutside(false);
+            this.dialogloading.show();
+            this.dialogloading.setCancelable(false);
+            this.dialogloading.setCanceledOnTouchOutside(false);
             this.database.loadStudent(result.getText(), (success, object) -> {
 
                 if (!success) {
@@ -168,7 +158,7 @@ public class Main extends AppCompatActivity {
                     this.txtName.setText(object.name);
                     this.imgPhoto.setImageBitmap(BitmapConverter.stringToBitmap(object.photo));
                 }
-                this.loadingDialog.dismiss();
+                this.dialogloading.dismiss();
             });
         }));
     }

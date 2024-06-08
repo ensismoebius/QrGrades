@@ -1,4 +1,4 @@
-package org.dedira.qrnotas.model;
+package org.dedira.qrnotas.model.entities;
 
 import com.google.firebase.database.IgnoreExtraProperties;
 
@@ -6,6 +6,6 @@ import com.google.firebase.database.IgnoreExtraProperties;
 public class Student {
     public String id;
     public String name;
-    public Integer grades = 0;
+    public Integer grades = 0   ;
     public String photo;
 }

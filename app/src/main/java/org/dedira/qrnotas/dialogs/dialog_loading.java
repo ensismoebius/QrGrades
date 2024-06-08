@@ -9,10 +9,10 @@ import android.view.Window;
 
 import org.dedira.qrnotas.R;
 
-public class LoadingDialog extends Dialog {
+public class dialog_loading extends Dialog {
     private final Context mContext;
 
-    public LoadingDialog(Context context) {
+    public dialog_loading(Context context) {
         super(context);
         mContext = context;
     }
@@ -23,7 +23,7 @@ public class LoadingDialog extends Dialog {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
 
         LayoutInflater inflater = (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        View inflateView = inflater.inflate(R.layout.dialog_loading, this.findViewById(R.id.loading_cont));
+        View inflateView = inflater.inflate(R.layout.dialog_loading, this.findViewById(R.id.wait_dialog_conteiner));
         setContentView(inflateView);
     }
 

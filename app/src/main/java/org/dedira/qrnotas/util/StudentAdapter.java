@@ -8,12 +8,12 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.dedira.qrnotas.R;
-import org.dedira.qrnotas.model.Item;
-import org.dedira.qrnotas.model.Student;
+import org.dedira.qrnotas.activities.list_item_student;
+import org.dedira.qrnotas.model.entities.Student;
 
 import java.util.List;
 
-public class StudentAdapter extends RecyclerView.Adapter<Item> {
+public class StudentAdapter extends RecyclerView.Adapter<list_item_student> {
     private final Context context;
     private final List<Student> studentList;
 
@@ -24,12 +24,12 @@ public class StudentAdapter extends RecyclerView.Adapter<Item> {
 
     @NonNull
     @Override
-    public Item onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        return new Item(LayoutInflater.from(context).inflate(R.layout.line, parent, false));
+    public list_item_student onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        return new list_item_student(LayoutInflater.from(context).inflate(R.layout.list_item_student, parent, false));
     }
 
     @Override
-    public void onBindViewHolder(@NonNull Item holder, int position) {
+    public void onBindViewHolder(@NonNull list_item_student holder, int position) {
         Student item = studentList.get(position);
         holder.student = item;
         holder.txtNameList.setText(item.name);
