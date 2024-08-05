@@ -23,12 +23,10 @@
         android:layout_height="0dp"
         android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
         android:layout_marginBottom="8dp"
         android:background="@color/design_default_color_background"
         android:contentDescription="@string/student_photo_text2"
         app:layout_constraintBottom_toTopOf="@+id/btnSave"
-        app:layout_constraintEnd_toStartOf="@+id/txtPoints"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/txtName"
         tools:ignore="ImageContrastCheck"
@@ -49,34 +47,6 @@
         app:layout_constraintTop_toBottomOf="@+id/scnView" />
 
     <Button
-        android:id="@+id/btnPlus"
-        android:layout_width="wrap_content"
-        android:layout_height="0dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="4dp"
-        android:text="@string/add_button"
-        app:layout_constraintBottom_toTopOf="@+id/btnLess"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/txtPoints"
-        app:layout_constraintTop_toBottomOf="@+id/txtName" />
-
-    <Button
-        android:id="@+id/btnLess"
-        android:layout_width="wrap_content"
-        android:layout_height="0dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="4dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
-        android:text="@string/sub_button"
-        app:layout_constraintBottom_toTopOf="@+id/btnSave"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/txtPoints"
-        app:layout_constraintTop_toBottomOf="@+id/btnPlus" />
-
-    <Button
         android:id="@+id/btnSave"
         android:layout_width="0dp"
         android:layout_height="100dp"
@@ -89,22 +59,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/imgPhoto"
         tools:ignore="VisualLintButtonSize" />
-
-    <TextView
-        android:id="@+id/txtPoints"
-        style="@android:style/Widget.DeviceDefault.TextView"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
-        android:text="@string/intial_points"
-        android:textAlignment="center"
-        android:textColor="?android:attr/textColorPrimary"
-        android:textSize="60sp"
-        app:layout_constraintBottom_toTopOf="@+id/btnSave"
-        app:layout_constraintEnd_toStartOf="@+id/btnPlus"
-        app:layout_constraintStart_toEndOf="@+id/imgPhoto"
-        app:layout_constraintTop_toBottomOf="@+id/txtName" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/btnOptions"
@@ -140,5 +94,23 @@
         android:visibility="invisible"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <Spinner
+        android:id="@+id/spnEvaluation"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/imgPhoto"
+        app:layout_constraintTop_toBottomOf="@+id/txtName" />
+
+    <Spinner
+        android:id="@+id/spnGrade"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:spinnerMode="dialog"
+        app:layout_constraintBottom_toTopOf="@+id/btnSave"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/imgPhoto"
+        app:layout_constraintTop_toBottomOf="@+id/spnEvaluation" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
