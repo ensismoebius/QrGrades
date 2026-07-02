@@ -10,7 +10,7 @@
     <string name="sub_button">Remover</string>
     <string name="save_button">Salvar</string>
     <string name="initial_points">1</string>
-    <string name="options_text">Opções</string>
+    <string name="open_menu">Abrir menu</string>
     <string name="add_student">Adicionar aluno</string>
     <string name="show_all_students">Mostrar todos os alunos</string>
     <string name="delete_student">Excluir aluno</string>

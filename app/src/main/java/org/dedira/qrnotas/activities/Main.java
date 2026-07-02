@@ -8,6 +8,7 @@ import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
@@ -22,12 +23,15 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.budiyev.android.codescanner.CodeScanner;
 import com.budiyev.android.codescanner.CodeScannerView;
+import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.snackbar.Snackbar;
 
@@ -64,18 +68,12 @@ public class Main extends AppCompatActivity {
     private MaterialButton btnContinue;
     private AutoCompleteTextView dropdownDiscipline;
     private View txtDisciplineWarning;
-    private FloatingActionButton btnOptions;
-    private ExtendedFloatingActionButton btnAddStudent;
-    private ExtendedFloatingActionButton btnListStudent;
-    private ExtendedFloatingActionButton btnDisciplines;
-    private ExtendedFloatingActionButton btnBackups;
-    private ExtendedFloatingActionButton btnWebServer;
+    private DrawerLayout drawerLayout;
     private Student student;
     private Enrollment currentEnrollment;
     private List<Discipline> disciplines = new ArrayList<>();
     private String currentDisciplineId;
     private Integer extraPoints = 1;
-    private boolean isExpanded = false;
     private boolean scannerStarted = false;
     private Database database;
     private MediaPlayer mediaPlayer;
@@ -106,11 +104,16 @@ public class Main extends AppCompatActivity {
         this.cameraPermissionOverlay = this.findViewById(R.id.cameraPermissionOverlay);
         this.dropdownDiscipline = this.findViewById(R.id.dropdownDiscipline);
         this.txtDisciplineWarning = this.findViewById(R.id.txtDisciplineWarning);
+        this.drawerLayout = this.findViewById(R.id.drawerLayout);
         this.loadingDialog = new LoadingDialog(this);
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
+                if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                    drawerLayout.closeDrawer(GravityCompat.START);
+                    return;
+                }
                 if (addPointsOverlay.getVisibility() == View.VISIBLE) {
                     resetToStart();
                     return;
@@ -147,48 +150,16 @@ public class Main extends AppCompatActivity {
             bounce(this.txtPoints);
         });
 
-        this.btnAddStudent = this.findViewById(R.id.btnAddStudent);
-        this.btnListStudent = this.findViewById(R.id.btnListStudents);
-        this.btnDisciplines = this.findViewById(R.id.btnDisciplines);
-        this.btnBackups = this.findViewById(R.id.btnBackups);
-        this.btnWebServer = this.findViewById(R.id.btnWebServer);
+        MaterialToolbar toolbar = this.findViewById(R.id.toolbar);
+        toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
 
-        btnAddStudent.setOnClickListener(v -> {
-            Intent intent = new Intent(Main.this, AddOrEditStudent.class);
-            startActivity(intent);
-        });
-
-        btnListStudent.setOnClickListener(v -> {
-            Intent intent = new Intent(Main.this, ListStudents.class);
-            startActivity(intent);
-        });
-
-        btnDisciplines.setOnClickListener(v -> {
-            Intent intent = new Intent(Main.this, DisciplineList.class);
-            startActivity(intent);
-        });
-
-        btnBackups.setOnClickListener(v -> {
-            Intent intent = new Intent(Main.this, BackupList.class);
-            startActivity(intent);
-        });
-
-        btnWebServer.setOnClickListener(v -> {
-            Intent intent = new Intent(Main.this, WebServerActivity.class);
-            startActivity(intent);
-        });
+        NavigationView navView = this.findViewById(R.id.navView);
+        navView.setNavigationItemSelectedListener(this::onNavItemSelected);
 
         this.btnContinue = this.findViewById(R.id.btnContinue);
         this.btnContinue.setOnClickListener(v -> onContinueClick());
 
         updateExtraPointsLabel();
-
-        this.btnOptions = this.findViewById(R.id.btnOptions);
-        btnOptions.setOnClickListener(v -> {
-            boolean expanding = !isExpanded;
-            toggleOptionsMenu(expanding, btnOptions, btnAddStudent, btnListStudent, btnDisciplines, btnBackups, btnWebServer);
-            isExpanded = expanding;
-        });
 
         loadDisciplines();
 
@@ -371,49 +342,23 @@ public class Main extends AppCompatActivity {
         scannerStarted = true;
     }
 
-    private void toggleOptionsMenu(boolean expanding, FloatingActionButton btnOptions,
-                                    ExtendedFloatingActionButton btnAddStudent, ExtendedFloatingActionButton btnListStudent,
-                                    ExtendedFloatingActionButton btnDisciplines, ExtendedFloatingActionButton btnBackups,
-                                    ExtendedFloatingActionButton btnWebServer) {
-        btnOptions.animate().rotation(expanding ? 135f : 0f).setDuration(200).start();
+    private boolean onNavItemSelected(MenuItem item) {
+        drawerLayout.closeDrawer(GravityCompat.START);
 
-        if (expanding) {
-            animateFabIn(btnWebServer, 160);
-            animateFabIn(btnBackups, 120);
-            animateFabIn(btnDisciplines, 80);
-            animateFabIn(btnAddStudent, 40);
-            animateFabIn(btnListStudent, 0);
-        } else {
-            animateFabOut(btnWebServer, 0);
-            animateFabOut(btnBackups, 40);
-            animateFabOut(btnDisciplines, 80);
-            animateFabOut(btnAddStudent, 120);
-            animateFabOut(btnListStudent, 160);
-        }
+        int id = item.getItemId();
+        Class<? extends AppCompatActivity> target = null;
+        if (id == R.id.navAddStudent) target = AddOrEditStudent.class;
+        else if (id == R.id.navListStudents) target = ListStudents.class;
+        else if (id == R.id.navDisciplines) target = DisciplineList.class;
+        else if (id == R.id.navBackups) target = BackupList.class;
+        else if (id == R.id.navWebServer) target = WebServerActivity.class;
+
+        if (target != null) startActivity(new Intent(this, target));
+        return true;
     }
 
     private float dp(float value) {
         return value * getResources().getDisplayMetrics().density;
-    }
-
-    private void animateFabIn(View fab, long startDelay) {
-        fab.setVisibility(View.VISIBLE);
-        fab.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setStartDelay(startDelay)
-                .setDuration(200)
-                .start();
-    }
-
-    private void animateFabOut(View fab, long startDelay) {
-        fab.animate()
-                .alpha(0f)
-                .translationY(dp(24))
-                .setStartDelay(startDelay)
-                .setDuration(150)
-                .withEndAction(() -> fab.setVisibility(View.INVISIBLE))
-                .start();
     }
 
     private void loadProgress(Enrollment enrollment) {
@@ -471,9 +416,8 @@ public class Main extends AppCompatActivity {
     private void revealStudentContent() {
         if (addPointsOverlay.getVisibility() == View.VISIBLE) return;
 
-        if (this.isExpanded) {
-            toggleOptionsMenu(false, btnOptions, btnAddStudent, btnListStudent, btnDisciplines, btnBackups, btnWebServer);
-            this.isExpanded = false;
+        if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+            drawerLayout.closeDrawer(GravityCompat.START);
         }
 
         addPointsOverlay.setAlpha(0f);

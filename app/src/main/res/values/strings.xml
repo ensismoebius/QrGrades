@@ -10,7 +10,7 @@
     <string name="sub_button">Sub</string>
     <string name="save_button">Save</string>
     <string name="initial_points">1</string>
-    <string name="options_text">Options</string>
+    <string name="open_menu">Open menu</string>
     <string name="add_student">Add student</string>
     <string name="show_all_students">Show all students</string>
     <string name="delete_student">Delete student</string>

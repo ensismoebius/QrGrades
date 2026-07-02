@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/navAddStudent"
+        android:icon="@drawable/ic_person_add"
+        android:title="@string/add_student" />
+
+    <item
+        android:id="@+id/navListStudents"
+        android:icon="@drawable/ic_list"
+        android:title="@string/show_all_students" />
+
+    <item
+        android:id="@+id/navDisciplines"
+        android:icon="@drawable/ic_school"
+        android:title="@string/disciplines_title" />
+
+    <item
+        android:id="@+id/navBackups"
+        android:icon="@drawable/ic_backup"
+        android:title="@string/backups_title" />
+
+    <item
+        android:id="@+id/navWebServer"
+        android:icon="@drawable/ic_web_server"
+        android:title="@string/web_server_title" />
+
+</menu>
