@@ -9,27 +9,33 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.AutoCompleteTextView;
 import android.widget.TextView;
 
-import com.google.android.material.textfield.TextInputEditText;
-
 import org.dedira.qrnotas.R;
+import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.util.FuzzyNoteAdapter;
 
+import java.util.ArrayList;
 import java.util.Locale;
 
 public class NoteDialog extends Dialog {
+    private static final int NOTE_HISTORY_LIMIT = 200;
+
     public interface OnNoteConfirmedListener {
         void onNoteConfirmed(String note);
     }
 
     private final Context mContext;
+    private final Database database;
     private final int pointsDelta;
     private final String studentName;
     private final OnNoteConfirmedListener listener;
 
-    public NoteDialog(Context context, int pointsDelta, String studentName, OnNoteConfirmedListener listener) {
+    public NoteDialog(Context context, Database database, int pointsDelta, String studentName, OnNoteConfirmedListener listener) {
         super(context);
         mContext = context;
+        this.database = database;
         this.pointsDelta = pointsDelta;
         this.studentName = studentName;
         this.listener = listener;
@@ -54,7 +60,9 @@ public class NoteDialog extends Dialog {
         txtTitle.setText(mContext.getString(R.string.note_dialog_title,
                 String.format(Locale.getDefault(), "%+d", pointsDelta), studentName));
 
-        TextInputEditText txtNote = inflateView.findViewById(R.id.txtNoteDialogNote);
+        AutoCompleteTextView txtNote = inflateView.findViewById(R.id.txtNoteDialogNote);
+        database.loadRecentNotes(NOTE_HISTORY_LIMIT, (success, notes) ->
+                txtNote.setAdapter(new FuzzyNoteAdapter(mContext, notes != null ? notes : new ArrayList<>())));
 
         inflateView.findViewById(R.id.btnNoteDialogCancel).setOnClickListener(v -> dismiss());
         inflateView.findViewById(R.id.btnNoteDialogSave).setOnClickListener(v -> {

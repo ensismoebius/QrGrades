@@ -356,6 +356,25 @@ public class Database {
         });
     }
 
+    /** Distinct note texts across all history, most-recently-used first, for the note dialog's suggestion list. */
+    public void loadRecentNotes(int limit, final IDatabaseOnLoad<ArrayList<String>> listener) {
+        executor.execute(() -> {
+            ArrayList<String> notes = new ArrayList<>();
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            String sql = "SELECT " + StudentDbHelper.COL_HISTORY_NOTE + ", MAX(" + StudentDbHelper.COL_HISTORY_CREATED_AT + ") AS latest "
+                    + "FROM " + StudentDbHelper.TABLE_POINTS_HISTORY + " "
+                    + "WHERE " + StudentDbHelper.COL_HISTORY_NOTE + " IS NOT NULL AND TRIM(" + StudentDbHelper.COL_HISTORY_NOTE + ") != '' "
+                    + "GROUP BY " + StudentDbHelper.COL_HISTORY_NOTE + " "
+                    + "ORDER BY latest DESC LIMIT ?";
+            try (Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(limit)})) {
+                while (cursor.moveToNext()) {
+                    notes.add(cursor.getString(0));
+                }
+            }
+            postResult(() -> listener.onLoadComplete(true, notes));
+        });
+    }
+
     /* ---------------------------- Disciplines ------------------------------ */
 
     public void saveDiscipline(Discipline d, final IDatabaseOnSave<Discipline> listener) {

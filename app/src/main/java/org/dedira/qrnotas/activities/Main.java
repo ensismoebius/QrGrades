@@ -509,7 +509,7 @@ public class Main extends AppCompatActivity {
             return;
         }
 
-        new NoteDialog(this, this.extraPoints, this.student.name, this::onNoteConfirmed).show();
+        new NoteDialog(this, this.database, this.extraPoints, this.student.name, this::onNoteConfirmed).show();
     }
 
     private void onNoteConfirmed(String note) {

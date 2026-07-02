@@ -28,10 +28,12 @@
             android:layout_marginTop="@dimen/spacing_md"
             android:hint="@string/note_hint">
 
-            <com.google.android.material.textfield.TextInputEditText
+            <AutoCompleteTextView
                 android:id="@+id/txtNoteDialogNote"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:completionThreshold="1"
+                android:dropDownHeight="200dp"
                 android:gravity="top|start"
                 android:inputType="textMultiLine|textCapSentences"
                 android:minLines="3"
