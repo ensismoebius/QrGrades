@@ -108,7 +108,7 @@ public class GoalAdapter extends RecyclerView.Adapter<GoalAdapter.ViewHolder> {
                 .setMessage(context.getString(R.string.confirm_delete_message, g.name))
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setOnCancelListener(dialog -> notifyItemChanged(position))
-                .setPositiveButton(android.R.string.yes, (dialog, which) -> database.deleteGoal(g.id, (success, object) -> {
+                .setPositiveButton(R.string.delete_confirm_action, (dialog, which) -> database.deleteGoal(g.id, (success, object) -> {
                     if (success) {
                         List<Goal> updated = new ArrayList<>(goals);
                         updated.remove(g);
@@ -119,7 +119,7 @@ public class GoalAdapter extends RecyclerView.Adapter<GoalAdapter.ViewHolder> {
                         notifyItemChanged(position);
                     }
                 }))
-                .setNegativeButton(android.R.string.no, (dialog, which) -> notifyItemChanged(position))
+                .setNegativeButton(R.string.cancel, (dialog, which) -> notifyItemChanged(position))
                 .show();
     }
 

@@ -91,7 +91,7 @@ public class DisciplineAdapter extends RecyclerView.Adapter<DisciplineAdapter.Vi
                 .setMessage(context.getString(R.string.confirm_delete_message, d.name))
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setOnCancelListener(dialog -> notifyItemChanged(position))
-                .setPositiveButton(android.R.string.yes, (dialog, which) -> database.deleteDiscipline(d.id, (success, reason) -> {
+                .setPositiveButton(R.string.delete_confirm_action, (dialog, which) -> database.deleteDiscipline(d.id, (success, reason) -> {
                     if (success) {
                         List<Discipline> updated = new ArrayList<>(disciplines);
                         updated.remove(d);
@@ -103,7 +103,7 @@ public class DisciplineAdapter extends RecyclerView.Adapter<DisciplineAdapter.Vi
                         notifyItemChanged(position);
                     }
                 }))
-                .setNegativeButton(android.R.string.no, (dialog, which) -> notifyItemChanged(position))
+                .setNegativeButton(R.string.cancel, (dialog, which) -> notifyItemChanged(position))
                 .show();
     }
 

@@ -23,6 +23,7 @@
     <string name="select_points_first">Escolha quantos pontos adicionar ou remover primeiro.</string>
     <string name="continue_button">Continuar</string>
     <string name="cancel">Cancelar</string>
+    <string name="delete_confirm_action">Excluir</string>
     <string name="note_hint">Nota (opcional)</string>
     <string name="note_dialog_title">%1$s pontos para %2$s</string>
     <string name="points_not_saved">Falha ao salvar os pontos.</string>
@@ -125,4 +126,46 @@
     <string name="import_succeeded">Importação concluída.</string>
     <string name="import_failed">Falha ao importar o arquivo.</string>
     <string name="import_empty">O arquivo não tem dados para importar.</string>
+    <string name="json_import_summary">"%1$d aluno(s) novo(s), %2$d aluno(s) existente(s) serão atualizados."</string>
+
+    <!-- Importação de turma via CSV -->
+    <string name="import_csv_action">Importar CSV</string>
+    <string name="csv_import_confirm_title">Importar turma?</string>
+    <string name="csv_import_summary">"%1$d aluno(s) novo(s), %2$d correspondente(s) a alunos existentes, %3$d linha(s) ignorada(s)."</string>
+    <string name="csv_import_error_line">"Linha %1$d: %2$s"</string>
+    <string name="csv_import_no_valid_rows">Nenhuma linha válida para importar.</string>
+    <string name="csv_import_invalid_file">"Arquivo CSV inválido: %1$s"</string>
+    <string name="csv_import_succeeded">Turma importada.</string>
+
+    <!-- Backups -->
+    <string name="backups_title">Backups</string>
+    <string name="backup_now">Fazer backup agora</string>
+    <string name="backup_created">Backup criado.</string>
+    <string name="backup_failed">Falha ao criar backup.</string>
+    <string name="backup_manual_detail">"Manual · %1$s"</string>
+    <string name="backup_auto_detail">"Automático · %1$s"</string>
+    <string name="no_backups_yet">"Nenhum backup ainda. Toque no botão abaixo para criar um."</string>
+    <string name="restore_action">Restaurar</string>
+    <string name="restore_confirm_title">Restaurar este backup?</string>
+    <string name="restore_confirm_message">"Isso vai substituir todos os dados atuais pelos do backup selecionado. O aplicativo será reiniciado. Esta ação não pode ser desfeita."</string>
+    <string name="restore_failed">Falha ao restaurar.</string>
+
+    <!-- Atalho rápido -->
+    <string name="qr_scan_tile_label">Escanear QR</string>
+
+    <!-- Modo servidor web -->
+    <string name="web_server_title">Servidor web</string>
+    <string name="web_server_toggle_label">Ativar servidor web</string>
+    <string name="web_server_description">"Quando ativado, qualquer computador na mesma rede WiFi pode abrir o endereço abaixo em um navegador para visualizar, editar, exportar e importar os dados do diário de notas."</string>
+    <string name="web_server_cleartext_warning">"O tráfego é HTTP simples. Use apenas em uma rede confiável."</string>
+    <string name="web_server_stop">Parar</string>
+    <string name="web_server_no_lan">"Não foi possível encontrar um endereço de rede WiFi. Conecte-se ao WiFi e tente novamente."</string>
+    <string name="web_server_url_copied">Endereço copiado.</string>
+    <string name="web_server_notification_title">Servidor web do QrGrades em execução</string>
+    <string name="web_server_notification_channel">Servidor web</string>
+    <string name="web_server_password_dialog_title">Defina uma senha</string>
+    <string name="web_server_password_dialog_message">"Qualquer pessoa nesta rede WiFi com esta senha poderá visualizar e editar os dados do diário de notas."</string>
+    <string name="web_server_password_hint">Senha</string>
+    <string name="web_server_start">Iniciar</string>
+    <string name="web_server_password_too_short">"A senha deve ter pelo menos 4 caracteres."</string>
 </resources>

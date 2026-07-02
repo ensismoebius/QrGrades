@@ -30,6 +30,7 @@ public class QrScanTileService extends TileService {
     }
 
     @Override
+    @SuppressWarnings("deprecation") // startActivityAndCollapse(Intent): only path below API 34, where the PendingIntent overload doesn't exist yet
     public void onClick() {
         super.onClick();
 
@@ -40,7 +41,6 @@ public class QrScanTileService extends TileService {
             PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
             startActivityAndCollapse(pendingIntent);
         } else {
-            //noinspection deprecation
             startActivityAndCollapse(intent);
         }
     }

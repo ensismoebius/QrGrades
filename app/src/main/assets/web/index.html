@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QrGrades</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<div id="login-screen">
+    <form id="login-card" autocomplete="off">
+        <h1>QrGrades</h1>
+        <input type="password" id="login-password" placeholder="Password" autofocus>
+        <div id="login-error"></div>
+        <button type="submit" class="btn" style="width:100%">Log in</button>
+    </form>
+</div>
+
+<div id="app-shell" class="hidden">
+    <header>
+        <h1>QrGrades</h1>
+        <button class="btn secondary" id="logout-btn">Log out</button>
+    </header>
+    <nav id="tab-nav">
+        <button data-tab="overview" class="active">Overview</button>
+        <button data-tab="students">Students</button>
+        <button data-tab="disciplines">Disciplines</button>
+        <button data-tab="classgroups">Class groups</button>
+        <button data-tab="goals">Goals</button>
+        <button data-tab="data">Import / Export</button>
+    </nav>
+    <main>
+        <section class="tab active" id="tab-overview"></section>
+        <section class="tab" id="tab-students"></section>
+        <section class="tab" id="tab-disciplines"></section>
+        <section class="tab" id="tab-classgroups"></section>
+        <section class="tab" id="tab-goals"></section>
+        <section class="tab" id="tab-data"></section>
+    </main>
+</div>
+
+<div id="modal-root"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

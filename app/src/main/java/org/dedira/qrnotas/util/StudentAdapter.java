@@ -141,7 +141,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
                 .setMessage(context.getString(R.string.confirm_delete_message, student.name))
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setOnCancelListener(dialog -> notifyItemChanged(position))
-                .setPositiveButton(android.R.string.yes, (dialog, which) -> {
+                .setPositiveButton(R.string.delete_confirm_action, (dialog, which) -> {
                     Database db = new Database(context);
                     db.deleteStudent(student.id, (success, object) -> {
                         if (success) {
@@ -154,7 +154,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
                         }
                     });
                 })
-                .setNegativeButton(android.R.string.no, (dialog, which) -> notifyItemChanged(position))
+                .setNegativeButton(R.string.cancel, (dialog, which) -> notifyItemChanged(position))
                 .show();
     }
 

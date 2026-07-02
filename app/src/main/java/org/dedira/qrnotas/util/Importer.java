@@ -25,7 +25,11 @@ public class Importer {
     }
 
     public static List<StudentExportData> importJson(Context context, Uri uri) throws IOException, JSONException {
-        String content = readAll(context, uri);
+        return parseJsonArray(readAll(context, uri));
+    }
+
+    /** Parses the JSON produced by {@link Exporter#exportJson} from an already-read string (e.g. an HTTP upload body, not just a local file). */
+    public static List<StudentExportData> parseJsonArray(String content) throws JSONException {
         JSONArray array = new JSONArray(content);
 
         List<StudentExportData> result = new ArrayList<>();

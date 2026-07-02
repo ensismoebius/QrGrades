@@ -42,5 +42,6 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
     implementation 'com.github.yuriy-budiyev:code-scanner:2.3.2'
     implementation 'com.google.zxing:core:3.5.3'
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
 
 }

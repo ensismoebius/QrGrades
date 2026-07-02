@@ -262,6 +262,14 @@ public class Database {
         });
     }
 
+    public void loadEnrollmentById(String id, final IDatabaseOnLoad<Enrollment> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            Enrollment result = queryEnrollmentById(db, id);
+            postResult(() -> listener.onLoadComplete(result != null, result));
+        });
+    }
+
     public void loadEnrollmentsForStudent(String studentId, final IDatabaseOnLoad<ArrayList<Enrollment>> listener) {
         executor.execute(() -> {
             ArrayList<Enrollment> list = new ArrayList<>();

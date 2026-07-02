@@ -105,7 +105,16 @@ public class Exporter {
 
     public static File exportJson(Context context, List<StudentExportData> data) throws IOException, JSONException {
         File file = new File(exportDir(context), baseFileName(data) + "_" + System.currentTimeMillis() + ".json");
+        JSONArray array = buildJsonArray(data);
 
+        try (Writer writer = new OutputStreamWriter(new FileOutputStream(file))) {
+            writer.write(array.toString(2));
+        }
+        return file;
+    }
+
+    /** Same JSON shape as {@link #exportJson}, without writing it to a file — reused by the web server's live "/api/overview" endpoint. */
+    public static JSONArray buildJsonArray(List<StudentExportData> data) throws JSONException {
         JSONArray array = new JSONArray();
         for (StudentExportData s : data) {
             JSONObject obj = new JSONObject();
@@ -148,11 +157,7 @@ public class Exporter {
 
             array.put(obj);
         }
-
-        try (Writer writer = new OutputStreamWriter(new FileOutputStream(file))) {
-            writer.write(array.toString(2));
-        }
-        return file;
+        return array;
     }
 
     public static File exportPdf(Context context, List<StudentExportData> data) throws IOException {

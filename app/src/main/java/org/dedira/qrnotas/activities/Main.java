@@ -73,6 +73,7 @@ public class Main extends AppCompatActivity {
     private ExtendedFloatingActionButton btnListStudent;
     private ExtendedFloatingActionButton btnDisciplines;
     private ExtendedFloatingActionButton btnBackups;
+    private ExtendedFloatingActionButton btnWebServer;
     private Student student;
     private Enrollment currentEnrollment;
     private List<Discipline> disciplines = new ArrayList<>();
@@ -153,6 +154,7 @@ public class Main extends AppCompatActivity {
         this.btnListStudent = this.findViewById(R.id.btnListStudents);
         this.btnDisciplines = this.findViewById(R.id.btnDisciplines);
         this.btnBackups = this.findViewById(R.id.btnBackups);
+        this.btnWebServer = this.findViewById(R.id.btnWebServer);
 
         btnAddStudent.setOnClickListener(v -> {
             Intent intent = new Intent(Main.this, AddOrEditStudent.class);
@@ -174,6 +176,11 @@ public class Main extends AppCompatActivity {
             startActivity(intent);
         });
 
+        btnWebServer.setOnClickListener(v -> {
+            Intent intent = new Intent(Main.this, WebServerActivity.class);
+            startActivity(intent);
+        });
+
         this.btnContinue = this.findViewById(R.id.btnContinue);
         this.btnContinue.setOnClickListener(v -> onContinueClick());
 
@@ -182,7 +189,7 @@ public class Main extends AppCompatActivity {
         this.btnOptions = this.findViewById(R.id.btnOptions);
         btnOptions.setOnClickListener(v -> {
             boolean expanding = !isExpanded;
-            toggleOptionsMenu(expanding, btnOptions, btnAddStudent, btnListStudent, btnDisciplines, btnBackups);
+            toggleOptionsMenu(expanding, btnOptions, btnAddStudent, btnListStudent, btnDisciplines, btnBackups, btnWebServer);
             isExpanded = expanding;
         });
 
@@ -202,6 +209,7 @@ public class Main extends AppCompatActivity {
      * quick-launch apps use), so a teacher can jump straight to scanning from the Quick Settings
      * tile ({@link org.dedira.qrnotas.services.QrScanTileService}) without entering their PIN.
      */
+    @SuppressWarnings("deprecation") // FLAG_SHOW_WHEN_LOCKED/FLAG_TURN_SCREEN_ON: only path below API 27, where setShowWhenLocked/setTurnScreenOn don't exist yet
     private void applyShowOverLockScreen() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true);
@@ -385,19 +393,22 @@ public class Main extends AppCompatActivity {
 
     private void toggleOptionsMenu(boolean expanding, FloatingActionButton btnOptions,
                                     ExtendedFloatingActionButton btnAddStudent, ExtendedFloatingActionButton btnListStudent,
-                                    ExtendedFloatingActionButton btnDisciplines, ExtendedFloatingActionButton btnBackups) {
+                                    ExtendedFloatingActionButton btnDisciplines, ExtendedFloatingActionButton btnBackups,
+                                    ExtendedFloatingActionButton btnWebServer) {
         btnOptions.animate().rotation(expanding ? 135f : 0f).setDuration(200).start();
 
         if (expanding) {
+            animateFabIn(btnWebServer, 160);
             animateFabIn(btnBackups, 120);
             animateFabIn(btnDisciplines, 80);
             animateFabIn(btnAddStudent, 40);
             animateFabIn(btnListStudent, 0);
         } else {
-            animateFabOut(btnBackups, 0);
-            animateFabOut(btnDisciplines, 40);
-            animateFabOut(btnAddStudent, 80);
-            animateFabOut(btnListStudent, 120);
+            animateFabOut(btnWebServer, 0);
+            animateFabOut(btnBackups, 40);
+            animateFabOut(btnDisciplines, 80);
+            animateFabOut(btnAddStudent, 120);
+            animateFabOut(btnListStudent, 160);
         }
     }
 
@@ -481,7 +492,7 @@ public class Main extends AppCompatActivity {
         if (addPointsOverlay.getVisibility() == View.VISIBLE) return;
 
         if (this.isExpanded) {
-            toggleOptionsMenu(false, btnOptions, btnAddStudent, btnListStudent, btnDisciplines, btnBackups);
+            toggleOptionsMenu(false, btnOptions, btnAddStudent, btnListStudent, btnDisciplines, btnBackups, btnWebServer);
             this.isExpanded = false;
         }
 

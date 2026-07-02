@@ -90,7 +90,7 @@ public class ClassGroupAdapter extends RecyclerView.Adapter<ClassGroupAdapter.Vi
                 .setMessage(context.getString(R.string.confirm_delete_message, g.name))
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setOnCancelListener(dialog -> notifyItemChanged(position))
-                .setPositiveButton(android.R.string.yes, (dialog, which) -> database.deleteClassGroup(g.id, (success, reason) -> {
+                .setPositiveButton(R.string.delete_confirm_action, (dialog, which) -> database.deleteClassGroup(g.id, (success, reason) -> {
                     if (success) {
                         List<ClassGroup> updated = new ArrayList<>(groups);
                         updated.remove(g);
@@ -102,7 +102,7 @@ public class ClassGroupAdapter extends RecyclerView.Adapter<ClassGroupAdapter.Vi
                         notifyItemChanged(position);
                     }
                 }))
-                .setNegativeButton(android.R.string.no, (dialog, which) -> notifyItemChanged(position))
+                .setNegativeButton(R.string.cancel, (dialog, which) -> notifyItemChanged(position))
                 .show();
     }
 

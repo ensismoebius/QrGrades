@@ -23,6 +23,7 @@
     <string name="select_points_first">Choose how many points to add or remove first.</string>
     <string name="continue_button">Continue</string>
     <string name="cancel">Cancel</string>
+    <string name="delete_confirm_action">Delete</string>
     <string name="note_hint">Note (optional)</string>
     <string name="note_dialog_title">%1$s points for %2$s</string>
     <string name="points_not_saved">Failed to save points.</string>
@@ -151,4 +152,20 @@
 
     <!-- Quick Settings tile -->
     <string name="qr_scan_tile_label">Scan QR</string>
+
+    <!-- Web server mode -->
+    <string name="web_server_title">Web server</string>
+    <string name="web_server_toggle_label">Enable web server</string>
+    <string name="web_server_description">"When enabled, any computer on the same WiFi network can open the address below in a browser to view, edit, export, and import gradebook data."</string>
+    <string name="web_server_cleartext_warning">"Traffic is plain HTTP. Only use this on a trusted network."</string>
+    <string name="web_server_stop">Stop</string>
+    <string name="web_server_no_lan">"Couldn\'t find a WiFi network address. Connect to WiFi and try again."</string>
+    <string name="web_server_url_copied">Address copied.</string>
+    <string name="web_server_notification_title">QrGrades web server running</string>
+    <string name="web_server_notification_channel">Web server</string>
+    <string name="web_server_password_dialog_title">Set a password</string>
+    <string name="web_server_password_dialog_message">"Anyone on this WiFi network with this password will be able to view and edit gradebook data."</string>
+    <string name="web_server_password_hint">Password</string>
+    <string name="web_server_start">Start</string>
+    <string name="web_server_password_too_short">"Password must be at least 4 characters."</string>
 </resources>

@@ -99,8 +99,7 @@ public class BackupList extends AppCompatActivity {
 
     private void createManualBackup() {
         loadingDialog.show();
-        File dest = DbBackup.newSnapshotFile(this, true);
-        database.createSnapshot(dest, (success, error) -> {
+        DbBackup.createFullSnapshot(this, database, true, (success, error) -> {
             loadingDialog.dismiss();
             if (success) {
                 DbBackup.pruneOldSnapshots(this, MAX_SNAPSHOTS);

@@ -404,8 +404,7 @@ public class ListStudents extends AppCompatActivity {
     /** Snapshots the DB before a bulk-overwrite import commits, then runs it regardless of the
      *  snapshot's own success (a failed safety backup shouldn't block the import itself). */
     private void snapshotThenRun(Runnable importAction) {
-        File dest = DbBackup.newSnapshotFile(this, false);
-        database.createSnapshot(dest, (success, error) -> {
+        DbBackup.createFullSnapshot(this, database, false, (success, error) -> {
             if (success) DbBackup.pruneOldSnapshots(this, 15);
             importAction.run();
         });
