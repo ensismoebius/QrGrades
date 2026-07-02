@@ -8,6 +8,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 
 /**
  * Draws behind the system status/navigation bars and pads the activity's root content view by
@@ -24,6 +25,13 @@ public class EdgeToEdge {
         ViewGroup content = activity.findViewById(android.R.id.content);
         if (content == null || content.getChildCount() == 0) return;
         View root = content.getChildAt(0);
+
+        // DrawerLayout ignores its own padding when measuring children (it wants the drawer to
+        // draw full-bleed under the status bar), so pad its main content child instead — the
+        // first child by DrawerLayout convention — or the toolbar ends up under the status bar.
+        if (root instanceof DrawerLayout && ((ViewGroup) root).getChildCount() > 0) {
+            root = ((ViewGroup) root).getChildAt(0);
+        }
 
         int initialLeft = root.getPaddingLeft();
         int initialTop = root.getPaddingTop();

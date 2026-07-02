@@ -22,6 +22,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:navigationContentDescription="@string/open_menu"
         app:navigationIcon="@drawable/ic_menu"
+        app:navigationIconTint="?attr/colorOnSurface"
         app:title="@string/app_name"
         app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge" />
 

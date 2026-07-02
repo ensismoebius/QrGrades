@@ -23,7 +23,10 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
 import androidx.core.view.GravityCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.budiyev.android.codescanner.CodeScanner;
@@ -155,12 +158,16 @@ public class Main extends AppCompatActivity {
 
         NavigationView navView = this.findViewById(R.id.navView);
         navView.setNavigationItemSelectedListener(this::onNavItemSelected);
+        ViewCompat.setOnApplyWindowInsetsListener(navView, (v, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(v.getPaddingLeft(), bars.top, v.getPaddingRight(), v.getPaddingBottom());
+            return insets;
+        });
 
         this.btnContinue = this.findViewById(R.id.btnContinue);
         this.btnContinue.setOnClickListener(v -> onContinueClick());
 
         updateExtraPointsLabel();
-
         loadDisciplines();
 
         /******************************************************/
