@@ -2,6 +2,7 @@ package org.dedira.qrnotas.util;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -16,6 +17,7 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.dedira.qrnotas.R;
+import org.dedira.qrnotas.activities.ListStudents;
 import org.dedira.qrnotas.model.ClassGroup;
 
 import java.util.ArrayList;
@@ -116,8 +118,13 @@ public class ClassGroupAdapter extends RecyclerView.Adapter<ClassGroupAdapter.Vi
         ClassGroup g = groups.get(position);
         holder.txtName.setText(g.name);
         holder.subtitle.setVisibility(View.GONE);
-        holder.itemView.setOnClickListener(null);
-        holder.itemView.setClickable(false);
+        holder.itemView.setOnClickListener(v -> {
+            Intent intent = new Intent(context, ListStudents.class);
+            intent.putExtra("classGroupId", g.id);
+            intent.putExtra("groupName", g.name);
+            context.startActivity(intent);
+        });
+        holder.itemView.setClickable(true);
 
         holder.btnEdit.setOnClickListener(v -> showEditDialog(g));
         holder.btnDelete.setOnClickListener(v -> requestDelete(holder.getBindingAdapterPosition()));

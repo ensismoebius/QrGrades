@@ -155,6 +155,22 @@ public class Database {
         });
     }
 
+    public void loadStudentsForClassGroup(String classGroupId, final IDatabaseOnLoad<ArrayList<Student>> listener) {
+        executor.execute(() -> {
+            ArrayList<Student> studentList = new ArrayList<>();
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            String sql = "SELECT s.* FROM " + StudentDbHelper.TABLE_STUDENTS + " s"
+                    + " JOIN " + StudentDbHelper.TABLE_ENROLLMENTS + " e ON e." + StudentDbHelper.COL_ENROLLMENT_STUDENT_ID
+                    + " = s." + StudentDbHelper.COL_ID
+                    + " WHERE e." + StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID + "=?"
+                    + " ORDER BY s." + StudentDbHelper.COL_NAME + " ASC";
+            try (Cursor cursor = db.rawQuery(sql, new String[]{classGroupId})) {
+                while (cursor.moveToNext()) studentList.add(studentFromCursor(cursor));
+            }
+            postResult(() -> listener.onLoadComplete(true, studentList));
+        });
+    }
+
     public void saveStudent(Student s, final IDatabaseOnSave<Student> listener) {
         executor.execute(() -> {
             if (s.id == null) s.id = UUID.randomUUID().toString();

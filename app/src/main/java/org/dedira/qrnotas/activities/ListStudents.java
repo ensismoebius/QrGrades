@@ -28,6 +28,8 @@ import com.google.android.material.textfield.TextInputEditText;
 
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.dialogs.LoadingDialog;
+import org.dedira.qrnotas.model.IDatabaseOnLoad;
+import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.model.StudentExportData;
 import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.Database;
@@ -36,6 +38,7 @@ import org.dedira.qrnotas.util.Importer;
 import org.dedira.qrnotas.util.StudentAdapter;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -49,6 +52,8 @@ public class ListStudents extends AppCompatActivity {
     private LoadingDialog loadingDialog;
     private final ExecutorService exportExecutor = Executors.newSingleThreadExecutor();
     private ActivityResultLauncher<String[]> importFileLauncher;
+    private String classGroupId;
+    private String groupName;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,6 +63,8 @@ public class ListStudents extends AppCompatActivity {
 
         this.database = new Database(this);
         this.loadingDialog = new LoadingDialog(this);
+        this.classGroupId = getIntent().getStringExtra("classGroupId");
+        this.groupName = getIntent().getStringExtra("groupName");
 
         this.importFileLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
             if (uri != null) confirmImport(uri);
@@ -66,6 +73,7 @@ public class ListStudents extends AppCompatActivity {
         this.toolbar = this.findViewById(R.id.toolbar);
         toolbar.inflateMenu(R.menu.menu_student_list);
         toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
+        if (classGroupId != null) toolbar.setTitle(groupName);
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -125,13 +133,19 @@ public class ListStudents extends AppCompatActivity {
     }
 
     private void loadStudents() {
-        this.database.loadAllStudents((success, students) -> {
+        IDatabaseOnLoad<ArrayList<Student>> callback = (success, students) -> {
             if (success) {
                 arrStudentsAdapter.submitFullList(students);
             } else {
                 Toast.makeText(this, R.string.load_students_failed, Toast.LENGTH_SHORT).show();
             }
-        });
+        };
+
+        if (classGroupId != null) {
+            this.database.loadStudentsForClassGroup(classGroupId, callback);
+        } else {
+            this.database.loadAllStudents(callback);
+        }
     }
 
     private boolean onMenuItemClick(MenuItem item) {
@@ -164,7 +178,7 @@ public class ListStudents extends AppCompatActivity {
             toolbar.setNavigationContentDescription(R.string.exiting_selection);
             toolbar.setNavigationOnClickListener(v -> arrStudentsAdapter.setSelectionMode(false));
         } else {
-            toolbar.setTitle(R.string.show_all_students);
+            toolbar.setTitle(classGroupId != null ? groupName : getString(R.string.show_all_students));
             toolbar.setNavigationIcon(R.drawable.ic_arrow_back);
             toolbar.setNavigationContentDescription(null);
             toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
