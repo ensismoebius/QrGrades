@@ -41,6 +41,7 @@ import org.dedira.qrnotas.util.DbBackup;
 import org.dedira.qrnotas.util.EdgeToEdge;
 import org.dedira.qrnotas.util.Exporter;
 import org.dedira.qrnotas.util.Importer;
+import org.dedira.qrnotas.util.KeyboardUtils;
 import org.dedira.qrnotas.util.StudentAdapter;
 
 import java.io.File;
@@ -128,6 +129,7 @@ public class ListStudents extends AppCompatActivity {
         new ItemTouchHelper(new SwipeToDeleteCallback()).attachToRecyclerView(this.lstStudents);
 
         TextInputEditText txtSearch = this.findViewById(R.id.txtSearch);
+        KeyboardUtils.focusAndShowKeyboard(txtSearch);
         txtSearch.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {

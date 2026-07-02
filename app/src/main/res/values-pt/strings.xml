@@ -75,7 +75,10 @@
     <string name="delete_failed">Falha ao excluir o aluno.</string>
     <string name="search_hint">Buscar alunos…</string>
     <string name="no_students">"Nenhum aluno ainda. Toque em \"Adicionar aluno\" para criar um."</string>
+    <string name="no_students_match">Nenhum aluno encontrado.</string>
     <string name="load_students_failed">Falha ao carregar os dados dos alunos.</string>
+    <string name="manual_points_action">Lançar pontos manualmente</string>
+    <string name="manual_points_dialog_title">Selecione um aluno</string>
 
     <!-- Disciplines / class groups / goals -->
     <string name="disciplines_title">Disciplinas</string>

@@ -28,7 +28,6 @@ import org.dedira.qrnotas.model.Student;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
@@ -59,14 +58,14 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
     }
 
     public void filter(String query) {
-        String q = query == null ? "" : query.trim().toLowerCase(Locale.getDefault());
+        String q = TextSearch.normalize(query == null ? "" : query.trim());
         if (q.isEmpty()) {
             applyDiff(new ArrayList<>(studentsFull));
             return;
         }
         List<Student> filtered = new ArrayList<>();
         for (Student s : studentsFull) {
-            if (s.name != null && s.name.toLowerCase(Locale.getDefault()).contains(q)) {
+            if (s.name != null && TextSearch.normalize(s.name).contains(q)) {
                 filtered.add(s);
             }
         }

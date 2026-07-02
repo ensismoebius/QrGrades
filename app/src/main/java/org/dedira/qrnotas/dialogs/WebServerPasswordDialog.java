@@ -14,6 +14,7 @@ import android.widget.Toast;
 import com.google.android.material.textfield.TextInputEditText;
 
 import org.dedira.qrnotas.R;
+import org.dedira.qrnotas.util.KeyboardUtils;
 
 public class WebServerPasswordDialog extends Dialog {
     public interface OnPasswordConfirmedListener {
@@ -47,6 +48,7 @@ public class WebServerPasswordDialog extends Dialog {
         }
 
         TextInputEditText txtPassword = inflateView.findViewById(R.id.txtWebServerPassword);
+        KeyboardUtils.focusAndShowKeyboard(txtPassword);
 
         inflateView.findViewById(R.id.btnWebServerPasswordCancel).setOnClickListener(v -> dismiss());
         inflateView.findViewById(R.id.btnWebServerPasswordStart).setOnClickListener(v -> {

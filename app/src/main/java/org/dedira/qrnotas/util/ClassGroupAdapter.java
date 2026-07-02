@@ -7,6 +7,7 @@ import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -55,10 +56,10 @@ public class ClassGroupAdapter extends RecyclerView.Adapter<ClassGroupAdapter.Vi
         int padding = (int) (16 * context.getResources().getDisplayMetrics().density);
         input.setPadding(padding, padding, padding, padding);
 
-        new AlertDialog.Builder(context)
+        AlertDialog dialog = new AlertDialog.Builder(context)
                 .setTitle(existing == null ? R.string.add_group : R.string.edit_group)
                 .setView(input)
-                .setPositiveButton(R.string.save, (dialog, which) -> {
+                .setPositiveButton(R.string.save, (d, which) -> {
                     String name = input.getText().toString().trim();
                     if (name.isEmpty()) return;
 
@@ -81,6 +82,10 @@ public class ClassGroupAdapter extends RecyclerView.Adapter<ClassGroupAdapter.Vi
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+        input.requestFocus();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+        }
     }
 
     private void requestDelete(int position) {

@@ -7,7 +7,6 @@ import android.widget.Filter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Suggests previously-typed note text as the teacher types, ranked by fuzzy subsequence match
@@ -20,7 +19,8 @@ public class FuzzyNoteAdapter extends ArrayAdapter<String> {
     private final List<String> source;
 
     public FuzzyNoteAdapter(Context context, List<String> source) {
-        super(context, android.R.layout.simple_dropdown_item_1line, new ArrayList<>(source));
+        super(context, android.R.layout.simple_dropdown_item_1line,
+                new ArrayList<>(source.subList(0, Math.min(MAX_SUGGESTIONS, source.size()))));
         this.source = source;
     }
 
@@ -57,10 +57,10 @@ public class FuzzyNoteAdapter extends ArrayAdapter<String> {
     }
 
     private List<String> fuzzyMatch(String query) {
-        String lowerQuery = query.toLowerCase(Locale.getDefault());
+        String lowerQuery = TextSearch.normalize(query);
         List<ScoredNote> scored = new ArrayList<>();
         for (String note : source) {
-            int score = fuzzyScore(lowerQuery, note.toLowerCase(Locale.getDefault()));
+            int score = fuzzyScore(lowerQuery, TextSearch.normalize(note));
             if (score != Integer.MIN_VALUE) scored.add(new ScoredNote(note, score));
         }
         Collections.sort(scored, (a, b) -> Integer.compare(b.score, a.score));

@@ -41,6 +41,7 @@ import com.google.android.material.snackbar.Snackbar;
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.dialogs.LoadingDialog;
 import org.dedira.qrnotas.dialogs.NoteDialog;
+import org.dedira.qrnotas.dialogs.StudentPickerDialog;
 import org.dedira.qrnotas.model.ClassGroup;
 import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.model.Enrollment;
@@ -106,6 +107,7 @@ public class Main extends AppCompatActivity {
         this.addPointsOverlay = this.findViewById(R.id.addPointsOverlay);
         this.cameraPermissionOverlay = this.findViewById(R.id.cameraPermissionOverlay);
         this.dropdownDiscipline = this.findViewById(R.id.dropdownDiscipline);
+        this.dropdownDiscipline.requestFocus();
         this.txtDisciplineWarning = this.findViewById(R.id.txtDisciplineWarning);
         this.drawerLayout = this.findViewById(R.id.drawerLayout);
         this.loadingDialog = new LoadingDialog(this);
@@ -225,15 +227,26 @@ public class Main extends AppCompatActivity {
     /* --------------------------------- QR scanning ------------------------------------ */
 
     private void onQrScanned(String studentId) {
-        if (this.currentDisciplineId == null) {
-            this.txtDisciplineWarning.setVisibility(View.VISIBLE);
-            int message = this.disciplines.isEmpty() ? R.string.no_disciplines_for_scan : R.string.select_discipline_before_scan;
-            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
-            return;
-        }
-
+        if (!requireDisciplineSelected()) return;
         mediaPlayer.start();
+        loadStudentForPoints(studentId);
+    }
 
+    /** Entry point for "Award points manually" — same flow as a QR scan, minus the scan itself. */
+    private void selectStudentManually() {
+        if (!requireDisciplineSelected()) return;
+        new StudentPickerDialog(this, this.database, picked -> loadStudentForPoints(picked.id)).show();
+    }
+
+    private boolean requireDisciplineSelected() {
+        if (this.currentDisciplineId != null) return true;
+        this.txtDisciplineWarning.setVisibility(View.VISIBLE);
+        int message = this.disciplines.isEmpty() ? R.string.no_disciplines_for_scan : R.string.select_discipline_before_scan;
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        return false;
+    }
+
+    private void loadStudentForPoints(String studentId) {
         this.loadingDialog.show();
         this.loadingDialog.setCancelable(false);
         this.loadingDialog.setCanceledOnTouchOutside(false);
@@ -353,6 +366,11 @@ public class Main extends AppCompatActivity {
         drawerLayout.closeDrawer(GravityCompat.START);
 
         int id = item.getItemId();
+        if (id == R.id.navManualPoints) {
+            selectStudentManually();
+            return true;
+        }
+
         Class<? extends AppCompatActivity> target = null;
         if (id == R.id.navAddStudent) target = AddOrEditStudent.class;
         else if (id == R.id.navListStudents) target = ListStudents.class;

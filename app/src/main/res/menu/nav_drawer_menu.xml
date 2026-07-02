@@ -2,6 +2,11 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
+        android:id="@+id/navManualPoints"
+        android:icon="@drawable/ic_plus"
+        android:title="@string/manual_points_action" />
+
+    <item
         android:id="@+id/navAddStudent"
         android:icon="@drawable/ic_person_add"
         android:title="@string/add_student" />

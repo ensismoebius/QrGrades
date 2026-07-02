@@ -15,6 +15,7 @@ import android.widget.TextView;
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.FuzzyNoteAdapter;
+import org.dedira.qrnotas.util.KeyboardUtils;
 
 import java.util.ArrayList;
 import java.util.Locale;
@@ -61,8 +62,16 @@ public class NoteDialog extends Dialog {
                 String.format(Locale.getDefault(), "%+d", pointsDelta), studentName));
 
         AutoCompleteTextView txtNote = inflateView.findViewById(R.id.txtNoteDialogNote);
-        database.loadRecentNotes(NOTE_HISTORY_LIMIT, (success, notes) ->
-                txtNote.setAdapter(new FuzzyNoteAdapter(mContext, notes != null ? notes : new ArrayList<>())));
+        txtNote.setThreshold(0);
+        txtNote.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) txtNote.showDropDown();
+        });
+        txtNote.setOnClickListener(v -> txtNote.showDropDown());
+        KeyboardUtils.focusAndShowKeyboard(txtNote);
+        database.loadRecentNotes(NOTE_HISTORY_LIMIT, (success, notes) -> {
+            txtNote.setAdapter(new FuzzyNoteAdapter(mContext, notes != null ? notes : new ArrayList<>()));
+            if (txtNote.hasFocus()) txtNote.showDropDown();
+        });
 
         inflateView.findViewById(R.id.btnNoteDialogCancel).setOnClickListener(v -> dismiss());
         inflateView.findViewById(R.id.btnNoteDialogSave).setOnClickListener(v -> {

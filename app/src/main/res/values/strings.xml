@@ -75,7 +75,10 @@
     <string name="delete_failed">Failed to delete student.</string>
     <string name="search_hint">Search students…</string>
     <string name="no_students">"No students yet. Tap \"Add student\" to create one."</string>
+    <string name="no_students_match">No matching students.</string>
     <string name="load_students_failed">Failed to load students data.</string>
+    <string name="manual_points_action">Award points manually</string>
+    <string name="manual_points_dialog_title">Select a student</string>
 
     <!-- Disciplines / class groups / goals -->
     <string name="disciplines_title">Disciplines</string>

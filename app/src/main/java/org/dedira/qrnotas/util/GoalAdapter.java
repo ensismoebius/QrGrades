@@ -6,6 +6,7 @@ import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -67,10 +68,10 @@ public class GoalAdapter extends RecyclerView.Adapter<GoalAdapter.ViewHolder> {
         if (existing != null) targetInput.setText(String.valueOf(existing.targetPoints));
         layout.addView(targetInput);
 
-        new AlertDialog.Builder(context)
+        AlertDialog dialog = new AlertDialog.Builder(context)
                 .setTitle(existing == null ? R.string.add_goal : R.string.edit_goal)
                 .setView(layout)
-                .setPositiveButton(R.string.save, (dialog, which) -> {
+                .setPositiveButton(R.string.save, (d, which) -> {
                     String name = nameInput.getText().toString().trim();
                     String targetText = targetInput.getText().toString().trim();
                     if (name.isEmpty() || targetText.isEmpty()) return;
@@ -99,6 +100,10 @@ public class GoalAdapter extends RecyclerView.Adapter<GoalAdapter.ViewHolder> {
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+        nameInput.requestFocus();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+        }
     }
 
     private void requestDelete(int position) {

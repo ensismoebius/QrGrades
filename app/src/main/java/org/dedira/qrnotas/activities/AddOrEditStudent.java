@@ -50,6 +50,7 @@ import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.BitmapConverter;
 import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.EdgeToEdge;
+import org.dedira.qrnotas.util.KeyboardUtils;
 import org.dedira.qrnotas.util.QrCode;
 
 import java.io.File;
@@ -112,6 +113,7 @@ public class AddOrEditStudent extends AppCompatActivity {
         this.disciplinesChecklist = this.findViewById(R.id.disciplinesChecklist);
         this.txtNoDisciplines = this.findViewById(R.id.txtNoDisciplines);
         this.loadingDialog = new LoadingDialog(this);
+        KeyboardUtils.focusAndShowKeyboard(this.txtName);
 
         MaterialToolbar toolbar = this.findViewById(R.id.toolbar);
         toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());

@@ -7,6 +7,7 @@ import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -51,23 +52,23 @@ public class DisciplineAdapter extends RecyclerView.Adapter<DisciplineAdapter.Vi
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         if (existing != null) input.setText(existing.name);
 
-        new AlertDialog.Builder(context)
+        AlertDialog dialog = new AlertDialog.Builder(context)
                 .setTitle(existing == null ? R.string.add_discipline : R.string.edit_discipline)
                 .setView(wrapInputPadding(input))
-                .setPositiveButton(R.string.save, (dialog, which) -> {
+                .setPositiveButton(R.string.save, (d, which) -> {
                     String name = input.getText().toString().trim();
                     if (name.isEmpty()) return;
 
-                    Discipline d = existing != null ? existing : new Discipline();
-                    d.name = name;
-                    database.saveDiscipline(d, (success, saved) -> {
+                    Discipline saved = existing != null ? existing : new Discipline();
+                    saved.name = name;
+                    database.saveDiscipline(saved, (success, savedResult) -> {
                         if (!success) {
                             Toast.makeText(context, R.string.save_failed, Toast.LENGTH_SHORT).show();
                             return;
                         }
                         if (existing == null) {
                             List<Discipline> updated = new ArrayList<>(disciplines);
-                            updated.add(saved);
+                            updated.add(savedResult);
                             submitList(updated);
                         } else {
                             notifyDataSetChanged();
@@ -76,6 +77,10 @@ public class DisciplineAdapter extends RecyclerView.Adapter<DisciplineAdapter.Vi
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+        input.requestFocus();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+        }
     }
 
     private View wrapInputPadding(EditText input) {
