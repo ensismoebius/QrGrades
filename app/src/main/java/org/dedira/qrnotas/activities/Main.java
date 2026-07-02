@@ -7,9 +7,11 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.media.MediaPlayer;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.ImageView;
@@ -44,6 +46,7 @@ import org.dedira.qrnotas.model.StudentExportData;
 import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.BitmapConverter;
 import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.util.EdgeToEdge;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -69,6 +72,7 @@ public class Main extends AppCompatActivity {
     private ExtendedFloatingActionButton btnAddStudent;
     private ExtendedFloatingActionButton btnListStudent;
     private ExtendedFloatingActionButton btnDisciplines;
+    private ExtendedFloatingActionButton btnBackups;
     private Student student;
     private Enrollment currentEnrollment;
     private List<Discipline> disciplines = new ArrayList<>();
@@ -83,8 +87,10 @@ public class Main extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        applyShowOverLockScreen();
         ActivityTransitions.forward(this);
         setContentView(R.layout.activity_main);
+        EdgeToEdge.apply(this);
 
         /********************************************/
         /********** Create media player *************/
@@ -146,6 +152,7 @@ public class Main extends AppCompatActivity {
         this.btnAddStudent = this.findViewById(R.id.btnAddStudent);
         this.btnListStudent = this.findViewById(R.id.btnListStudents);
         this.btnDisciplines = this.findViewById(R.id.btnDisciplines);
+        this.btnBackups = this.findViewById(R.id.btnBackups);
 
         btnAddStudent.setOnClickListener(v -> {
             Intent intent = new Intent(Main.this, AddOrEditStudent.class);
@@ -162,6 +169,11 @@ public class Main extends AppCompatActivity {
             startActivity(intent);
         });
 
+        btnBackups.setOnClickListener(v -> {
+            Intent intent = new Intent(Main.this, BackupList.class);
+            startActivity(intent);
+        });
+
         this.btnContinue = this.findViewById(R.id.btnContinue);
         this.btnContinue.setOnClickListener(v -> onContinueClick());
 
@@ -170,7 +182,7 @@ public class Main extends AppCompatActivity {
         this.btnOptions = this.findViewById(R.id.btnOptions);
         btnOptions.setOnClickListener(v -> {
             boolean expanding = !isExpanded;
-            toggleOptionsMenu(expanding, btnOptions, btnAddStudent, btnListStudent, btnDisciplines);
+            toggleOptionsMenu(expanding, btnOptions, btnAddStudent, btnListStudent, btnDisciplines, btnBackups);
             isExpanded = expanding;
         });
 
@@ -183,6 +195,22 @@ public class Main extends AppCompatActivity {
         scannerView.setOnClickListener(view -> requestCameraAndStartScanning());
         this.mCodeScanner = new CodeScanner(this, scannerView);
         this.mCodeScanner.setDecodeCallback(result -> runOnUiThread(() -> onQrScanned(result.getText())));
+    }
+
+    /**
+     * Lets the scanner render above the lock screen without dismissing it (same trick camera
+     * quick-launch apps use), so a teacher can jump straight to scanning from the Quick Settings
+     * tile ({@link org.dedira.qrnotas.services.QrScanTileService}) without entering their PIN.
+     */
+    private void applyShowOverLockScreen() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        } else {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                    | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                    | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
     }
 
     /* ------------------------------ Discipline selector ------------------------------ */
@@ -357,17 +385,19 @@ public class Main extends AppCompatActivity {
 
     private void toggleOptionsMenu(boolean expanding, FloatingActionButton btnOptions,
                                     ExtendedFloatingActionButton btnAddStudent, ExtendedFloatingActionButton btnListStudent,
-                                    ExtendedFloatingActionButton btnDisciplines) {
+                                    ExtendedFloatingActionButton btnDisciplines, ExtendedFloatingActionButton btnBackups) {
         btnOptions.animate().rotation(expanding ? 135f : 0f).setDuration(200).start();
 
         if (expanding) {
+            animateFabIn(btnBackups, 120);
             animateFabIn(btnDisciplines, 80);
             animateFabIn(btnAddStudent, 40);
             animateFabIn(btnListStudent, 0);
         } else {
-            animateFabOut(btnDisciplines, 0);
-            animateFabOut(btnAddStudent, 40);
-            animateFabOut(btnListStudent, 80);
+            animateFabOut(btnBackups, 0);
+            animateFabOut(btnDisciplines, 40);
+            animateFabOut(btnAddStudent, 80);
+            animateFabOut(btnListStudent, 120);
         }
     }
 
@@ -451,7 +481,7 @@ public class Main extends AppCompatActivity {
         if (addPointsOverlay.getVisibility() == View.VISIBLE) return;
 
         if (this.isExpanded) {
-            toggleOptionsMenu(false, btnOptions, btnAddStudent, btnListStudent, btnDisciplines);
+            toggleOptionsMenu(false, btnOptions, btnAddStudent, btnListStudent, btnDisciplines, btnBackups);
             this.isExpanded = false;
         }
 

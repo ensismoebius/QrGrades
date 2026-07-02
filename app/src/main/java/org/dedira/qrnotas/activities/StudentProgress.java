@@ -22,6 +22,7 @@ import org.dedira.qrnotas.model.StudentExportData;
 import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.BitmapConverter;
 import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.util.EdgeToEdge;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -37,6 +38,7 @@ public class StudentProgress extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         ActivityTransitions.enter(this);
         setContentView(R.layout.activity_student_progress);
+        EdgeToEdge.apply(this);
 
         String studentId = getIntent().getStringExtra("studentId");
 

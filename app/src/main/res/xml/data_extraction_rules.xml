@@ -5,10 +5,9 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!-- Local safety snapshots (see util/DbBackup.java) shouldn't be duplicated into the OS
+             backup alongside the live database they're a fallback for. -->
+        <exclude domain="file" path="backups/" />
     </cloud-backup>
     <!--
     <device-transfer>

@@ -15,6 +15,7 @@ import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.ClassGroupAdapter;
 import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.util.EdgeToEdge;
 
 public class ClassGroupList extends AppCompatActivity {
     private ClassGroupAdapter adapter;
@@ -28,6 +29,7 @@ public class ClassGroupList extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         ActivityTransitions.enter(this);
         setContentView(R.layout.activity_entity_list);
+        EdgeToEdge.apply(this);
 
         this.disciplineId = getIntent().getStringExtra("disciplineId");
         String disciplineName = getIntent().getStringExtra("disciplineName");

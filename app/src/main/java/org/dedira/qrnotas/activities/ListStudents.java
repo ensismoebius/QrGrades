@@ -28,18 +28,27 @@ import com.google.android.material.textfield.TextInputEditText;
 
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.dialogs.LoadingDialog;
+import org.dedira.qrnotas.model.CsvImportPlan;
+import org.dedira.qrnotas.model.CsvRowError;
+import org.dedira.qrnotas.model.CsvStudentRow;
 import org.dedira.qrnotas.model.IDatabaseOnLoad;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.model.StudentExportData;
 import org.dedira.qrnotas.util.ActivityTransitions;
+import org.dedira.qrnotas.util.CsvImporter;
 import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.util.DbBackup;
+import org.dedira.qrnotas.util.EdgeToEdge;
 import org.dedira.qrnotas.util.Exporter;
 import org.dedira.qrnotas.util.Importer;
 import org.dedira.qrnotas.util.StudentAdapter;
 
 import java.io.File;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -52,6 +61,7 @@ public class ListStudents extends AppCompatActivity {
     private LoadingDialog loadingDialog;
     private final ExecutorService exportExecutor = Executors.newSingleThreadExecutor();
     private ActivityResultLauncher<String[]> importFileLauncher;
+    private ActivityResultLauncher<String[]> importCsvFileLauncher;
     private String classGroupId;
     private String groupName;
 
@@ -60,6 +70,7 @@ public class ListStudents extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         ActivityTransitions.enter(this);
         setContentView(R.layout.activity_list_student);
+        EdgeToEdge.apply(this);
 
         this.database = new Database(this);
         this.loadingDialog = new LoadingDialog(this);
@@ -67,7 +78,11 @@ public class ListStudents extends AppCompatActivity {
         this.groupName = getIntent().getStringExtra("groupName");
 
         this.importFileLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
-            if (uri != null) confirmImport(uri);
+            if (uri != null) prepareJsonImport(uri);
+        });
+
+        this.importCsvFileLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+            if (uri != null) prepareCsvImport(uri);
         });
 
         this.toolbar = this.findViewById(R.id.toolbar);
@@ -162,6 +177,10 @@ public class ListStudents extends AppCompatActivity {
         } else if (id == R.id.action_import) {
             importFileLauncher.launch(new String[]{"application/json"});
             return true;
+        } else if (id == R.id.action_import_csv) {
+            importCsvFileLauncher.launch(new String[]{"text/csv", "text/comma-separated-values",
+                    "text/plain", "application/vnd.ms-excel"});
+            return true;
         }
         return false;
     }
@@ -171,6 +190,7 @@ public class ListStudents extends AppCompatActivity {
         toolbar.getMenu().findItem(R.id.action_select_all).setVisible(selectionMode);
         toolbar.getMenu().findItem(R.id.action_export).setVisible(selectionMode);
         toolbar.getMenu().findItem(R.id.action_import).setVisible(!selectionMode);
+        toolbar.getMenu().findItem(R.id.action_import_csv).setVisible(!selectionMode);
 
         if (selectionMode) {
             toolbar.setTitle(getString(R.string.selected_count_title, count));
@@ -249,16 +269,9 @@ public class ListStudents extends AppCompatActivity {
         });
     }
 
-    private void confirmImport(Uri uri) {
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.import_confirm_title)
-                .setMessage(R.string.import_confirm_message)
-                .setPositiveButton(R.string.import_action, (dialog, which) -> runImport(uri))
-                .setNegativeButton(R.string.cancel, null)
-                .show();
-    }
+    /* ------------------------------ JSON import ------------------------------ */
 
-    private void runImport(Uri uri) {
+    private void prepareJsonImport(Uri uri) {
         loadingDialog.show();
         exportExecutor.execute(() -> {
             List<StudentExportData> data;
@@ -280,15 +293,121 @@ public class ListStudents extends AppCompatActivity {
                 return;
             }
 
-            database.importExportData(data, (success, errorMessage) -> {
+            runOnUiThread(() -> {
                 loadingDialog.dismiss();
-                if (success) {
-                    Toast.makeText(this, R.string.import_succeeded, Toast.LENGTH_SHORT).show();
-                    loadStudents();
-                } else {
-                    Toast.makeText(this, R.string.import_failed, Toast.LENGTH_SHORT).show();
-                }
+                confirmJsonImport(data);
             });
+        });
+    }
+
+    private void confirmJsonImport(List<StudentExportData> data) {
+        database.loadAllStudents((success, existingStudents) -> {
+            Set<String> existingIds = new HashSet<>();
+            if (success && existingStudents != null) {
+                for (Student s : existingStudents) existingIds.add(s.id);
+            }
+
+            Set<String> incomingIds = new HashSet<>();
+            for (StudentExportData s : data) if (s.studentId != null) incomingIds.add(s.studentId);
+
+            int existingCount = 0;
+            for (String id : incomingIds) if (existingIds.contains(id)) existingCount++;
+            int newCount = incomingIds.size() - existingCount;
+
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.import_confirm_title)
+                    .setMessage(getString(R.string.json_import_summary, newCount, existingCount))
+                    .setPositiveButton(R.string.import_action, (dialog, which) -> runJsonImport(data))
+                    .setNegativeButton(R.string.cancel, null)
+                    .show();
+        });
+    }
+
+    private void runJsonImport(List<StudentExportData> data) {
+        loadingDialog.show();
+        snapshotThenRun(() -> database.importExportData(data, (success, errorMessage) -> {
+            loadingDialog.dismiss();
+            if (success) {
+                Toast.makeText(this, R.string.import_succeeded, Toast.LENGTH_SHORT).show();
+                loadStudents();
+            } else {
+                Toast.makeText(this, R.string.import_failed, Toast.LENGTH_SHORT).show();
+            }
+        }));
+    }
+
+    /* ------------------------------- CSV import -------------------------------- */
+
+    private void prepareCsvImport(Uri uri) {
+        loadingDialog.show();
+        exportExecutor.execute(() -> {
+            List<CsvStudentRow> rows;
+            try (InputStream in = getContentResolver().openInputStream(uri)) {
+                if (in == null) throw new java.io.IOException("Unable to open file");
+                rows = CsvImporter.parse(in);
+            } catch (Exception e) {
+                String message = e.getMessage();
+                runOnUiThread(() -> {
+                    loadingDialog.dismiss();
+                    Toast.makeText(this, getString(R.string.csv_import_invalid_file, message), Toast.LENGTH_LONG).show();
+                });
+                return;
+            }
+
+            runOnUiThread(() -> {
+                loadingDialog.dismiss();
+                if (rows.isEmpty()) {
+                    Toast.makeText(this, R.string.csv_import_no_valid_rows, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                database.resolveCsvRows(rows, (success, plan) -> confirmCsvImport(plan));
+            });
+        });
+    }
+
+    private void confirmCsvImport(CsvImportPlan plan) {
+        if (plan.resolved.isEmpty()) {
+            Toast.makeText(this, R.string.csv_import_no_valid_rows, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        StringBuilder message = new StringBuilder(getString(R.string.csv_import_summary,
+                plan.newStudentCount(), plan.matchedStudentCount(), plan.errors.size()));
+        int shown = 0;
+        for (CsvRowError error : plan.errors) {
+            if (shown >= 5) break;
+            message.append("\n").append(getString(R.string.csv_import_error_line, error.lineNumber, error.reason));
+            shown++;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.csv_import_confirm_title)
+                .setMessage(message.toString())
+                .setPositiveButton(R.string.import_action, (dialog, which) -> runCsvImport(plan))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void runCsvImport(CsvImportPlan plan) {
+        loadingDialog.show();
+        snapshotThenRun(() -> database.importCsvRows(plan.resolved, (success, errorMessage) -> {
+            loadingDialog.dismiss();
+            if (success) {
+                Toast.makeText(this, R.string.csv_import_succeeded, Toast.LENGTH_SHORT).show();
+                loadStudents();
+            } else {
+                Toast.makeText(this, R.string.import_failed, Toast.LENGTH_SHORT).show();
+            }
+        }));
+    }
+
+    /** Snapshots the DB before a bulk-overwrite import commits, then runs it regardless of the
+     *  snapshot's own success (a failed safety backup shouldn't block the import itself). */
+    private void snapshotThenRun(Runnable importAction) {
+        File dest = DbBackup.newSnapshotFile(this, false);
+        database.createSnapshot(dest, (success, error) -> {
+            if (success) DbBackup.pruneOldSnapshots(this, 15);
+            importAction.run();
         });
     }
 

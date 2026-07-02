@@ -164,6 +164,18 @@
         app:layout_constraintEnd_toEndOf="@id/btnOptions" />
 
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/btnBackups"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/spacing_md"
+        android:text="@string/backups_title"
+        android:translationY="24dp"
+        android:visibility="invisible"
+        app:icon="@drawable/ic_backup"
+        app:layout_constraintBottom_toTopOf="@id/btnDisciplines"
+        app:layout_constraintEnd_toEndOf="@id/btnOptions" />
+
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/btnListStudents"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

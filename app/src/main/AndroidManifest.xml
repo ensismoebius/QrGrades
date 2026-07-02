@@ -43,6 +43,9 @@
         <activity
             android:name=".activities.StudentProgress"
             android:exported="false" />
+        <activity
+            android:name=".activities.BackupList"
+            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -55,13 +58,28 @@
         </provider>
         <activity
             android:name=".activities.Main"
-            android:exported="true">
+            android:exported="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            tools:targetApi="27">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".services.QrScanTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_qr_scan_tile"
+            android:label="@string/qr_scan_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            tools:targetApi="24">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

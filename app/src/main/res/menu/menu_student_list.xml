@@ -30,4 +30,11 @@
         android:visible="true"
         app:showAsAction="always" />
 
+    <item
+        android:id="@+id/action_import_csv"
+        android:icon="@drawable/ic_upload_file"
+        android:title="@string/import_csv_action"
+        android:visible="true"
+        app:showAsAction="never" />
+
 </menu>

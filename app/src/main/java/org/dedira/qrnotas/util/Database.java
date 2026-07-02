@@ -8,11 +8,15 @@ import android.os.Handler;
 import android.os.Looper;
 
 import org.dedira.qrnotas.model.ClassGroup;
+import org.dedira.qrnotas.model.CsvImportPlan;
+import org.dedira.qrnotas.model.CsvRowError;
+import org.dedira.qrnotas.model.CsvStudentRow;
 import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.Goal;
 import org.dedira.qrnotas.model.GoalProgress;
 import org.dedira.qrnotas.model.PointsHistory;
+import org.dedira.qrnotas.model.ResolvedCsvRow;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.model.StudentExportData;
 import org.dedira.qrnotas.model.IDatabaseOnDelete;
@@ -20,21 +24,30 @@ import org.dedira.qrnotas.model.IDatabaseOnLoad;
 import org.dedira.qrnotas.model.IDatabaseOnSave;
 import org.dedira.qrnotas.model.IDatabaseOnUpdate;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Database {
+    private final Context appContext;
     private final StudentDbHelper dbHelper;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public Database(Context context) {
+        this.appContext = context.getApplicationContext();
         dbHelper = new StudentDbHelper(context);
     }
 
@@ -719,5 +732,165 @@ public class Database {
         goalValues.put(StudentDbHelper.COL_GOAL_NAME, name);
         goalValues.put(StudentDbHelper.COL_GOAL_TARGET_POINTS, targetPoints);
         db.insertWithOnConflict(StudentDbHelper.TABLE_GOALS, null, goalValues, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    /* ------------------------------ CSV import ------------------------------- */
+
+    private static String normalize(String s) {
+        return s == null ? "" : s.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Matches parsed CSV rows against existing disciplines/class-groups/students by
+     * case-insensitive name. Class groups are matched within their resolved discipline only
+     * (names may repeat across disciplines). Rows with no matching discipline/class-group become
+     * a {@link CsvRowError} instead of being auto-created or silently dropped.
+     */
+    public void resolveCsvRows(List<CsvStudentRow> rows, final IDatabaseOnLoad<CsvImportPlan> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+
+            Map<String, Discipline> disciplineByName = new HashMap<>();
+            try (Cursor cursor = db.query(StudentDbHelper.TABLE_DISCIPLINES, null, null, null, null, null, null)) {
+                while (cursor.moveToNext()) {
+                    Discipline d = disciplineFromCursor(cursor);
+                    disciplineByName.put(normalize(d.name), d);
+                }
+            }
+
+            Map<String, ClassGroup> classGroupByKey = new HashMap<>();
+            try (Cursor cursor = db.query(StudentDbHelper.TABLE_CLASS_GROUPS, null, null, null, null, null, null)) {
+                while (cursor.moveToNext()) {
+                    ClassGroup g = classGroupFromCursor(cursor);
+                    classGroupByKey.put(g.disciplineId + "|" + normalize(g.name), g);
+                }
+            }
+
+            Map<String, Student> studentByName = new HashMap<>();
+            try (Cursor cursor = db.query(StudentDbHelper.TABLE_STUDENTS, null, null, null, null, null, null)) {
+                while (cursor.moveToNext()) {
+                    Student s = studentFromCursor(cursor);
+                    studentByName.put(normalize(s.name), s);
+                }
+            }
+
+            CsvImportPlan plan = new CsvImportPlan();
+            for (CsvStudentRow row : rows) {
+                Discipline discipline = disciplineByName.get(normalize(row.disciplineName));
+                if (discipline == null) {
+                    plan.errors.add(new CsvRowError(row.lineNumber, "Unknown discipline \"" + row.disciplineName + "\""));
+                    continue;
+                }
+
+                ClassGroup classGroup = classGroupByKey.get(discipline.id + "|" + normalize(row.classGroupName));
+                if (classGroup == null) {
+                    plan.errors.add(new CsvRowError(row.lineNumber,
+                            "Unknown class group \"" + row.classGroupName + "\" in " + discipline.name));
+                    continue;
+                }
+
+                Student existing = studentByName.get(normalize(row.name));
+                boolean isNew = existing == null;
+                String studentId = isNew ? UUID.randomUUID().toString() : existing.id;
+
+                if (isNew) {
+                    // Remember this newly-seen name so later rows for the same student in this
+                    // file reuse the same id instead of creating a duplicate.
+                    Student placeholder = new Student();
+                    placeholder.id = studentId;
+                    placeholder.name = row.name;
+                    studentByName.put(normalize(row.name), placeholder);
+                }
+
+                plan.resolved.add(new ResolvedCsvRow(studentId, row.name, isNew, discipline.id, classGroup.id));
+            }
+
+            postResult(() -> listener.onLoadComplete(true, plan));
+        });
+    }
+
+    /**
+     * Creates new students and enrollments from a resolved CSV plan. Never resets an existing
+     * enrollment's grades: an enrollment is only inserted if the student wasn't already enrolled
+     * in that class group.
+     */
+    public void importCsvRows(List<ResolvedCsvRow> rows, final IDatabaseOnResult listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            db.beginTransaction();
+            try {
+                Set<String> insertedStudentIds = new HashSet<>();
+                for (ResolvedCsvRow row : rows) {
+                    if (row.isNewStudent && insertedStudentIds.add(row.studentId)) {
+                        ContentValues studentValues = new ContentValues();
+                        studentValues.put(StudentDbHelper.COL_ID, row.studentId);
+                        studentValues.put(StudentDbHelper.COL_NAME, row.name);
+                        db.insertWithOnConflict(StudentDbHelper.TABLE_STUDENTS, null, studentValues,
+                                SQLiteDatabase.CONFLICT_IGNORE);
+                    }
+
+                    boolean enrollmentExists;
+                    try (Cursor cursor = db.query(StudentDbHelper.TABLE_ENROLLMENTS,
+                            new String[]{StudentDbHelper.COL_ENROLLMENT_ID},
+                            StudentDbHelper.COL_ENROLLMENT_STUDENT_ID + "=? AND " + StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID + "=?",
+                            new String[]{row.studentId, row.classGroupId}, null, null, null)) {
+                        enrollmentExists = cursor.moveToFirst();
+                    }
+
+                    if (!enrollmentExists) {
+                        ContentValues enrollmentValues = new ContentValues();
+                        enrollmentValues.put(StudentDbHelper.COL_ENROLLMENT_ID, UUID.randomUUID().toString());
+                        enrollmentValues.put(StudentDbHelper.COL_ENROLLMENT_STUDENT_ID, row.studentId);
+                        enrollmentValues.put(StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID, row.classGroupId);
+                        enrollmentValues.put(StudentDbHelper.COL_ENROLLMENT_GRADES, 0);
+                        db.insertWithOnConflict(StudentDbHelper.TABLE_ENROLLMENTS, null, enrollmentValues,
+                                SQLiteDatabase.CONFLICT_IGNORE);
+                    }
+                }
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+            postResult(() -> listener.onResult(true, null));
+        });
+    }
+
+    /* ------------------------------ Backups ----------------------------------- */
+
+    /**
+     * Copies the live SQLite file to {@code destFile}. Scheduled on the same single-thread
+     * executor as every other write, so it naturally runs only once any prior write has fully
+     * committed and blocks new writes until the copy finishes — no extra locking needed. The
+     * database is never put into WAL mode ({@code enableWriteAheadLogging()} is never called), so
+     * when idle there is no separate journal file to reconcile: the .db file alone is a
+     * consistent, fully-committed snapshot.
+     */
+    public void createSnapshot(File destFile, final IDatabaseOnResult listener) {
+        executor.execute(() -> {
+            dbHelper.getReadableDatabase();
+            File dbFile = appContext.getDatabasePath(StudentDbHelper.DB_NAME);
+
+            boolean success;
+            String error = null;
+            try {
+                File parent = destFile.getParentFile();
+                if (parent != null && !parent.exists()) parent.mkdirs();
+
+                try (FileInputStream in = new FileInputStream(dbFile);
+                     FileOutputStream out = new FileOutputStream(destFile)) {
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+                }
+                success = true;
+            } catch (IOException e) {
+                success = false;
+                error = e.getMessage();
+            }
+
+            final boolean finalSuccess = success;
+            final String finalError = error;
+            postResult(() -> listener.onResult(finalSuccess, finalError));
+        });
     }
 }

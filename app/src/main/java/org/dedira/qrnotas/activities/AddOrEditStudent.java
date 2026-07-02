@@ -49,6 +49,7 @@ import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.BitmapConverter;
 import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.util.EdgeToEdge;
 import org.dedira.qrnotas.util.QrCode;
 
 import java.io.File;
@@ -100,6 +101,7 @@ public class AddOrEditStudent extends AppCompatActivity {
         }
 
         setContentView(R.layout.activity_add_edit_student);
+        EdgeToEdge.apply(this);
 
         this.database = new Database(this);
 

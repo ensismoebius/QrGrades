@@ -15,6 +15,7 @@ import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.DisciplineAdapter;
+import org.dedira.qrnotas.util.EdgeToEdge;
 
 public class DisciplineList extends AppCompatActivity {
     private DisciplineAdapter adapter;
@@ -27,6 +28,7 @@ public class DisciplineList extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         ActivityTransitions.enter(this);
         setContentView(R.layout.activity_entity_list);
+        EdgeToEdge.apply(this);
 
         this.database = new Database(this);
 

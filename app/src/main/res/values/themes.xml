@@ -27,10 +27,10 @@
         <item name="colorSurfaceVariant">@color/md_surface_variant</item>
         <item name="colorOnSurfaceVariant">@color/md_on_surface_variant</item>
         <item name="colorOutline">@color/md_outline</item>
+        <item name="colorSurfaceContainer">@color/md_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/md_surface_container_high</item>
 
-        <item name="android:statusBarColor">@color/md_background</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:navigationBarColor">@color/md_background</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
 
         <item name="android:windowActivityTransitions">true</item>

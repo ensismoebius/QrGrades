@@ -125,4 +125,30 @@
     <string name="import_succeeded">Import completed.</string>
     <string name="import_failed">Failed to import file.</string>
     <string name="import_empty">The file has no data to import.</string>
+    <string name="json_import_summary">"%1$d new student(s), %2$d existing student(s) will be updated."</string>
+
+    <!-- CSV roster import -->
+    <string name="import_csv_action">Import CSV</string>
+    <string name="csv_import_confirm_title">Import roster?</string>
+    <string name="csv_import_summary">"%1$d new student(s), %2$d matched to existing students, %3$d row(s) skipped."</string>
+    <string name="csv_import_error_line">"Line %1$d: %2$s"</string>
+    <string name="csv_import_no_valid_rows">No valid rows to import.</string>
+    <string name="csv_import_invalid_file">"Invalid CSV file: %1$s"</string>
+    <string name="csv_import_succeeded">Roster imported.</string>
+
+    <!-- Backups -->
+    <string name="backups_title">Backups</string>
+    <string name="backup_now">Backup now</string>
+    <string name="backup_created">Backup created.</string>
+    <string name="backup_failed">Backup failed.</string>
+    <string name="backup_manual_detail">"Manual · %1$s"</string>
+    <string name="backup_auto_detail">"Automatic · %1$s"</string>
+    <string name="no_backups_yet">"No backups yet. Tap the button below to create one."</string>
+    <string name="restore_action">Restore</string>
+    <string name="restore_confirm_title">Restore this backup?</string>
+    <string name="restore_confirm_message">"This replaces all current data with the selected backup. The app will restart. This cannot be undone."</string>
+    <string name="restore_failed">Restore failed.</string>
+
+    <!-- Quick Settings tile -->
+    <string name="qr_scan_tile_label">Scan QR</string>
 </resources>

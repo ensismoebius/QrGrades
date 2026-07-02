@@ -6,8 +6,7 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Local safety snapshots (see util/DbBackup.java) shouldn't be duplicated into the OS backup
+         alongside the live database they're a fallback for. -->
+    <exclude domain="file" path="backups/" />
 </full-backup-content>

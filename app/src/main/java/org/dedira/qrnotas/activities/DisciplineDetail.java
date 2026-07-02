@@ -10,6 +10,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.util.ActivityTransitions;
+import org.dedira.qrnotas.util.EdgeToEdge;
 
 public class DisciplineDetail extends AppCompatActivity {
 
@@ -18,6 +19,7 @@ public class DisciplineDetail extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         ActivityTransitions.enter(this);
         setContentView(R.layout.activity_discipline_detail);
+        EdgeToEdge.apply(this);
 
         String disciplineId = getIntent().getStringExtra("disciplineId");
         String disciplineName = getIntent().getStringExtra("disciplineName");

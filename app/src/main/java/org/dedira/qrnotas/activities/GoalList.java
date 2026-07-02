@@ -14,6 +14,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.util.EdgeToEdge;
 import org.dedira.qrnotas.util.GoalAdapter;
 
 public class GoalList extends AppCompatActivity {
@@ -28,6 +29,7 @@ public class GoalList extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         ActivityTransitions.enter(this);
         setContentView(R.layout.activity_entity_list);
+        EdgeToEdge.apply(this);
 
         this.disciplineId = getIntent().getStringExtra("disciplineId");
         String disciplineName = getIntent().getStringExtra("disciplineName");

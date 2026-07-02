@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
 public class StudentDbHelper extends SQLiteOpenHelper {
-    private static final String DB_NAME = "qrgrades.db";
+    static final String DB_NAME = "qrgrades.db";
     private static final int DB_VERSION = 4;
 
     public static final String TABLE_STUDENTS = "students";
