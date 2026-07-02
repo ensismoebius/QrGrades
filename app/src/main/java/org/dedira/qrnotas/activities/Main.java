@@ -2,9 +2,7 @@ package org.dedira.qrnotas.activities;
 
 import android.Manifest;
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.media.MediaPlayer;
 import android.os.Build;
@@ -54,9 +52,6 @@ import java.util.List;
 import java.util.Locale;
 
 public class Main extends AppCompatActivity {
-    private static final String PREFS_NAME = "qrgrades_prefs";
-    private static final String PREF_DISCIPLINE_ID = "selected_discipline_id";
-
     private LoadingDialog loadingDialog;
     private CodeScanner mCodeScanner;
     private TextView txtName;
@@ -68,6 +63,7 @@ public class Main extends AppCompatActivity {
     private View cameraPermissionOverlay;
     private MaterialButton btnContinue;
     private AutoCompleteTextView dropdownDiscipline;
+    private View txtDisciplineWarning;
     private FloatingActionButton btnOptions;
     private ExtendedFloatingActionButton btnAddStudent;
     private ExtendedFloatingActionButton btnListStudent;
@@ -109,6 +105,7 @@ public class Main extends AppCompatActivity {
         this.addPointsOverlay = this.findViewById(R.id.addPointsOverlay);
         this.cameraPermissionOverlay = this.findViewById(R.id.cameraPermissionOverlay);
         this.dropdownDiscipline = this.findViewById(R.id.dropdownDiscipline);
+        this.txtDisciplineWarning = this.findViewById(R.id.txtDisciplineWarning);
         this.loadingDialog = new LoadingDialog(this);
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -223,6 +220,11 @@ public class Main extends AppCompatActivity {
 
     /* ------------------------------ Discipline selector ------------------------------ */
 
+    /**
+     * Deliberately never auto-selects a discipline (not even a previously used one) — the teacher
+     * must actively pick one each time the screen opens, so a scan can never be recorded against
+     * the wrong discipline by default.
+     */
     private void loadDisciplines() {
         this.database.loadAllDisciplines((success, results) -> {
             this.disciplines = results != null ? results : new ArrayList<>();
@@ -233,52 +235,30 @@ public class Main extends AppCompatActivity {
 
             dropdownDiscipline.setOnItemClickListener((parent, view, position, id) ->
                     selectDiscipline(this.disciplines.get(position)));
-
-            if (this.disciplines.isEmpty()) {
-                this.currentDisciplineId = null;
-                return;
-            }
-
-            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            String savedId = prefs.getString(PREF_DISCIPLINE_ID, null);
-
-            Discipline toSelect = null;
-            for (Discipline d : this.disciplines) {
-                if (d.id.equals(savedId)) {
-                    toSelect = d;
-                    break;
-                }
-            }
-            if (toSelect == null) toSelect = this.disciplines.get(0);
-
-            selectDiscipline(toSelect);
         });
     }
 
     private void selectDiscipline(Discipline discipline) {
         this.currentDisciplineId = discipline.id;
         this.dropdownDiscipline.setText(discipline.name, false);
-
-        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit()
-                .putString(PREF_DISCIPLINE_ID, discipline.id)
-                .apply();
+        this.txtDisciplineWarning.setVisibility(View.GONE);
     }
 
     /* --------------------------------- QR scanning ------------------------------------ */
 
     private void onQrScanned(String studentId) {
+        if (this.currentDisciplineId == null) {
+            this.txtDisciplineWarning.setVisibility(View.VISIBLE);
+            int message = this.disciplines.isEmpty() ? R.string.no_disciplines_for_scan : R.string.select_discipline_before_scan;
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+            return;
+        }
+
         mediaPlayer.start();
 
         this.loadingDialog.show();
         this.loadingDialog.setCancelable(false);
         this.loadingDialog.setCanceledOnTouchOutside(false);
-
-        if (this.currentDisciplineId == null) {
-            this.loadingDialog.dismiss();
-            Toast.makeText(this, R.string.no_disciplines_for_scan, Toast.LENGTH_LONG).show();
-            return;
-        }
 
         this.database.loadStudent(studentId, (success, object) -> {
             if (!success) {

@@ -34,6 +34,8 @@
     <string name="student_not_found">Aluno não encontrado.</string>
     <string name="current_discipline_label">Disciplina atual</string>
     <string name="no_disciplines_for_scan">"Cadastre uma disciplina antes de começar a escanear."</string>
+    <string name="select_discipline_before_scan">Selecione uma disciplina antes de escanear.</string>
+    <string name="select_discipline_warning">"Nenhuma disciplina selecionada — escolha uma antes de escanear."</string>
     <string name="not_enrolled_title">Não matriculado</string>
     <string name="student_not_in_discipline">"%1$s não está matriculado(a) em %2$s."</string>
     <string name="enroll_action">Matricular</string>

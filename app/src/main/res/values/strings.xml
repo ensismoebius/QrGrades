@@ -34,6 +34,8 @@
     <string name="student_not_found">Student not found.</string>
     <string name="current_discipline_label">Current discipline</string>
     <string name="no_disciplines_for_scan">"Register a discipline first to start scanning."</string>
+    <string name="select_discipline_before_scan">Select a discipline before scanning.</string>
+    <string name="select_discipline_warning">"No discipline selected — choose one before scanning."</string>
     <string name="not_enrolled_title">Not enrolled</string>
     <string name="student_not_in_discipline">"%1$s is not enrolled in %2$s."</string>
     <string name="enroll_action">Enroll</string>
