@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" />
@@ -13,18 +14,41 @@
         android:label="@string/app_name"
         android:roundIcon="@drawable/app_icon_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.QrGrades">
+        android:theme="@style/Theme.QrGrades"
+        tools:targetApi="31">
         <activity
-            android:name=".activities.activity_list_students"
+            android:name=".activities.ListStudents"
             android:exported="false" />
         <activity
-            android:name=".dialogs.dialog_loading"
+            android:name=".activities.AddOrEditStudent"
             android:exported="false" />
         <activity
-            android:name=".activities.activity_add_or_edit_student"
+            android:name=".activities.DisciplineList"
             android:exported="false" />
         <activity
-            android:name=".activities.activity_main"
+            android:name=".activities.DisciplineDetail"
+            android:exported="false" />
+        <activity
+            android:name=".activities.ClassGroupList"
+            android:exported="false" />
+        <activity
+            android:name=".activities.GoalList"
+            android:exported="false" />
+        <activity
+            android:name=".activities.StudentProgress"
+            android:exported="false" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+        <activity
+            android:name=".activities.Main"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

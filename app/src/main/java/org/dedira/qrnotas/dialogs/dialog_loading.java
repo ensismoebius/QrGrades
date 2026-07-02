@@ -2,6 +2,8 @@ package org.dedira.qrnotas.dialogs;
 
 import android.app.Dialog;
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,6 +27,13 @@ public class dialog_loading extends Dialog {
         LayoutInflater inflater = (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         View inflateView = inflater.inflate(R.layout.dialog_loading, this.findViewById(R.id.wait_dialog_conteiner));
         setContentView(inflateView);
+
+        Window window = getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.setDimAmount(0.3f);
+            window.getAttributes().windowAnimations = R.style.Animation_QrGrades_LoadingDialog;
+        }
     }
 
 }

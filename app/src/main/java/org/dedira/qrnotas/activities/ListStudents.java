@@ -1,0 +1,291 @@
+package org.dedira.qrnotas.activities;
+
+import android.app.AlertDialog;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
+import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.textfield.TextInputEditText;
+
+import org.dedira.qrnotas.R;
+import org.dedira.qrnotas.dialogs.LoadingDialog;
+import org.dedira.qrnotas.util.ActivityTransitions;
+import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.util.Exporter;
+import org.dedira.qrnotas.util.StudentAdapter;
+
+import java.io.File;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class ListStudents extends AppCompatActivity {
+    private StudentAdapter arrStudentsAdapter;
+    private RecyclerView lstStudents;
+    private TextView txtEmpty;
+    private Database database;
+    private MaterialToolbar toolbar;
+    private LoadingDialog loadingDialog;
+    private final ExecutorService exportExecutor = Executors.newSingleThreadExecutor();
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        ActivityTransitions.enter(this);
+        setContentView(R.layout.activity_list_students);
+
+        this.database = new Database(this);
+        this.loadingDialog = new LoadingDialog(this);
+
+        this.toolbar = this.findViewById(R.id.toolbar);
+        toolbar.inflateMenu(R.menu.menu_student_list);
+        toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (arrStudentsAdapter.isSelectionMode()) {
+                    arrStudentsAdapter.setSelectionMode(false);
+                } else {
+                    finishAfterTransition();
+                }
+            }
+        });
+
+        this.txtEmpty = this.findViewById(R.id.txtEmpty);
+        this.arrStudentsAdapter = new StudentAdapter(this);
+        this.arrStudentsAdapter.setSelectionListener(this::onSelectionChanged);
+
+        this.lstStudents = this.findViewById(R.id.lstStudents);
+        this.lstStudents.setAdapter(this.arrStudentsAdapter);
+
+        this.arrStudentsAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
+            @Override
+            public void onChanged() {
+                updateEmptyState();
+            }
+
+            @Override
+            public void onItemRangeInserted(int positionStart, int itemCount) {
+                updateEmptyState();
+            }
+
+            @Override
+            public void onItemRangeRemoved(int positionStart, int itemCount) {
+                updateEmptyState();
+            }
+        });
+
+        new ItemTouchHelper(new SwipeToDeleteCallback()).attachToRecyclerView(this.lstStudents);
+
+        TextInputEditText txtSearch = this.findViewById(R.id.txtSearch);
+        txtSearch.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                arrStudentsAdapter.filter(s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
+        });
+
+        onSelectionChanged(false, 0);
+        loadStudents();
+    }
+
+    private void loadStudents() {
+        this.database.loadAllStudents((success, students) -> {
+            if (success) {
+                arrStudentsAdapter.submitFullList(students);
+            } else {
+                Toast.makeText(this, R.string.load_students_failed, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private boolean onMenuItemClick(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_select) {
+            arrStudentsAdapter.setSelectionMode(true);
+            return true;
+        } else if (id == R.id.action_select_all) {
+            arrStudentsAdapter.selectAll();
+            return true;
+        } else if (id == R.id.action_export) {
+            onExportClicked();
+            return true;
+        }
+        return false;
+    }
+
+    private void onSelectionChanged(boolean selectionMode, int count) {
+        toolbar.getMenu().findItem(R.id.action_select).setVisible(!selectionMode);
+        toolbar.getMenu().findItem(R.id.action_select_all).setVisible(selectionMode);
+        toolbar.getMenu().findItem(R.id.action_export).setVisible(selectionMode);
+
+        if (selectionMode) {
+            toolbar.setTitle(getString(R.string.selected_count_title, count));
+            toolbar.setNavigationIcon(R.drawable.ic_close);
+            toolbar.setNavigationContentDescription(R.string.exiting_selection);
+            toolbar.setNavigationOnClickListener(v -> arrStudentsAdapter.setSelectionMode(false));
+        } else {
+            toolbar.setTitle(R.string.show_all_students);
+            toolbar.setNavigationIcon(R.drawable.ic_arrow_back);
+            toolbar.setNavigationContentDescription(null);
+            toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
+        }
+    }
+
+    private void onExportClicked() {
+        List<String> selectedIds = arrStudentsAdapter.getSelectedIds();
+        if (selectedIds.isEmpty()) {
+            Toast.makeText(this, R.string.select_students_first, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String[] formats = {
+                getString(R.string.export_format_md),
+                getString(R.string.export_format_pdf),
+                getString(R.string.export_format_json)
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.export_format_title)
+                .setItems(formats, (dialog, which) -> runExport(selectedIds, which))
+                .show();
+    }
+
+    private void runExport(List<String> selectedIds, int formatIndex) {
+        loadingDialog.show();
+        database.loadExportData(selectedIds, (success, data) -> {
+            if (!success || data == null) {
+                loadingDialog.dismiss();
+                Toast.makeText(this, R.string.export_failed, Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            exportExecutor.execute(() -> {
+                try {
+                    File file;
+                    String mime;
+                    switch (formatIndex) {
+                        case 1:
+                            file = Exporter.exportPdf(this, data);
+                            mime = "application/pdf";
+                            break;
+                        case 2:
+                            file = Exporter.exportJson(this, data);
+                            mime = "application/json";
+                            break;
+                        default:
+                            file = Exporter.exportMarkdown(this, data);
+                            mime = "text/markdown";
+                            break;
+                    }
+
+                    File finalFile = file;
+                    String finalMime = mime;
+                    runOnUiThread(() -> {
+                        loadingDialog.dismiss();
+                        Exporter.share(this, finalFile, finalMime);
+                        arrStudentsAdapter.setSelectionMode(false);
+                    });
+                } catch (Exception e) {
+                    runOnUiThread(() -> {
+                        loadingDialog.dismiss();
+                        Toast.makeText(this, R.string.export_failed, Toast.LENGTH_SHORT).show();
+                    });
+                }
+            });
+        });
+    }
+
+    private void updateEmptyState() {
+        boolean isEmpty = arrStudentsAdapter.getItemCount() == 0;
+        txtEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        lstStudents.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+    }
+
+    private class SwipeToDeleteCallback extends ItemTouchHelper.SimpleCallback {
+        private final ColorDrawable background = new ColorDrawable(ContextCompat.getColor(ListStudents.this, R.color.swipe_delete_bg));
+        private final Drawable deleteIcon = ContextCompat.getDrawable(ListStudents.this, R.drawable.ic_delete);
+
+        SwipeToDeleteCallback() {
+            super(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT);
+        }
+
+        @Override
+        public int getSwipeDirs(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
+            if (arrStudentsAdapter.isSelectionMode()) return 0;
+            return super.getSwipeDirs(recyclerView, viewHolder);
+        }
+
+        @Override
+        public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
+            return false;
+        }
+
+        @Override
+        public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+            arrStudentsAdapter.requestDelete(viewHolder.getBindingAdapterPosition());
+        }
+
+        @Override
+        public void onChildDraw(@NonNull Canvas c, @NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder,
+                                 float dX, float dY, int actionState, boolean isCurrentlyActive) {
+            super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
+
+            if (actionState != ItemTouchHelper.ACTION_STATE_SWIPE) return;
+
+            View itemView = viewHolder.itemView;
+            int iconMargin = (int) dp(16);
+            int iconSize = deleteIcon != null ? deleteIcon.getIntrinsicHeight() : 0;
+            int iconTop = itemView.getTop() + (itemView.getHeight() - iconSize) / 2;
+
+            if (dX > 0) {
+                background.setBounds(itemView.getLeft(), itemView.getTop(), itemView.getLeft() + (int) dX, itemView.getBottom());
+                background.draw(c);
+                if (deleteIcon != null) {
+                    int left = itemView.getLeft() + iconMargin;
+                    deleteIcon.setTint(Color.WHITE);
+                    deleteIcon.setBounds(left, iconTop, left + iconSize, iconTop + iconSize);
+                    deleteIcon.draw(c);
+                }
+            } else if (dX < 0) {
+                background.setBounds(itemView.getRight() + (int) dX, itemView.getTop(), itemView.getRight(), itemView.getBottom());
+                background.draw(c);
+                if (deleteIcon != null) {
+                    int right = itemView.getRight() - iconMargin;
+                    deleteIcon.setTint(Color.WHITE);
+                    deleteIcon.setBounds(right - iconSize, iconTop, right, iconTop + iconSize);
+                    deleteIcon.draw(c);
+                }
+            }
+        }
+
+        private float dp(float value) {
+            return value * getResources().getDisplayMetrics().density;
+        }
+    }
+}

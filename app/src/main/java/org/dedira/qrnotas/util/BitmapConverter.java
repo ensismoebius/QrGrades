@@ -1,22 +1,40 @@
 package org.dedira.qrnotas.util;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.util.Base64;
 
-import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 
 public class BitmapConverter {
-    static public String bitmapToString(Bitmap btm) {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        btm.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);
-        byte[] byteArray = byteArrayOutputStream.toByteArray();
-        return Base64.encodeToString(byteArray, Base64.DEFAULT);
+
+    public static File getPhotoDir(Context context) {
+        File dir = new File(context.getFilesDir(), "photos");
+        if (!dir.exists()) dir.mkdirs();
+        return dir;
     }
 
-    static public Bitmap stringToBitmap(String encodedImage) {
-        byte[] decodedByteArray = Base64.decode(encodedImage, Base64.DEFAULT);
-        return BitmapFactory.decodeByteArray(decodedByteArray, 0, decodedByteArray.length);
+    static public String saveStudentPhoto(Context context, Bitmap bitmap, String studentId) {
+        File file = new File(getPhotoDir(context), studentId + ".png");
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+        } catch (IOException e) {
+            return null;
+        }
+        return file.getAbsolutePath();
+    }
+
+    static public Bitmap loadBitmap(String photoPath) {
+        if (photoPath == null) return null;
+        return BitmapFactory.decodeFile(photoPath);
+    }
+
+    static public void deletePhoto(String photoPath) {
+        if (photoPath == null) return;
+        File file = new File(photoPath);
+        if (file.exists()) file.delete();
     }
 
     // Helper method to scale a bitmap while maintaining aspect ratio

@@ -9,9 +9,91 @@
     <string name="add_button">Add</string>
     <string name="sub_button">Sub</string>
     <string name="save_button">Save</string>
-    <string name="intial_points">1</string>
+    <string name="initial_points">1</string>
     <string name="options_text">Options</string>
     <string name="add_student">Add student</string>
     <string name="show_all_students">Show all students</string>
     <string name="delete_student">Delete student</string>
+
+    <!-- Main / scanning -->
+    <string name="scan_hint">Point the camera at a student\'s QR code to begin</string>
+    <string name="camera_permission_rationale">"Camera access is needed to scan QR codes."</string>
+    <string name="grant_permission">Grant permission</string>
+    <string name="scan_first">Scan a student first!</string>
+    <string name="points_not_saved">Failed to save points.</string>
+    <string name="points_added">"+%1$d point(s) added"</string>
+    <string name="undo">Undo</string>
+    <string name="undo_failed">Failed to undo.</string>
+    <string name="undo_done">Undo complete.</string>
+    <string name="student_not_found">Student not found.</string>
+
+    <!-- Add/edit student -->
+    <string name="name_hint">Student name</string>
+    <string name="add_student_title">Add student</string>
+    <string name="edit_student_title">Edit student</string>
+    <string name="tap_to_share">Tap to share</string>
+    <string name="discipline_hint">Discipline</string>
+    <string name="class_group_hint">Class / group</string>
+    <string name="discipline_required">Choose a discipline.</string>
+    <string name="class_group_required">Choose a class.</string>
+    <string name="no_disciplines_registered">"No disciplines registered yet. Register one from the Disciplines screen first."</string>
+    <string name="camera_permission_denied">Camera permission denied.</string>
+    <string name="photo_capture_failed">Failed to capture photo.</string>
+    <string name="no_camera_app">No camera app available.</string>
+    <string name="name_required">Name is required.</string>
+    <string name="photo_required">Photo is required.</string>
+    <string name="student_saved">Student saved: %1$s</string>
+    <string name="student_not_saved">Failed to save student.</string>
+    <string name="share_failed">Failed to share QR code.</string>
+
+    <!-- Student list -->
+    <string name="confirm_delete_title">Delete student?</string>
+    <string name="confirm_delete_message">"Are you sure you want to delete %1$s? This cannot be undone."</string>
+    <string name="student_deleted">Student deleted.</string>
+    <string name="delete_failed">Failed to delete student.</string>
+    <string name="search_hint">Search students…</string>
+    <string name="no_students">"No students yet. Tap \"Add student\" to create one."</string>
+    <string name="load_students_failed">Failed to load students data.</string>
+
+    <!-- Disciplines / class groups / goals -->
+    <string name="disciplines_title">Disciplines</string>
+    <string name="no_disciplines">"No disciplines yet. Tap + to register one."</string>
+    <string name="add_discipline">Add discipline</string>
+    <string name="edit_discipline">Rename discipline</string>
+    <string name="save_failed">Failed to save.</string>
+    <string name="entity_deleted">Deleted.</string>
+    <string name="discipline_has_groups">"Delete this discipline\'s groups first."</string>
+    <string name="manage_groups">Manage groups</string>
+    <string name="manage_goals">Manage goals</string>
+    <string name="groups_title">Groups — %1$s</string>
+    <string name="no_groups">"No groups yet. Tap + to register one."</string>
+    <string name="add_group">Add group</string>
+    <string name="edit_group">Rename group</string>
+    <string name="group_has_students">"Reassign this group\'s students first."</string>
+    <string name="goals_title">Goals — %1$s</string>
+    <string name="no_goals">"No goals yet. Tap + to register one."</string>
+    <string name="add_goal">Add goal</string>
+    <string name="edit_goal">Edit goal</string>
+    <string name="goal_name_hint">Goal name</string>
+    <string name="goal_target_hint">Target points</string>
+    <string name="goal_target_points">%1$d pts</string>
+    <string name="progress_title">Progress</string>
+    <string name="current_points_label">Current points</string>
+    <string name="discipline_class_format">%1$s — %2$s</string>
+    <string name="no_goals_for_discipline">"No goals registered for this discipline yet."</string>
+    <string name="goal_achieved">Achieved!</string>
+    <string name="goal_remaining">%1$d to go</string>
+
+    <!-- Export / selection -->
+    <string name="select_students">Select students</string>
+    <string name="select_all">Select all</string>
+    <string name="export_action">Export</string>
+    <string name="selected_count_title">%1$d selected</string>
+    <string name="select_students_first">Select at least one student first.</string>
+    <string name="export_format_title">Export as…</string>
+    <string name="export_format_md">Markdown (.md)</string>
+    <string name="export_format_pdf">PDF (.pdf)</string>
+    <string name="export_format_json">JSON (.json)</string>
+    <string name="export_failed">Failed to generate export.</string>
+    <string name="exiting_selection">Exit selection</string>
 </resources>

@@ -1,10 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <color name="md_primary">#3A5CE0</color>
+    <color name="md_on_primary">#FFFFFF</color>
+    <color name="md_primary_container">#DCE1FF</color>
+    <color name="md_on_primary_container">#001453</color>
+
+    <color name="md_secondary">#5B5F76</color>
+    <color name="md_on_secondary">#FFFFFF</color>
+    <color name="md_secondary_container">#DFE1F9</color>
+    <color name="md_on_secondary_container">#181C2E</color>
+
+    <color name="md_tertiary">#8B5A00</color>
+    <color name="md_on_tertiary">#FFFFFF</color>
+    <color name="md_tertiary_container">#FFDDA6</color>
+    <color name="md_on_tertiary_container">#2B1800</color>
+
+    <color name="md_error">#BA1A1A</color>
+    <color name="md_on_error">#FFFFFF</color>
+    <color name="md_error_container">#FFDAD6</color>
+    <color name="md_on_error_container">#410002</color>
+
+    <color name="md_background">#FAF8FF</color>
+    <color name="md_on_background">#1A1B23</color>
+    <color name="md_surface">#FAF8FF</color>
+    <color name="md_on_surface">#1A1B23</color>
+    <color name="md_surface_variant">#E2E1EC</color>
+    <color name="md_on_surface_variant">#45464F</color>
+    <color name="md_outline">#767680</color>
+
+    <color name="md_surface_container">#EFEDF6</color>
+    <color name="md_surface_container_high">#E9E7F1</color>
+
+    <color name="scan_success">#2E7D32</color>
+    <color name="swipe_delete_bg">#BA1A1A</color>
 </resources>

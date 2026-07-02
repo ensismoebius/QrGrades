@@ -1,13 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/wait_dialog_conteiner"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/loading_cont"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:orientation="horizontal">
+    android:gravity="center"
+    android:orientation="vertical">
 
-    <ProgressBar
-        android:id="@+id/wait_progress"
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        app:cardBackgroundColor="?attr/colorSurfaceVariant"
+        app:cardCornerRadius="@dimen/corner_radius_md"
+        app:cardElevation="@dimen/elevation_raised">
+
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:id="@+id/loadingProgress"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="@dimen/spacing_lg"
+            android:indeterminate="true"
+            app:indicatorColor="?attr/colorPrimary"
+            app:trackColor="?attr/colorPrimaryContainer"
+            app:trackThickness="4dp" />
+
+    </com.google.android.material.card.MaterialCardView>
 
 </LinearLayout>
