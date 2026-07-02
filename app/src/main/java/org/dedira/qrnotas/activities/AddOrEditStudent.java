@@ -1,6 +1,7 @@
 package org.dedira.qrnotas.activities;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -14,14 +15,18 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -30,12 +35,16 @@ import androidx.exifinterface.media.ExifInterface;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.textfield.TextInputLayout;
 
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.dialogs.LoadingDialog;
+import org.dedira.qrnotas.dialogs.QrCodeDialog;
 import org.dedira.qrnotas.model.ClassGroup;
 import org.dedira.qrnotas.model.Discipline;
+import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.BitmapConverter;
@@ -43,11 +52,12 @@ import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.QrCode;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class AddOrEditStudent extends AppCompatActivity {
@@ -59,16 +69,20 @@ public class AddOrEditStudent extends AppCompatActivity {
     private MaterialButton btnSave;
     private Bitmap btmPhoto;
     private EditText txtName;
-    private AutoCompleteTextView dropdownDiscipline;
-    private AutoCompleteTextView dropdownClassGroup;
+    private LinearLayout disciplinesChecklist;
+    private View txtNoDisciplines;
     private Student loadedStudent;
     private Uri pendingCaptureUri;
     private List<Discipline> allDisciplines = new ArrayList<>();
     private List<ClassGroup> allClassGroups = new ArrayList<>();
-    private String selectedClassGroupId;
+    /** disciplineId -> the enrollment already saved for it (edit flow only). */
+    private final Map<String, Enrollment> existingEnrollmentByDiscipline = new HashMap<>();
+    /** disciplineId -> class group currently chosen for it; presence of a key means the discipline is checked. */
+    private final Map<String, String> selectedClassGroupByDiscipline = new HashMap<>();
 
     private ActivityResultLauncher<Intent> cameraLauncher;
     private ActivityResultLauncher<String> cameraPermissionLauncher;
+    private ActivityResultLauncher<PickVisualMediaRequest> galleryLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,8 +107,8 @@ public class AddOrEditStudent extends AppCompatActivity {
         this.imgPhoto = this.findViewById(R.id.imgPhoto);
         this.imgQrcode = this.findViewById(R.id.imgQrcode);
         this.btnSave = this.findViewById(R.id.btnSave);
-        this.dropdownDiscipline = this.findViewById(R.id.dropdownDiscipline);
-        this.dropdownClassGroup = this.findViewById(R.id.dropdownClassGroup);
+        this.disciplinesChecklist = this.findViewById(R.id.disciplinesChecklist);
+        this.txtNoDisciplines = this.findViewById(R.id.txtNoDisciplines);
         this.loadingDialog = new LoadingDialog(this);
 
         MaterialToolbar toolbar = this.findViewById(R.id.toolbar);
@@ -139,9 +153,13 @@ public class AddOrEditStudent extends AppCompatActivity {
             }
         });
 
-        this.imgPhoto.setOnClickListener(v -> requestCameraCapture());
+        this.galleryLauncher = registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
+            if (uri != null) onPhotoCaptured(uri);
+        });
+
+        this.imgPhoto.setOnClickListener(v -> requestPhotoSource());
         FloatingActionButton btnCameraBadge = this.findViewById(R.id.btnCameraBadge);
-        btnCameraBadge.setOnClickListener(v -> requestCameraCapture());
+        btnCameraBadge.setOnClickListener(v -> requestPhotoSource());
 
         /**********************************************************************/
         /********* Load disciplines/classes, then student (if any) ************/
@@ -167,12 +185,14 @@ public class AddOrEditStudent extends AppCompatActivity {
     private void loadDropdownDataThenStudent(String selectedStudentId, boolean isEditFlow) {
         database.loadAllDisciplines((success, disciplines) -> {
             this.allDisciplines = disciplines != null ? disciplines : new ArrayList<>();
-            setupDisciplineDropdown();
 
             database.loadAllClassGroups((success2, groups) -> {
                 this.allClassGroups = groups != null ? groups : new ArrayList<>();
 
-                if (!isEditFlow) return;
+                if (!isEditFlow) {
+                    setupDisciplinesChecklist();
+                    return;
+                }
 
                 database.loadStudent(selectedStudentId, (success3, object) -> {
                     if (!success3 || object == null) {
@@ -185,82 +205,115 @@ public class AddOrEditStudent extends AppCompatActivity {
                     Bitmap loadedPhoto = BitmapConverter.loadBitmap(object.photoPath);
                     if (loadedPhoto != null) this.imgPhoto.setImageBitmap(loadedPhoto);
                     this.txtName.setText(object.name);
-                    prefillDisciplineAndClass(object.classGroupId);
-                    startPostponedEnterTransition();
+
+                    database.loadEnrollmentsForStudent(selectedStudentId, (success4, enrollments) -> {
+                        if (enrollments != null) {
+                            for (Enrollment e : enrollments) {
+                                ClassGroup cg = findClassGroup(e.classGroupId);
+                                if (cg == null) continue;
+                                this.existingEnrollmentByDiscipline.put(cg.disciplineId, e);
+                                this.selectedClassGroupByDiscipline.put(cg.disciplineId, e.classGroupId);
+                            }
+                        }
+                        setupDisciplinesChecklist();
+                        startPostponedEnterTransition();
+                    });
                 });
             });
         });
     }
 
-    private void setupDisciplineDropdown() {
-        List<String> names = new ArrayList<>();
-        for (Discipline d : allDisciplines) names.add(d.name);
-
-        dropdownDiscipline.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, names));
-        dropdownDiscipline.setOnItemClickListener((parent, view, position, id) ->
-                onDisciplinePicked(allDisciplines.get(position).id, null));
-
-        if (allDisciplines.isEmpty()) {
-            Toast.makeText(this, R.string.no_disciplines_registered, Toast.LENGTH_LONG).show();
+    private ClassGroup findClassGroup(String classGroupId) {
+        for (ClassGroup g : allClassGroups) {
+            if (g.id.equals(classGroupId)) return g;
         }
+        return null;
     }
 
-    private void onDisciplinePicked(String disciplineId, String preselectClassGroupId) {
-        selectedClassGroupId = null;
-        dropdownClassGroup.setText("", false);
+    private void setupDisciplinesChecklist() {
+        disciplinesChecklist.removeAllViews();
 
-        List<ClassGroup> filtered = new ArrayList<>();
-        for (ClassGroup g : allClassGroups) {
-            if (disciplineId.equals(g.disciplineId)) filtered.add(g);
-        }
-
-        List<String> names = new ArrayList<>();
-        for (ClassGroup g : filtered) names.add(g.name);
-
-        dropdownClassGroup.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, names));
-        dropdownClassGroup.setOnItemClickListener((parent, view, position, id) -> {
-            selectedClassGroupId = filtered.get(position).id;
+        if (allDisciplines.isEmpty()) {
+            txtNoDisciplines.setVisibility(View.VISIBLE);
             updateSaveEnabled();
-        });
+            return;
+        }
+        txtNoDisciplines.setVisibility(View.GONE);
 
-        if (preselectClassGroupId != null) {
-            for (ClassGroup g : filtered) {
-                if (g.id.equals(preselectClassGroupId)) {
-                    dropdownClassGroup.setText(g.name, false);
-                    selectedClassGroupId = g.id;
-                    break;
-                }
+        LayoutInflater inflater = LayoutInflater.from(this);
+        for (Discipline d : allDisciplines) {
+            View row = inflater.inflate(R.layout.item_discipline_checkbox, disciplinesChecklist, false);
+            MaterialCheckBox chk = row.findViewById(R.id.chkDiscipline);
+            TextInputLayout classGroupInputLayout = row.findViewById(R.id.classGroupInputLayout);
+            AutoCompleteTextView dropdown = row.findViewById(R.id.dropdownClassGroup);
+
+            List<ClassGroup> groupsForDiscipline = new ArrayList<>();
+            for (ClassGroup g : allClassGroups) {
+                if (d.id.equals(g.disciplineId)) groupsForDiscipline.add(g);
             }
+
+            if (groupsForDiscipline.isEmpty()) {
+                chk.setText(getString(R.string.discipline_no_classes, d.name));
+                chk.setEnabled(false);
+                disciplinesChecklist.addView(row);
+                continue;
+            }
+
+            chk.setText(d.name);
+
+            List<String> names = new ArrayList<>();
+            for (ClassGroup g : groupsForDiscipline) names.add(g.name);
+            dropdown.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, names));
+            dropdown.setOnItemClickListener((parent, view, position, id) -> {
+                selectedClassGroupByDiscipline.put(d.id, groupsForDiscipline.get(position).id);
+                updateSaveEnabled();
+            });
+
+            String preselectedClassGroupId = selectedClassGroupByDiscipline.get(d.id);
+            boolean checked = preselectedClassGroupId != null;
+            chk.setChecked(checked);
+            classGroupInputLayout.setVisibility(checked ? View.VISIBLE : View.GONE);
+            if (checked) {
+                ClassGroup match = findClassGroup(preselectedClassGroupId);
+                if (match != null) dropdown.setText(match.name, false);
+            }
+
+            chk.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                classGroupInputLayout.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+                if (isChecked) {
+                    ClassGroup defaultGroup = groupsForDiscipline.get(0);
+                    selectedClassGroupByDiscipline.put(d.id, defaultGroup.id);
+                    dropdown.setText(defaultGroup.name, false);
+                } else {
+                    selectedClassGroupByDiscipline.remove(d.id);
+                }
+                updateSaveEnabled();
+            });
+
+            disciplinesChecklist.addView(row);
         }
 
         updateSaveEnabled();
     }
 
-    private void prefillDisciplineAndClass(String classGroupId) {
-        if (classGroupId == null) return;
-
-        ClassGroup group = null;
-        for (ClassGroup g : allClassGroups) {
-            if (g.id.equals(classGroupId)) {
-                group = g;
-                break;
-            }
-        }
-        if (group == null) return;
-
-        for (Discipline d : allDisciplines) {
-            if (d.id.equals(group.disciplineId)) {
-                dropdownDiscipline.setText(d.name, false);
-                break;
-            }
-        }
-
-        onDisciplinePicked(group.disciplineId, classGroupId);
-    }
-
     private void updateSaveEnabled() {
         boolean hasName = txtName.getText().toString().trim().length() > 0;
-        btnSave.setEnabled(hasName && selectedClassGroupId != null);
+        btnSave.setEnabled(hasName && !selectedClassGroupByDiscipline.isEmpty());
+    }
+
+    private void requestPhotoSource() {
+        String[] options = {
+                getString(R.string.photo_source_camera),
+                getString(R.string.photo_source_gallery)
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.photo_source_title)
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) requestCameraCapture();
+                    else launchGallery();
+                })
+                .show();
     }
 
     private void requestCameraCapture() {
@@ -269,6 +322,12 @@ public class AddOrEditStudent extends AppCompatActivity {
         } else {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
         }
+    }
+
+    private void launchGallery() {
+        galleryLauncher.launch(new PickVisualMediaRequest.Builder()
+                .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                .build());
     }
 
     private void launchCamera() {
@@ -392,8 +451,8 @@ public class AddOrEditStudent extends AppCompatActivity {
             return;
         }
 
-        if (selectedClassGroupId == null) {
-            Toast.makeText(this, R.string.class_group_required, Toast.LENGTH_SHORT).show();
+        if (selectedClassGroupByDiscipline.isEmpty()) {
+            Toast.makeText(this, R.string.no_discipline_selected, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -407,7 +466,6 @@ public class AddOrEditStudent extends AppCompatActivity {
         }
 
         this.loadedStudent.name = name;
-        this.loadedStudent.classGroupId = selectedClassGroupId;
 
         if (this.btmPhoto != null) {
             String savedPath = BitmapConverter.saveStudentPhoto(this, this.btmPhoto, this.loadedStudent.id);
@@ -415,42 +473,79 @@ public class AddOrEditStudent extends AppCompatActivity {
         }
 
         this.database.saveStudent(this.loadedStudent, (success, student) -> {
-            if (success) {
-                imgQrcode.setImageBitmap(QrCode.generateQRCode(student.id));
-                Toast.makeText(this, getString(R.string.student_saved, student.name), Toast.LENGTH_LONG).show();
-            } else {
+            if (!success) {
                 Toast.makeText(this, R.string.student_not_saved, Toast.LENGTH_LONG).show();
+                this.loadingDialog.dismiss();
+                return;
             }
-            this.loadingDialog.dismiss();
+
+            syncEnrollments(student);
         });
+    }
+
+    /** Creates/updates an enrollment for every checked discipline, and removes the ones unchecked. */
+    private void syncEnrollments(Student student) {
+        List<String> toRemove = new ArrayList<>();
+        for (String disciplineId : existingEnrollmentByDiscipline.keySet()) {
+            if (!selectedClassGroupByDiscipline.containsKey(disciplineId)) toRemove.add(disciplineId);
+        }
+
+        int pending = selectedClassGroupByDiscipline.size() + toRemove.size();
+        if (pending == 0) {
+            finishSave(student);
+            return;
+        }
+
+        int[] remaining = {pending};
+        boolean[] hadFailure = {false};
+
+        Runnable onStepDone = () -> {
+            remaining[0]--;
+            if (remaining[0] > 0) return;
+
+            if (hadFailure[0]) {
+                this.loadingDialog.dismiss();
+                Toast.makeText(this, R.string.student_not_saved, Toast.LENGTH_LONG).show();
+            } else {
+                finishSave(student);
+            }
+        };
+
+        for (Map.Entry<String, String> entry : selectedClassGroupByDiscipline.entrySet()) {
+            String disciplineId = entry.getKey();
+            Enrollment existing = existingEnrollmentByDiscipline.get(disciplineId);
+            Enrollment enrollment = existing != null ? existing : new Enrollment();
+            enrollment.studentId = student.id;
+            enrollment.classGroupId = entry.getValue();
+
+            this.database.saveEnrollment(enrollment, (enrollmentSuccess, savedEnrollment) -> {
+                if (enrollmentSuccess) existingEnrollmentByDiscipline.put(disciplineId, savedEnrollment);
+                else hadFailure[0] = true;
+                onStepDone.run();
+            });
+        }
+
+        for (String disciplineId : toRemove) {
+            Enrollment existing = existingEnrollmentByDiscipline.get(disciplineId);
+            this.database.deleteEnrollment(existing.id, (deleteSuccess, ignored) -> {
+                if (deleteSuccess) existingEnrollmentByDiscipline.remove(disciplineId);
+                else hadFailure[0] = true;
+                onStepDone.run();
+            });
+        }
+    }
+
+    private void finishSave(Student student) {
+        this.loadingDialog.dismiss();
+        imgQrcode.setImageBitmap(QrCode.generateQRCode(student.id));
+        Toast.makeText(this, getString(R.string.student_saved, student.name), Toast.LENGTH_LONG).show();
+        new QrCodeDialog(this, student).show();
     }
 
     private void shareQrCode() {
         Drawable drawable = imgQrcode.getDrawable();
         if (!(drawable instanceof BitmapDrawable)) return;
         Bitmap qrCodeBitmap = ((BitmapDrawable) drawable).getBitmap();
-        if (qrCodeBitmap == null) return;
-
-        try {
-            File dir = new File(getCacheDir(), "qrcodes");
-            if (!dir.exists()) dir.mkdirs();
-            File file = new File(dir, "qrcode_" + System.currentTimeMillis() + ".png");
-
-            try (FileOutputStream out = new FileOutputStream(file)) {
-                qrCodeBitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
-            }
-
-            Uri qrCodeUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", file);
-
-            Intent shareIntent = new Intent(Intent.ACTION_SEND);
-            shareIntent.setType("image/png");
-            shareIntent.putExtra(Intent.EXTRA_STREAM, qrCodeUri);
-            shareIntent.putExtra(Intent.EXTRA_SUBJECT, "QR Code Share");
-            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-            startActivity(Intent.createChooser(shareIntent, "Share QR Code"));
-        } catch (IOException e) {
-            Toast.makeText(this, R.string.share_failed, Toast.LENGTH_SHORT).show();
-        }
+        QrCode.share(this, qrCodeBitmap);
     }
 }

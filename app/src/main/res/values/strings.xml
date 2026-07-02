@@ -20,12 +20,26 @@
     <string name="camera_permission_rationale">"Camera access is needed to scan QR codes."</string>
     <string name="grant_permission">Grant permission</string>
     <string name="scan_first">Scan a student first!</string>
+    <string name="select_points_first">Choose how many points to add or remove first.</string>
+    <string name="continue_button">Continue</string>
+    <string name="cancel">Cancel</string>
+    <string name="note_hint">Note (optional)</string>
+    <string name="note_dialog_title">%1$s points for %2$s</string>
     <string name="points_not_saved">Failed to save points.</string>
-    <string name="points_added">"+%1$d point(s) added"</string>
+    <string name="points_added">"%1$+d point(s) recorded"</string>
     <string name="undo">Undo</string>
     <string name="undo_failed">Failed to undo.</string>
     <string name="undo_done">Undo complete.</string>
     <string name="student_not_found">Student not found.</string>
+    <string name="current_discipline_label">Current discipline</string>
+    <string name="no_disciplines_for_scan">"Register a discipline first to start scanning."</string>
+    <string name="not_enrolled_title">Not enrolled</string>
+    <string name="student_not_in_discipline">"%1$s is not enrolled in %2$s."</string>
+    <string name="enroll_action">Enroll</string>
+    <string name="choose_class_group_title">Choose a class</string>
+    <string name="no_class_groups_for_discipline">"This discipline has no classes yet. Add one first."</string>
+    <string name="enrolled_success">"%1$s enrolled in %2$s."</string>
+    <string name="enroll_failed">Failed to enroll student.</string>
 
     <!-- Add/edit student -->
     <string name="name_hint">Student name</string>
@@ -35,11 +49,16 @@
     <string name="discipline_hint">Discipline</string>
     <string name="class_group_hint">Class / group</string>
     <string name="discipline_required">Choose a discipline.</string>
-    <string name="class_group_required">Choose a class.</string>
+    <string name="disciplines_hint">Disciplines</string>
+    <string name="discipline_no_classes">"%1$s (no classes yet)"</string>
+    <string name="no_discipline_selected">Select at least one discipline.</string>
     <string name="no_disciplines_registered">"No disciplines registered yet. Register one from the Disciplines screen first."</string>
     <string name="camera_permission_denied">Camera permission denied.</string>
     <string name="photo_capture_failed">Failed to capture photo.</string>
     <string name="no_camera_app">No camera app available.</string>
+    <string name="photo_source_title">Choose photo source</string>
+    <string name="photo_source_camera">Take photo</string>
+    <string name="photo_source_gallery">Choose from gallery</string>
     <string name="name_required">Name is required.</string>
     <string name="photo_required">Photo is required.</string>
     <string name="student_saved">Student saved: %1$s</string>
@@ -83,6 +102,9 @@
     <string name="no_goals_for_discipline">"No goals registered for this discipline yet."</string>
     <string name="goal_achieved">Achieved!</string>
     <string name="goal_remaining">%1$d to go</string>
+    <string name="history_title">History</string>
+    <string name="no_history_yet">No points recorded yet.</string>
+    <string name="no_enrollments_yet">"Not enrolled in any discipline yet."</string>
 
     <!-- Export / selection -->
     <string name="select_students">Select students</string>
@@ -96,4 +118,11 @@
     <string name="export_format_json">JSON (.json)</string>
     <string name="export_failed">Failed to generate export.</string>
     <string name="exiting_selection">Exit selection</string>
+    <string name="close">Close</string>
+    <string name="import_action">Import</string>
+    <string name="import_confirm_title">Import data?</string>
+    <string name="import_confirm_message">This will add or update students, disciplines, class groups, goals and points history from the selected JSON file.</string>
+    <string name="import_succeeded">Import completed.</string>
+    <string name="import_failed">Failed to import file.</string>
+    <string name="import_empty">The file has no data to import.</string>
 </resources>

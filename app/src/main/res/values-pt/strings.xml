@@ -20,12 +20,26 @@
     <string name="camera_permission_rationale">"É necessário acesso à câmera para escanear códigos QR."</string>
     <string name="grant_permission">Conceder permissão</string>
     <string name="scan_first">Escaneie um aluno primeiro!</string>
+    <string name="select_points_first">Escolha quantos pontos adicionar ou remover primeiro.</string>
+    <string name="continue_button">Continuar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="note_hint">Nota (opcional)</string>
+    <string name="note_dialog_title">%1$s pontos para %2$s</string>
     <string name="points_not_saved">Falha ao salvar os pontos.</string>
-    <string name="points_added">"+%1$d ponto(s) adicionado(s)"</string>
+    <string name="points_added">"%1$+d ponto(s) registrado(s)"</string>
     <string name="undo">Desfazer</string>
     <string name="undo_failed">Falha ao desfazer.</string>
     <string name="undo_done">Ação desfeita.</string>
     <string name="student_not_found">Aluno não encontrado.</string>
+    <string name="current_discipline_label">Disciplina atual</string>
+    <string name="no_disciplines_for_scan">"Cadastre uma disciplina antes de começar a escanear."</string>
+    <string name="not_enrolled_title">Não matriculado</string>
+    <string name="student_not_in_discipline">"%1$s não está matriculado(a) em %2$s."</string>
+    <string name="enroll_action">Matricular</string>
+    <string name="choose_class_group_title">Escolha uma turma</string>
+    <string name="no_class_groups_for_discipline">"Esta disciplina ainda não tem turmas. Cadastre uma primeiro."</string>
+    <string name="enrolled_success">"%1$s matriculado(a) em %2$s."</string>
+    <string name="enroll_failed">Falha ao matricular o aluno.</string>
 
     <!-- Add/edit student -->
     <string name="name_hint">Nome do aluno</string>
@@ -35,11 +49,16 @@
     <string name="discipline_hint">Disciplina</string>
     <string name="class_group_hint">Turma</string>
     <string name="discipline_required">Escolha uma disciplina.</string>
-    <string name="class_group_required">Escolha uma turma.</string>
+    <string name="disciplines_hint">Disciplinas</string>
+    <string name="discipline_no_classes">"%1$s (sem turmas ainda)"</string>
+    <string name="no_discipline_selected">Selecione ao menos uma disciplina.</string>
     <string name="no_disciplines_registered">"Nenhuma disciplina cadastrada ainda. Cadastre uma na tela Disciplinas primeiro."</string>
     <string name="camera_permission_denied">Permissão da câmera negada.</string>
     <string name="photo_capture_failed">Falha ao capturar a foto.</string>
     <string name="no_camera_app">Nenhum aplicativo de câmera disponível.</string>
+    <string name="photo_source_title">Escolha a origem da foto</string>
+    <string name="photo_source_camera">Tirar foto</string>
+    <string name="photo_source_gallery">Escolher da galeria</string>
     <string name="name_required">O nome é obrigatório.</string>
     <string name="photo_required">A foto é obrigatória.</string>
     <string name="student_saved">Aluno salvo: %1$s</string>
@@ -83,6 +102,9 @@
     <string name="no_goals_for_discipline">"Nenhuma meta cadastrada para esta disciplina ainda."</string>
     <string name="goal_achieved">Alcançada!</string>
     <string name="goal_remaining">Faltam %1$d</string>
+    <string name="history_title">Histórico</string>
+    <string name="no_history_yet">Nenhum ponto registrado ainda.</string>
+    <string name="no_enrollments_yet">"Não matriculado(a) em nenhuma disciplina ainda."</string>
 
     <!-- Export / selection -->
     <string name="select_students">Selecionar alunos</string>
@@ -96,4 +118,11 @@
     <string name="export_format_json">JSON (.json)</string>
     <string name="export_failed">Falha ao gerar exportação.</string>
     <string name="exiting_selection">Sair da seleção</string>
+    <string name="close">Fechar</string>
+    <string name="import_action">Importar</string>
+    <string name="import_confirm_title">Importar dados?</string>
+    <string name="import_confirm_message">Isso vai adicionar ou atualizar alunos, disciplinas, turmas, metas e histórico de pontos a partir do arquivo JSON selecionado.</string>
+    <string name="import_succeeded">Importação concluída.</string>
+    <string name="import_failed">Falha ao importar o arquivo.</string>
+    <string name="import_empty">O arquivo não tem dados para importar.</string>
 </resources>

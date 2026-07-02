@@ -23,4 +23,11 @@
         android:visible="false"
         app:showAsAction="always" />
 
+    <item
+        android:id="@+id/action_import"
+        android:icon="@drawable/ic_upload_file"
+        android:title="@string/import_action"
+        android:visible="true"
+        app:showAsAction="always" />
+
 </menu>

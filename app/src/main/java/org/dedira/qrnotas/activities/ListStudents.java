@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -14,6 +15,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -25,9 +28,11 @@ import com.google.android.material.textfield.TextInputEditText;
 
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.dialogs.LoadingDialog;
+import org.dedira.qrnotas.model.StudentExportData;
 import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.Exporter;
+import org.dedira.qrnotas.util.Importer;
 import org.dedira.qrnotas.util.StudentAdapter;
 
 import java.io.File;
@@ -43,15 +48,20 @@ public class ListStudents extends AppCompatActivity {
     private MaterialToolbar toolbar;
     private LoadingDialog loadingDialog;
     private final ExecutorService exportExecutor = Executors.newSingleThreadExecutor();
+    private ActivityResultLauncher<String[]> importFileLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ActivityTransitions.enter(this);
-        setContentView(R.layout.activity_list_students);
+        setContentView(R.layout.activity_list_student);
 
         this.database = new Database(this);
         this.loadingDialog = new LoadingDialog(this);
+
+        this.importFileLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+            if (uri != null) confirmImport(uri);
+        });
 
         this.toolbar = this.findViewById(R.id.toolbar);
         toolbar.inflateMenu(R.menu.menu_student_list);
@@ -135,6 +145,9 @@ public class ListStudents extends AppCompatActivity {
         } else if (id == R.id.action_export) {
             onExportClicked();
             return true;
+        } else if (id == R.id.action_import) {
+            importFileLauncher.launch(new String[]{"application/json"});
+            return true;
         }
         return false;
     }
@@ -143,6 +156,7 @@ public class ListStudents extends AppCompatActivity {
         toolbar.getMenu().findItem(R.id.action_select).setVisible(!selectionMode);
         toolbar.getMenu().findItem(R.id.action_select_all).setVisible(selectionMode);
         toolbar.getMenu().findItem(R.id.action_export).setVisible(selectionMode);
+        toolbar.getMenu().findItem(R.id.action_import).setVisible(!selectionMode);
 
         if (selectionMode) {
             toolbar.setTitle(getString(R.string.selected_count_title, count));
@@ -216,6 +230,49 @@ public class ListStudents extends AppCompatActivity {
                         loadingDialog.dismiss();
                         Toast.makeText(this, R.string.export_failed, Toast.LENGTH_SHORT).show();
                     });
+                }
+            });
+        });
+    }
+
+    private void confirmImport(Uri uri) {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.import_confirm_title)
+                .setMessage(R.string.import_confirm_message)
+                .setPositiveButton(R.string.import_action, (dialog, which) -> runImport(uri))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void runImport(Uri uri) {
+        loadingDialog.show();
+        exportExecutor.execute(() -> {
+            List<StudentExportData> data;
+            try {
+                data = Importer.importJson(this, uri);
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    loadingDialog.dismiss();
+                    Toast.makeText(this, R.string.import_failed, Toast.LENGTH_SHORT).show();
+                });
+                return;
+            }
+
+            if (data.isEmpty()) {
+                runOnUiThread(() -> {
+                    loadingDialog.dismiss();
+                    Toast.makeText(this, R.string.import_empty, Toast.LENGTH_SHORT).show();
+                });
+                return;
+            }
+
+            database.importExportData(data, (success, errorMessage) -> {
+                loadingDialog.dismiss();
+                if (success) {
+                    Toast.makeText(this, R.string.import_succeeded, Toast.LENGTH_SHORT).show();
+                    loadStudents();
+                } else {
+                    Toast.makeText(this, R.string.import_failed, Toast.LENGTH_SHORT).show();
                 }
             });
         });

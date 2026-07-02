@@ -22,6 +22,7 @@ import com.google.android.material.checkbox.MaterialCheckBox;
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.activities.AddOrEditStudent;
 import org.dedira.qrnotas.activities.StudentProgress;
+import org.dedira.qrnotas.dialogs.QrCodeDialog;
 import org.dedira.qrnotas.model.Student;
 
 import java.util.ArrayList;
@@ -192,6 +193,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
 
         holder.itemView.setOnClickListener(v -> {
             if (selectionMode) toggleSelection(student.id, holder.getBindingAdapterPosition());
+            else new QrCodeDialog(context, student).show();
         });
 
         holder.itemView.setOnLongClickListener(v -> {
@@ -278,7 +280,6 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
             Student a = oldList.get(oldItemPosition);
             Student b = newList.get(newItemPosition);
             return Objects.equals(a.name, b.name)
-                    && Objects.equals(a.grades, b.grades)
                     && Objects.equals(a.photoPath, b.photoPath);
         }
     }

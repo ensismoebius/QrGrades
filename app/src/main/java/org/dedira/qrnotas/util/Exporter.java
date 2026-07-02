@@ -10,6 +10,7 @@ import android.net.Uri;
 import androidx.core.content.FileProvider;
 
 import org.dedira.qrnotas.model.GoalProgress;
+import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.StudentExportData;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -65,6 +66,7 @@ public class Exporter {
     public static File exportMarkdown(Context context, List<StudentExportData> data) throws IOException {
         File file = new File(exportDir(context), baseFileName(data) + "_" + System.currentTimeMillis() + ".md");
         String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date());
+        SimpleDateFormat historyFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
 
         try (Writer writer = new OutputStreamWriter(new FileOutputStream(file))) {
             writer.write("# QrGrades Export\n\n");
@@ -78,6 +80,20 @@ public class Exporter {
                         + " | " + s.points
                         + " | " + escapeMd(goalsSummary(s))
                         + " |\n");
+            }
+
+            writer.write("\n## Points History\n\n");
+            writer.write("| Name | Date | Points | Note |\n");
+            writer.write("|---|---|---|---|\n");
+            for (StudentExportData s : data) {
+                if (s.history == null) continue;
+                for (PointsHistory h : s.history) {
+                    writer.write("| " + escapeMd(s.studentName)
+                            + " | " + historyFormat.format(new Date(h.createdAt))
+                            + " | " + String.format(Locale.getDefault(), "%+d", h.pointsDelta)
+                            + " | " + escapeMd(h.note == null ? "" : h.note)
+                            + " |\n");
+                }
             }
         }
         return file;
@@ -94,8 +110,13 @@ public class Exporter {
         for (StudentExportData s : data) {
             JSONObject obj = new JSONObject();
             obj.put("id", s.studentId);
+            obj.put("studentId", s.studentId);
+            obj.put("enrollmentId", s.enrollmentId);
             obj.put("name", s.studentName);
+            obj.put("photoPath", s.photoPath == null ? "" : s.photoPath);
+            obj.put("disciplineId", s.disciplineId);
             obj.put("discipline", s.disciplineName);
+            obj.put("classGroupId", s.classGroupId);
             obj.put("classGroup", s.classGroupName);
             obj.put("points", s.points);
 
@@ -111,6 +132,20 @@ public class Exporter {
                 }
             }
             obj.put("goals", goals);
+
+            JSONArray history = new JSONArray();
+            if (s.history != null) {
+                for (PointsHistory h : s.history) {
+                    JSONObject historyObj = new JSONObject();
+                    historyObj.put("id", h.id);
+                    historyObj.put("points", h.pointsDelta);
+                    historyObj.put("note", h.note == null ? "" : h.note);
+                    historyObj.put("timestamp", h.createdAt);
+                    history.put(historyObj);
+                }
+            }
+            obj.put("history", history);
+
             array.put(obj);
         }
 
@@ -172,6 +207,47 @@ public class Exporter {
                 canvas.drawText(text, colX[i], y, rowPaint);
             }
             y += ROW_HEIGHT;
+        }
+
+        int[] historyColX = {MARGIN, MARGIN + 140, MARGIN + 260, MARGIN + 320};
+        int[] historyColWidth = {130, 110, 50, PAGE_WIDTH - MARGIN - (MARGIN + 320)};
+        String[] historyHeaders = {"Name", "Date", "Points", "Note"};
+        SimpleDateFormat historyFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+
+        document.finishPage(page);
+        PdfDocument.PageInfo historyPageInfo = new PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, document.getPages().size() + 1).create();
+        page = document.startPage(historyPageInfo);
+        canvas = page.getCanvas();
+        y = MARGIN;
+        canvas.drawText("Points History", MARGIN, y, titlePaint);
+        y += ROW_HEIGHT;
+        y = drawTableHeader(canvas, headerPaint, historyColX, historyHeaders, y);
+
+        for (StudentExportData s : data) {
+            if (s.history == null) continue;
+            for (PointsHistory h : s.history) {
+                if (y > PAGE_HEIGHT - MARGIN - ROW_HEIGHT) {
+                    document.finishPage(page);
+                    PdfDocument.PageInfo nextInfo = new PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, document.getPages().size() + 1).create();
+                    page = document.startPage(nextInfo);
+                    canvas = page.getCanvas();
+                    y = MARGIN;
+                    y = drawTableHeader(canvas, headerPaint, historyColX, historyHeaders, y);
+                }
+
+                String[] historyValues = {
+                        s.studentName == null ? "" : s.studentName,
+                        historyFormat.format(new Date(h.createdAt)),
+                        String.format(Locale.getDefault(), "%+d", h.pointsDelta),
+                        h.note == null ? "" : h.note
+                };
+
+                for (int i = 0; i < historyValues.length; i++) {
+                    String text = truncateToWidth(historyValues[i], rowPaint, historyColWidth[i]);
+                    canvas.drawText(text, historyColX[i], y, rowPaint);
+                }
+                y += ROW_HEIGHT;
+            }
         }
 
         document.finishPage(page);
