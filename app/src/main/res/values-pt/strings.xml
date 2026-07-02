@@ -1,0 +1,99 @@
+<resources>
+    <string name="app_name">QrNotas</string>
+    <string name="student_photo">Foto do aluno</string>
+    <string name="edit_student">Editar aluno</string>
+    <string name="qr_code_image">Imagem do código QR</string>
+    <string name="student_photo_text">Foto do aluno</string>
+    <string name="save">Salvar</string>
+    <string name="student_photo_text2">Foto do aluno</string>
+    <string name="add_button">Adicionar</string>
+    <string name="sub_button">Remover</string>
+    <string name="save_button">Salvar</string>
+    <string name="initial_points">1</string>
+    <string name="options_text">Opções</string>
+    <string name="add_student">Adicionar aluno</string>
+    <string name="show_all_students">Mostrar todos os alunos</string>
+    <string name="delete_student">Excluir aluno</string>
+
+    <!-- Main / scanning -->
+    <string name="scan_hint">Aponte a câmera para o código QR de um aluno para começar</string>
+    <string name="camera_permission_rationale">"É necessário acesso à câmera para escanear códigos QR."</string>
+    <string name="grant_permission">Conceder permissão</string>
+    <string name="scan_first">Escaneie um aluno primeiro!</string>
+    <string name="points_not_saved">Falha ao salvar os pontos.</string>
+    <string name="points_added">"+%1$d ponto(s) adicionado(s)"</string>
+    <string name="undo">Desfazer</string>
+    <string name="undo_failed">Falha ao desfazer.</string>
+    <string name="undo_done">Ação desfeita.</string>
+    <string name="student_not_found">Aluno não encontrado.</string>
+
+    <!-- Add/edit student -->
+    <string name="name_hint">Nome do aluno</string>
+    <string name="add_student_title">Adicionar aluno</string>
+    <string name="edit_student_title">Editar aluno</string>
+    <string name="tap_to_share">Toque para compartilhar</string>
+    <string name="discipline_hint">Disciplina</string>
+    <string name="class_group_hint">Turma</string>
+    <string name="discipline_required">Escolha uma disciplina.</string>
+    <string name="class_group_required">Escolha uma turma.</string>
+    <string name="no_disciplines_registered">"Nenhuma disciplina cadastrada ainda. Cadastre uma na tela Disciplinas primeiro."</string>
+    <string name="camera_permission_denied">Permissão da câmera negada.</string>
+    <string name="photo_capture_failed">Falha ao capturar a foto.</string>
+    <string name="no_camera_app">Nenhum aplicativo de câmera disponível.</string>
+    <string name="name_required">O nome é obrigatório.</string>
+    <string name="photo_required">A foto é obrigatória.</string>
+    <string name="student_saved">Aluno salvo: %1$s</string>
+    <string name="student_not_saved">Falha ao salvar o aluno.</string>
+    <string name="share_failed">Falha ao compartilhar o código QR.</string>
+
+    <!-- Student list -->
+    <string name="confirm_delete_title">Excluir aluno?</string>
+    <string name="confirm_delete_message">"Tem certeza de que deseja excluir %1$s? Esta ação não pode ser desfeita."</string>
+    <string name="student_deleted">Aluno excluído.</string>
+    <string name="delete_failed">Falha ao excluir o aluno.</string>
+    <string name="search_hint">Buscar alunos…</string>
+    <string name="no_students">"Nenhum aluno ainda. Toque em \"Adicionar aluno\" para criar um."</string>
+    <string name="load_students_failed">Falha ao carregar os dados dos alunos.</string>
+
+    <!-- Disciplines / class groups / goals -->
+    <string name="disciplines_title">Disciplinas</string>
+    <string name="no_disciplines">"Nenhuma disciplina ainda. Toque em + para cadastrar uma."</string>
+    <string name="add_discipline">Adicionar disciplina</string>
+    <string name="edit_discipline">Renomear disciplina</string>
+    <string name="save_failed">Falha ao salvar.</string>
+    <string name="entity_deleted">Excluído.</string>
+    <string name="discipline_has_groups">"Exclua as turmas desta disciplina primeiro."</string>
+    <string name="manage_groups">Gerenciar turmas</string>
+    <string name="manage_goals">Gerenciar metas</string>
+    <string name="groups_title">Turmas — %1$s</string>
+    <string name="no_groups">"Nenhuma turma ainda. Toque em + para cadastrar uma."</string>
+    <string name="add_group">Adicionar turma</string>
+    <string name="edit_group">Renomear turma</string>
+    <string name="group_has_students">"Reatribua os alunos desta turma primeiro."</string>
+    <string name="goals_title">Metas — %1$s</string>
+    <string name="no_goals">"Nenhuma meta ainda. Toque em + para cadastrar uma."</string>
+    <string name="add_goal">Adicionar meta</string>
+    <string name="edit_goal">Editar meta</string>
+    <string name="goal_name_hint">Nome da meta</string>
+    <string name="goal_target_hint">Pontos necessários</string>
+    <string name="goal_target_points">%1$d pts</string>
+    <string name="progress_title">Progresso</string>
+    <string name="current_points_label">Pontos atuais</string>
+    <string name="discipline_class_format">%1$s — %2$s</string>
+    <string name="no_goals_for_discipline">"Nenhuma meta cadastrada para esta disciplina ainda."</string>
+    <string name="goal_achieved">Alcançada!</string>
+    <string name="goal_remaining">Faltam %1$d</string>
+
+    <!-- Export / selection -->
+    <string name="select_students">Selecionar alunos</string>
+    <string name="select_all">Selecionar todos</string>
+    <string name="export_action">Exportar</string>
+    <string name="selected_count_title">%1$d selecionado(s)</string>
+    <string name="select_students_first">Selecione ao menos um aluno primeiro.</string>
+    <string name="export_format_title">Exportar como…</string>
+    <string name="export_format_md">Markdown (.md)</string>
+    <string name="export_format_pdf">PDF (.pdf)</string>
+    <string name="export_format_json">JSON (.json)</string>
+    <string name="export_failed">Falha ao gerar exportação.</string>
+    <string name="exiting_selection">Sair da seleção</string>
+</resources>

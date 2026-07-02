@@ -1,0 +1,21 @@
+<resources>
+    <dimen name="spacing_xs">4dp</dimen>
+    <dimen name="spacing_sm">8dp</dimen>
+    <dimen name="spacing_md">16dp</dimen>
+    <dimen name="spacing_lg">24dp</dimen>
+    <dimen name="spacing_xl">32dp</dimen>
+
+    <dimen name="corner_radius_sm">12dp</dimen>
+    <dimen name="corner_radius_md">20dp</dimen>
+    <dimen name="corner_radius_lg">28dp</dimen>
+
+    <dimen name="elevation_card">1dp</dimen>
+    <dimen name="elevation_raised">6dp</dimen>
+
+    <dimen name="avatar_size">96dp</dimen>
+    <dimen name="photo_width">130dp</dimen>
+    <dimen name="photo_height">170dp</dimen>
+    <dimen name="list_photo_size">64dp</dimen>
+
+    <dimen name="icon_badge_size">36dp</dimen>
+</resources>
