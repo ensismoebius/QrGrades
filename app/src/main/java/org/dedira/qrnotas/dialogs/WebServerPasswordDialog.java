@@ -9,6 +9,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import com.google.android.material.textfield.TextInputEditText;
@@ -38,7 +39,7 @@ public class WebServerPasswordDialog extends Dialog {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
 
         LayoutInflater inflater = (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        View inflateView = inflater.inflate(R.layout.dialog_web_server_password, null);
+        View inflateView = inflater.inflate(R.layout.dialog_web_server_password, new FrameLayout(mContext), false);
         setContentView(inflateView);
 
         Window window = getWindow();

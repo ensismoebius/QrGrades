@@ -1,5 +1,6 @@
 package org.dedira.qrnotas.util;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -31,6 +32,10 @@ public class StudentPickerAdapter extends RecyclerView.Adapter<StudentPickerAdap
         this.listener = listener;
     }
 
+    // notifyDataSetChanged() below: this adapter is deliberately simpler than StudentAdapter
+    // (no DiffUtil) since the whole visible set legitimately changes on every load/search
+    // keystroke — a full rebind is the correct call, not a shortcut.
+    @SuppressLint("NotifyDataSetChanged")
     public void submitFullList(List<Student> newFullList) {
         this.studentsFull = new ArrayList<>(newFullList);
         this.students.clear();
@@ -38,6 +43,7 @@ public class StudentPickerAdapter extends RecyclerView.Adapter<StudentPickerAdap
         notifyDataSetChanged();
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     public void filter(String query) {
         String q = TextSearch.normalize(query == null ? "" : query.trim());
         students.clear();

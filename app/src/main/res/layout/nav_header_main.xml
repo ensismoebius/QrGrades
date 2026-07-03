@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Header included inside NavigationView, not an activity root — deliberately colored
+     differently (colorPrimaryContainer) from the surrounding drawer/theme background, so
+     this isn't the Overdraw case lint's heuristic assumes (it inexactly maps layouts to
+     activity themes; see the check's own explanation). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="?attr/colorPrimaryContainer"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="@dimen/spacing_lg">
+    android:padding="@dimen/spacing_lg"
+    tools:ignore="Overdraw">
 
     <ImageView
         android:layout_width="48dp"

@@ -11,6 +11,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -53,7 +54,7 @@ public class StudentPickerDialog extends Dialog {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
 
         LayoutInflater inflater = (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        View inflateView = inflater.inflate(R.layout.dialog_student_picker, null);
+        View inflateView = inflater.inflate(R.layout.dialog_student_picker, new FrameLayout(mContext), false);
         setContentView(inflateView);
 
         Window window = getWindow();

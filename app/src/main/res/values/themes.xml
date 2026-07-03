@@ -58,11 +58,6 @@
         <item name="cornerSize">50%</item>
     </style>
 
-    <style name="Widget.QrGrades.Toolbar" parent="Widget.Material3.Toolbar">
-        <item name="titleTextAppearance">@style/TextAppearance.Material3.TitleLarge</item>
-        <item name="titleTextColor">?attr/colorOnSurface</item>
-    </style>
-
     <style name="Animation.QrGrades.LoadingDialog" parent="Animation.AppCompat.Dialog">
         <item name="android:windowEnterAnimation">@anim/dialog_fade_in</item>
         <item name="android:windowExitAnimation">@anim/dialog_fade_out</item>

@@ -9,6 +9,7 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.dedira.qrnotas.R;
@@ -16,6 +17,7 @@ import org.dedira.qrnotas.R;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -39,9 +41,11 @@ public class BackupAdapter extends RecyclerView.Adapter<BackupAdapter.ViewHolder
     }
 
     public void submitList(File[] files) {
+        List<File> newList = new ArrayList<>(Arrays.asList(files));
+        DiffUtil.DiffResult result = DiffUtil.calculateDiff(new SnapshotDiffCallback(snapshots, newList));
         snapshots.clear();
-        for (File f : files) snapshots.add(f);
-        notifyDataSetChanged();
+        snapshots.addAll(newList);
+        result.dispatchUpdatesTo(this);
     }
 
     public int getSnapshotCount() {
@@ -85,6 +89,38 @@ public class BackupAdapter extends RecyclerView.Adapter<BackupAdapter.ViewHolder
             txtDetail = itemView.findViewById(R.id.txtBackupDetail);
             btnRestore = itemView.findViewById(R.id.btnRestoreBackup);
             btnDelete = itemView.findViewById(R.id.btnDeleteBackup);
+        }
+    }
+
+    private static class SnapshotDiffCallback extends DiffUtil.Callback {
+        private final List<File> oldList;
+        private final List<File> newList;
+
+        SnapshotDiffCallback(List<File> oldList, List<File> newList) {
+            this.oldList = oldList;
+            this.newList = newList;
+        }
+
+        @Override
+        public int getOldListSize() {
+            return oldList.size();
+        }
+
+        @Override
+        public int getNewListSize() {
+            return newList.size();
+        }
+
+        @Override
+        public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
+            return oldList.get(oldItemPosition).getAbsolutePath().equals(newList.get(newItemPosition).getAbsolutePath());
+        }
+
+        @Override
+        public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
+            File oldFile = oldList.get(oldItemPosition);
+            File newFile = newList.get(newItemPosition);
+            return oldFile.lastModified() == newFile.lastModified() && oldFile.length() == newFile.length();
         }
     }
 }

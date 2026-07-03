@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">QrNotas</string>
     <string name="student_photo">Student photo</string>
     <string name="edit_student">Edit student</string>
@@ -27,7 +27,7 @@
     <string name="note_hint">Note (optional)</string>
     <string name="note_dialog_title">%1$s points for %2$s</string>
     <string name="points_not_saved">Failed to save points.</string>
-    <string name="points_added">"%1$+d point(s) recorded"</string>
+    <string name="points_added" tools:ignore="PluralsCandidate">"%1$+d point(s) recorded"</string>
     <string name="undo">Undo</string>
     <string name="undo_failed">Failed to undo.</string>
     <string name="undo_done">Undo complete.</string>
@@ -49,9 +49,7 @@
     <string name="add_student_title">Add student</string>
     <string name="edit_student_title">Edit student</string>
     <string name="tap_to_share">Tap to share</string>
-    <string name="discipline_hint">Discipline</string>
     <string name="class_group_hint">Class / group</string>
-    <string name="discipline_required">Choose a discipline.</string>
     <string name="disciplines_hint">Disciplines</string>
     <string name="discipline_no_classes">"%1$s (no classes yet)"</string>
     <string name="no_discipline_selected">Select at least one discipline.</string>
@@ -116,7 +114,7 @@
     <string name="select_students">Select students</string>
     <string name="select_all">Select all</string>
     <string name="export_action">Export</string>
-    <string name="selected_count_title">%1$d selected</string>
+    <string name="selected_count_title" tools:ignore="PluralsCandidate">%1$d selected</string>
     <string name="select_students_first">Select at least one student first.</string>
     <string name="export_format_title">Export as…</string>
     <string name="export_format_md">Markdown (.md)</string>
@@ -127,16 +125,15 @@
     <string name="close">Close</string>
     <string name="import_action">Import</string>
     <string name="import_confirm_title">Import data?</string>
-    <string name="import_confirm_message">This will add or update students, disciplines, class groups, goals and points history from the selected JSON file.</string>
     <string name="import_succeeded">Import completed.</string>
     <string name="import_failed">Failed to import file.</string>
     <string name="import_empty">The file has no data to import.</string>
-    <string name="json_import_summary">"%1$d new student(s), %2$d existing student(s) will be updated."</string>
+    <string name="json_import_summary" tools:ignore="PluralsCandidate">"%1$d new student(s), %2$d existing student(s) will be updated."</string>
 
     <!-- CSV roster import -->
     <string name="import_csv_action">Import CSV</string>
     <string name="csv_import_confirm_title">Import roster?</string>
-    <string name="csv_import_summary">"%1$d new student(s), %2$d matched to existing students, %3$d row(s) skipped."</string>
+    <string name="csv_import_summary" tools:ignore="PluralsCandidate">"%1$d new student(s), %2$d matched to existing students, %3$d row(s) skipped."</string>
     <string name="csv_import_error_line">"Line %1$d: %2$s"</string>
     <string name="csv_import_no_valid_rows">No valid rows to import.</string>
     <string name="csv_import_invalid_file">"Invalid CSV file: %1$s"</string>

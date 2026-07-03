@@ -1,5 +1,6 @@
 package org.dedira.qrnotas.util;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -97,6 +98,9 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
         return new ArrayList<>(selectedIds);
     }
 
+    // notifyDataSetChanged() below: every visible row's checkbox/selected state genuinely
+    // changes at once, so a full rebind is the correct call here, not a shortcut.
+    @SuppressLint("NotifyDataSetChanged")
     public void setSelectionMode(boolean enabled) {
         if (selectionMode == enabled) return;
         selectionMode = enabled;
@@ -105,6 +109,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
         notifySelectionListener();
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     public void selectAll() {
         selectedIds.clear();
         for (Student s : students) selectedIds.add(s.id);
@@ -112,6 +117,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
         notifySelectionListener();
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     public void clearSelection() {
         selectedIds.clear();
         notifyDataSetChanged();

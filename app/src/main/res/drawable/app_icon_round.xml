@@ -1,6 +1,10 @@
+<!-- 512dp / long paths: standard Play Store adaptive-icon export size, this is the actual
+     launcher icon asset. Reducing precision or rasterizing would visibly degrade it. -->
 <vector android:autoMirrored="true" android:height="512dp"
     android:viewportHeight="512" android:viewportWidth="512"
-    android:width="512dp" xmlns:android="http://schemas.android.com/apk/res/android">
+    android:width="512dp" xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="VectorRaster,VectorPath">
     <path android:fillColor="#800080"
         android:pathData="M183.6,0C81.89,-0 0,81.89 0,183.6L0,328.4C-0,430.11 81.89,512 183.6,512L328.4,512C430.11,512 512,430.11 512,328.4L512,183.6C512,81.89 430.11,0 328.4,0L183.6,0zM192.28,30.69L319.72,30.69C409.24,30.69 481.31,102.76 481.31,192.28L481.31,319.72C481.31,409.24 409.24,481.31 319.72,481.31L192.28,481.31C102.76,481.31 30.69,409.24 30.69,319.72L30.69,192.28C30.69,102.76 102.76,30.69 192.28,30.69z"
         android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeWidth="1.82921"/>

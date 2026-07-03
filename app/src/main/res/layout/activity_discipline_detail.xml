@@ -2,8 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="?attr/colorSurface">
+    android:layout_height="match_parent">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
@@ -32,30 +31,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/toolbar">
 
-        <LinearLayout
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="@dimen/spacing_lg">
-
-            <ImageView
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_list"
-                app:tint="?attr/colorPrimary" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/spacing_md"
-                android:layout_weight="1"
-                android:text="@string/manage_groups"
-                android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
-                android:textColor="?attr/colorOnSurface" />
-
-        </LinearLayout>
+            android:padding="@dimen/spacing_lg"
+            android:drawablePadding="@dimen/spacing_md"
+            android:text="@string/manage_groups"
+            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textColor="?attr/colorOnSurface"
+            app:drawableStartCompat="@drawable/ic_list"
+            app:drawableTint="?attr/colorPrimary" />
 
     </com.google.android.material.card.MaterialCardView>
 
@@ -75,30 +61,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/cardGroups">
 
-        <LinearLayout
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="@dimen/spacing_lg">
-
-            <ImageView
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_check"
-                app:tint="?attr/colorTertiary" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/spacing_md"
-                android:layout_weight="1"
-                android:text="@string/manage_goals"
-                android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
-                android:textColor="?attr/colorOnSurface" />
-
-        </LinearLayout>
+            android:padding="@dimen/spacing_lg"
+            android:drawablePadding="@dimen/spacing_md"
+            android:text="@string/manage_goals"
+            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textColor="?attr/colorOnSurface"
+            app:drawableStartCompat="@drawable/ic_check"
+            app:drawableTint="?attr/colorTertiary" />
 
     </com.google.android.material.card.MaterialCardView>
 

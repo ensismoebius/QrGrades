@@ -49,9 +49,7 @@
     <string name="add_student_title">Adicionar aluno</string>
     <string name="edit_student_title">Editar aluno</string>
     <string name="tap_to_share">Toque para compartilhar</string>
-    <string name="discipline_hint">Disciplina</string>
     <string name="class_group_hint">Turma</string>
-    <string name="discipline_required">Escolha uma disciplina.</string>
     <string name="disciplines_hint">Disciplinas</string>
     <string name="discipline_no_classes">"%1$s (sem turmas ainda)"</string>
     <string name="no_discipline_selected">Selecione ao menos uma disciplina.</string>
@@ -127,7 +125,6 @@
     <string name="close">Fechar</string>
     <string name="import_action">Importar</string>
     <string name="import_confirm_title">Importar dados?</string>
-    <string name="import_confirm_message">Isso vai adicionar ou atualizar alunos, disciplinas, turmas, metas e histórico de pontos a partir do arquivo JSON selecionado.</string>
     <string name="import_succeeded">Importação concluída.</string>
     <string name="import_failed">Falha ao importar o arquivo.</string>
     <string name="import_empty">O arquivo não tem dados para importar.</string>

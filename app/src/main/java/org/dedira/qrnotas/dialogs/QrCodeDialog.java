@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -32,7 +33,7 @@ public class QrCodeDialog extends Dialog {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
 
         LayoutInflater inflater = (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        View inflateView = inflater.inflate(R.layout.dialog_qrcode, null);
+        View inflateView = inflater.inflate(R.layout.dialog_qrcode, new FrameLayout(mContext), false);
         setContentView(inflateView);
 
         Window window = getWindow();

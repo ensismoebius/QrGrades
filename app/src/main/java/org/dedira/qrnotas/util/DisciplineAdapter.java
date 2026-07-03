@@ -71,7 +71,7 @@ public class DisciplineAdapter extends RecyclerView.Adapter<DisciplineAdapter.Vi
                             updated.add(savedResult);
                             submitList(updated);
                         } else {
-                            notifyDataSetChanged();
+                            notifyItemChanged(disciplines.indexOf(existing));
                         }
                     });
                 })

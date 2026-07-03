@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
+import android.widget.FrameLayout;
 
 import org.dedira.qrnotas.R;
 
@@ -25,7 +26,7 @@ public class LoadingDialog extends Dialog {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
 
         LayoutInflater inflater = (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        View inflateView = inflater.inflate(R.layout.dialog_loading, null);
+        View inflateView = inflater.inflate(R.layout.dialog_loading, new FrameLayout(mContext), false);
         setContentView(inflateView);
 
         Window window = getWindow();

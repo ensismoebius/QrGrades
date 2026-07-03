@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- Bumping targetSdk requires a dedicated behavior-compatibility regression pass
+         (scoped storage, notification permissions, etc.) across the whole app, not a
+         one-line change — out of scope for a lint cleanup. -->
+    <issue id="OldTargetApi" severity="ignore" />
+
+    <!-- appcompat 1.7.x / material 1.14.x / recyclerview 1.4.x all pull in androidx.core
+         releases that require compileSdk 35 + AGP 8.6+; this project is on AGP 8.2.2 /
+         compileSdk 34. Bumping AGP is a separate, much larger change than a dependency
+         patch bump — tracked here, not silently done as a "warning fix". -->
+    <issue id="GradleDependency" severity="ignore" />
+</lint>

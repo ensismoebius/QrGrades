@@ -76,7 +76,7 @@ public class ClassGroupAdapter extends RecyclerView.Adapter<ClassGroupAdapter.Vi
                             updated.add(saved);
                             submitList(updated);
                         } else {
-                            notifyDataSetChanged();
+                            notifyItemChanged(groups.indexOf(existing));
                         }
                     });
                 })

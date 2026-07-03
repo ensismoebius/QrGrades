@@ -15,6 +15,8 @@ import java.util.Locale;
 public class CsvImporter {
 
     public static class CsvFormatException extends Exception {
+        private static final long serialVersionUID = 1L;
+
         public CsvFormatException(String message) {
             super(message);
         }
