@@ -30,7 +30,7 @@
         <item name="colorSurfaceContainer">@color/md_surface_container</item>
         <item name="colorSurfaceContainerHigh">@color/md_surface_container_high</item>
 
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">true</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
 
         <item name="android:windowActivityTransitions">true</item>
