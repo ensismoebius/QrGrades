@@ -192,13 +192,18 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
         holder.chkSelect.setChecked(selected);
 
         int actionsVisibility = selectionMode ? View.GONE : View.VISIBLE;
-        holder.btnProgress.setVisibility(actionsVisibility);
+        holder.btnQrCode.setVisibility(actionsVisibility);
         holder.btnEditStudent.setVisibility(actionsVisibility);
         holder.btnDeleteStudent.setVisibility(actionsVisibility);
 
         holder.itemView.setOnClickListener(v -> {
-            if (selectionMode) toggleSelection(student.id, holder.getBindingAdapterPosition());
-            else new QrCodeDialog(context, student).show();
+            if (selectionMode) {
+                toggleSelection(student.id, holder.getBindingAdapterPosition());
+                return;
+            }
+            Intent intent = new Intent(context, StudentProgress.class);
+            intent.putExtra("studentId", student.id);
+            context.startActivity(intent);
         });
 
         holder.itemView.setOnLongClickListener(v -> {
@@ -209,11 +214,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
 
         holder.chkSelect.setOnClickListener(v -> toggleSelection(student.id, holder.getBindingAdapterPosition()));
 
-        holder.btnProgress.setOnClickListener(v -> {
-            Intent intent = new Intent(context, StudentProgress.class);
-            intent.putExtra("studentId", student.id);
-            context.startActivity(intent);
-        });
+        holder.btnQrCode.setOnClickListener(v -> new QrCodeDialog(context, student).show());
 
         holder.btnEditStudent.setOnClickListener(v -> {
             Intent intent = new Intent(context, AddOrEditStudent.class);
@@ -240,7 +241,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
     static class StudentViewHolder extends RecyclerView.ViewHolder {
         final TextView txtName;
         final ImageView imgPhoto;
-        final ImageButton btnProgress;
+        final ImageButton btnQrCode;
         final ImageButton btnEditStudent;
         final ImageButton btnDeleteStudent;
         final MaterialCheckBox chkSelect;
@@ -249,7 +250,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
             super(itemView);
             txtName = itemView.findViewById(R.id.txtNameList);
             imgPhoto = itemView.findViewById(R.id.imgPhotoList);
-            btnProgress = itemView.findViewById(R.id.btnProgress);
+            btnQrCode = itemView.findViewById(R.id.btnQrCode);
             btnEditStudent = itemView.findViewById(R.id.btnEditStudent);
             btnDeleteStudent = itemView.findViewById(R.id.btnDeleteStudent);
             chkSelect = itemView.findViewById(R.id.chkSelect);

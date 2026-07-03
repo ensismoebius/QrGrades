@@ -7,7 +7,9 @@
         students: [],
         overview: [],
         goalsByDiscipline: {},
-        tab: 'overview'
+        tab: 'overview',
+        leaderboardDisciplineId: null,
+        studentsDisciplineId: null
     };
 
     /* ------------------------------- API helper ------------------------------- */
@@ -160,11 +162,24 @@
 
     function renderOverview() {
         var el = document.getElementById('tab-overview');
-        var top = state.overview.slice().sort(function (a, b) { return b.points - a.points; }).slice(0, 10);
+
+        if (state.disciplines.length === 0) {
+            el.innerHTML = '<div class="card"><p>Add a discipline first.</p></div>';
+            return;
+        }
+        if (state.leaderboardDisciplineId == null ||
+            !state.disciplines.some(function (d) { return d.id === state.leaderboardDisciplineId; })) {
+            state.leaderboardDisciplineId = state.disciplines[0].id;
+        }
+
+        var scoped = state.overview.filter(function (row) { return row.disciplineId === state.leaderboardDisciplineId; });
+        var top = scoped.slice().sort(function (a, b) { return b.points - a.points; }).slice(0, 10);
 
         el.innerHTML =
-            '<div class="card"><h2>Leaderboard</h2>' + leaderboardSvg(top) + '</div>' +
-            '<div class="card"><h2>Cumulative points over time</h2>' + pointsOverTimeSvg(state.overview) + '</div>' +
+            '<div class="card"><div class="row"><h2 style="flex:1">Leaderboard</h2><label>Discipline:</label>' +
+            '<select id="leaderboard-discipline">' + disciplineOptions(state.leaderboardDisciplineId) + '</select></div>' +
+            leaderboardSvg(top) + '</div>' +
+            '<div class="card"><h2>Cumulative points over time</h2>' + pointsOverTimeSvg(scoped) + '</div>' +
             '<div class="card"><h2>All enrollments</h2><div class="table-wrap"><table><thead><tr>' +
             '<th>Name</th><th>Discipline</th><th>Class group</th><th>Points</th></tr></thead><tbody>' +
             state.overview.map(function (row) {
@@ -172,6 +187,11 @@
                     '</td><td>' + escapeHtml(row.classGroup) + '</td><td>' + row.points + '</td></tr>';
             }).join('') +
             '</tbody></table></div></div>';
+
+        document.getElementById('leaderboard-discipline').addEventListener('change', function (e) {
+            state.leaderboardDisciplineId = e.target.value;
+            renderOverview();
+        });
     }
 
     function leaderboardSvg(rows) {
@@ -239,14 +259,37 @@
 
     function renderStudents() {
         var el = document.getElementById('tab-students');
+
+        if (state.disciplines.length === 0) {
+            el.innerHTML = '<div class="card"><p>Add a discipline first.</p></div>';
+            return;
+        }
+        if (state.studentsDisciplineId == null ||
+            !state.disciplines.some(function (d) { return d.id === state.studentsDisciplineId; })) {
+            state.studentsDisciplineId = state.disciplines[0].id;
+        }
+
+        var enrolledIds = {};
+        state.overview.forEach(function (row) {
+            if (row.disciplineId === state.studentsDisciplineId) enrolledIds[row.studentId] = true;
+        });
+        var scopedStudents = state.students.filter(function (s) { return enrolledIds[s.id]; });
+
         el.innerHTML =
             '<div class="card">' +
-            '<div class="row"><h2 style="flex:1">Students</h2><button class="btn" id="add-student">Add student</button></div>' +
+            '<div class="row"><h2 style="flex:1">Students</h2><label>Discipline:</label>' +
+            '<select id="students-discipline">' + disciplineOptions(state.studentsDisciplineId) + '</select>' +
+            '<button class="btn" id="add-student">Add student</button></div>' +
             '<div class="table-wrap"><table><thead><tr><th></th><th>Name</th><th>Photo</th></tr></thead><tbody id="students-body"></tbody></table></div>' +
             '</div>';
 
+        document.getElementById('students-discipline').addEventListener('change', function (e) {
+            state.studentsDisciplineId = e.target.value;
+            renderStudents();
+        });
+
         var body = document.getElementById('students-body');
-        state.students.forEach(function (s) {
+        scopedStudents.forEach(function (s) {
             var tr = document.createElement('tr');
             tr.className = 'clickable';
             tr.innerHTML = '<td><img class="avatar" src="' + (s.hasPhoto ? '/api/students/' + s.id + '/photo' : '') +

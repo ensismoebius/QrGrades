@@ -4,12 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>QrGrades</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
 
 <div id="login-screen">
     <form id="login-card" autocomplete="off">
+        <img class="app-logo" src="/favicon.svg" alt="" width="56" height="56">
         <h1>QrGrades</h1>
         <input type="password" id="login-password" placeholder="Password" autofocus>
         <div id="login-error"></div>
@@ -19,7 +21,10 @@
 
 <div id="app-shell" class="hidden">
     <header>
-        <h1>QrGrades</h1>
+        <div class="row" style="margin:0">
+            <img class="app-logo" src="/favicon.svg" alt="" width="28" height="28">
+            <h1>QrGrades</h1>
+        </div>
         <button class="btn secondary" id="logout-btn">Log out</button>
     </header>
     <nav id="tab-nav">

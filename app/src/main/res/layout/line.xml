@@ -39,18 +39,18 @@
             android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
             android:textColor="?attr/colorOnSurface"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/btnProgress"
+            app:layout_constraintEnd_toStartOf="@id/btnQrCode"
             app:layout_constraintStart_toEndOf="@id/imgPhotoList"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_bias="0.5" />
 
         <ImageButton
-            android:id="@+id/btnProgress"
+            android:id="@+id/btnQrCode"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/progress_title"
-            android:src="@drawable/ic_chart"
+            android:contentDescription="@string/qr_code_image"
+            android:src="@drawable/ic_qr_scan_tile"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/btnEditStudent"
             app:layout_constraintTop_toTopOf="parent"

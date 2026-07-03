@@ -78,6 +78,7 @@ public class WebServer extends NanoHTTPD {
             if (uri.equals("/") || uri.equals("/index.html")) return serveAsset("web/index.html", "text/html");
             if (uri.equals("/app.css")) return serveAsset("web/app.css", "text/css");
             if (uri.equals("/app.js")) return serveAsset("web/app.js", "application/javascript");
+            if (uri.equals("/favicon.svg")) return serveAsset("web/favicon.svg", "image/svg+xml");
 
             if (!uri.startsWith("/api/")) return notFound();
             if (uri.equals("/api/login") && method == Method.POST) return handleLogin(session);
