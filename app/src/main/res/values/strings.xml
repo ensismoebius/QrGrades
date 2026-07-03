@@ -88,6 +88,9 @@
     <string name="discipline_has_groups">"Delete this discipline\'s groups first."</string>
     <string name="manage_groups">Manage groups</string>
     <string name="manage_goals">Manage goals</string>
+    <string name="view_leaderboard">Leaderboard</string>
+    <string name="leaderboard_title">Leaderboard — %1$s</string>
+    <string name="no_leaderboard_data">"No students enrolled in this discipline yet."</string>
     <string name="groups_title">Groups — %1$s</string>
     <string name="no_groups">"No groups yet. Tap + to register one."</string>
     <string name="add_group">Add group</string>

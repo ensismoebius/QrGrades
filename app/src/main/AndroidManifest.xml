@@ -47,6 +47,9 @@
             android:name=".activities.GoalList"
             android:exported="false" />
         <activity
+            android:name=".activities.LeaderboardList"
+            android:exported="false" />
+        <activity
             android:name=".activities.StudentProgress"
             android:exported="false" />
         <activity

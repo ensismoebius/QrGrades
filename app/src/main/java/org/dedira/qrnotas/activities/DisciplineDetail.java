@@ -33,9 +33,10 @@ import org.dedira.qrnotas.util.EdgeToEdge;
 
 /**
  * Small "menu" screen shown after tapping a discipline in {@link DisciplineList}. It doesn't
- * show any data itself — it's just two big tappable cards that route to the discipline's class
- * groups ({@link ClassGroupList}) or its goals ({@link GoalList}), passing along the discipline's
- * id/name so those screens know which discipline to load.
+ * show any data itself — it's just tappable cards that route to the discipline's class groups
+ * ({@link ClassGroupList}), its goals ({@link GoalList}), or its points leaderboard
+ * ({@link LeaderboardList}), passing along the discipline's id/name so those screens know which
+ * discipline to load.
  */
 public class DisciplineDetail extends AppCompatActivity {
 
@@ -87,6 +88,15 @@ public class DisciplineDetail extends AppCompatActivity {
         // Tapping the "goals" card opens GoalList the same way, scoped to this discipline.
         this.findViewById(R.id.cardGoals).setOnClickListener(v -> {
             Intent intent = new Intent(this, GoalList.class);
+            intent.putExtra("disciplineId", disciplineId);
+            intent.putExtra("disciplineName", disciplineName);
+            startActivity(intent);
+        });
+
+        // Tapping the "leaderboard" card opens LeaderboardList, ranking students within this
+        // discipline by points.
+        this.findViewById(R.id.cardLeaderboard).setOnClickListener(v -> {
+            Intent intent = new Intent(this, LeaderboardList.class);
             intent.putExtra("disciplineId", disciplineId);
             intent.putExtra("disciplineName", disciplineName);
             startActivity(intent);

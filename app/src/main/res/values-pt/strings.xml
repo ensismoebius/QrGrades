@@ -88,6 +88,9 @@
     <string name="discipline_has_groups">"Exclua as turmas desta disciplina primeiro."</string>
     <string name="manage_groups">Gerenciar turmas</string>
     <string name="manage_goals">Gerenciar metas</string>
+    <string name="view_leaderboard">Ranking</string>
+    <string name="leaderboard_title">Ranking — %1$s</string>
+    <string name="no_leaderboard_data">"Nenhum aluno matriculado nesta disciplina ainda."</string>
     <string name="groups_title">Turmas — %1$s</string>
     <string name="no_groups">"Nenhuma turma ainda. Toque em + para cadastrar uma."</string>
     <string name="add_group">Adicionar turma</string>
