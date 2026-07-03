@@ -1,5 +1,6 @@
 package org.dedira.qrnotas.services;
 
+import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.Build;
@@ -30,6 +31,7 @@ public class QrScanTileService extends TileService {
     }
 
     @Override
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     @SuppressWarnings("deprecation") // startActivityAndCollapse(Intent): only path below API 34, where the PendingIntent overload doesn't exist yet
     public void onClick() {
         super.onClick();
