@@ -10,7 +10,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.Locale;
 import java.util.zip.ZipEntry;
@@ -41,7 +40,7 @@ public class DbBackup {
     public static File[] listSnapshots(Context context) {
         File[] files = backupDir(context).listFiles((dir, name) -> name.endsWith(".zip"));
         if (files == null) return new File[0];
-        Arrays.sort(files, Comparator.comparingLong(File::lastModified).reversed());
+        Arrays.sort(files, (first, second) -> Long.compare(second.lastModified(), first.lastModified()));
         return files;
     }
 
