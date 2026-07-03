@@ -1,8 +1,29 @@
+/*
+ * QrGrades — track student grades/points, scan QR codes to award points, and optionally
+ * expose the same data to a browser on the local network.
+ * Copyright (C) 2026 André Furlan
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package org.dedira.qrnotas.util;
 
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+
+import org.dedira.qrnotas.model.IDatabaseOnResult;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -31,12 +52,14 @@ public class DbBackup {
     private DbBackup() {
     }
 
+    /** App-private folder holding every backup zip, created on first use. */
     public static File backupDir(Context context) {
         File dir = new File(context.getFilesDir(), "backups");
         if (!dir.exists()) dir.mkdirs();
         return dir;
     }
 
+    /** Lists every snapshot zip, newest first. */
     public static File[] listSnapshots(Context context) {
         File[] files = backupDir(context).listFiles((dir, name) -> name.endsWith(".zip"));
         if (files == null) return new File[0];
@@ -44,6 +67,7 @@ public class DbBackup {
         return files;
     }
 
+    /** True if the snapshot was taken explicitly by the user (vs. an automatic pre-import safety snapshot) — used to decide which ones {@link #pruneOldSnapshots} may remove. */
     public static boolean isManual(File snapshot) {
         return snapshot.getName().startsWith(MANUAL_PREFIX);
     }
@@ -52,11 +76,13 @@ public class DbBackup {
         return snapshot.delete();
     }
 
+    /** Keeps only the {@code keep} newest snapshots, deleting the rest, so automatic pre-import backups don't accumulate forever. */
     public static void pruneOldSnapshots(Context context, int keep) {
         File[] snapshots = listSnapshots(context);
         for (int i = keep; i < snapshots.length; i++) snapshots[i].delete();
     }
 
+    /** Builds a fresh, timestamped destination path for a new snapshot zip, prefixed by whether it's manual or automatic. */
     public static File newSnapshotFile(Context context, boolean manual) {
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
         String prefix = manual ? MANUAL_PREFIX : AUTO_PREFIX;

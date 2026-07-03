@@ -1,3 +1,22 @@
+/*
+ * QrGrades — track student grades/points, scan QR codes to award points, and optionally
+ * expose the same data to a browser on the local network.
+ * Copyright (C) 2026 André Furlan
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package org.dedira.qrnotas.util;
 
 import android.content.Context;
@@ -25,11 +44,17 @@ import java.util.concurrent.TimeUnit;
  * {@code Handler}, so it never fires on the thread that's waiting on it here — safe to block
  * from any *non*-main thread. NanoHTTPD services each HTTP request on its own worker thread
  * (never the UI thread), which is the only place this class is meant to be used from.
+ *
+ * <p>Every method below follows the same shape: create a {@link CountDownLatch} of 1, call the
+ * matching {@link Database} method with a callback that stashes its result and counts the latch
+ * down, then {@link #awaitLatch} (bounded by {@link #TIMEOUT_SECONDS}, so a stuck request times
+ * out instead of hanging the HTTP connection forever) and return the stashed result.
  */
 public class DatabaseSync {
 
     private static final long TIMEOUT_SECONDS = 5;
 
+    /** Simple holder for a callback's outcome, since a lambda can't return a value up the call stack — it has to write into something the outer method can read after the latch releases. */
     public static final class Result<T> {
         public boolean success;
         public T value;
@@ -39,12 +64,14 @@ public class DatabaseSync {
     private DatabaseSync() {
     }
 
+    /** Guards against accidentally blocking the UI thread, which would deadlock: {@link Database}'s callback is itself posted to the main thread, so it could never run while the main thread is stuck here waiting for it. */
     private static void assertNotMainThread() {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             throw new IllegalStateException("DatabaseSync must not be called from the main thread");
         }
     }
 
+    /** Waits for the async callback to fire, giving up after {@link #TIMEOUT_SECONDS} rather than blocking indefinitely if something goes wrong. */
     private static void awaitLatch(CountDownLatch latch) {
         try {
             latch.await(TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -55,6 +82,7 @@ public class DatabaseSync {
 
     /* -------------------------------- Students -------------------------------- */
 
+    /** Synchronous wrapper around {@link Database#loadAllStudents}. */
     public static ArrayList<Student> loadAllStudents(Database database) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -68,6 +96,7 @@ public class DatabaseSync {
         return result.value;
     }
 
+    /** Synchronous wrapper around {@link Database#loadStudent}. */
     public static Student loadStudent(Database database, String id) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -81,6 +110,7 @@ public class DatabaseSync {
         return result.success ? result.value : null;
     }
 
+    /** Synchronous wrapper around {@link Database#saveStudent}. */
     public static Result<Student> saveStudent(Database database, Student student) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -94,6 +124,7 @@ public class DatabaseSync {
         return result;
     }
 
+    /** Synchronous wrapper around {@link Database#deleteStudent}. */
     public static boolean deleteStudent(Database database, String id) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -108,6 +139,7 @@ public class DatabaseSync {
 
     /* ------------------------------- Enrollments ------------------------------- */
 
+    /** Synchronous wrapper around {@link Database#loadEnrollmentById}. */
     public static Enrollment loadEnrollmentById(Database database, String id) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -121,6 +153,7 @@ public class DatabaseSync {
         return result.success ? result.value : null;
     }
 
+    /** Synchronous wrapper around {@link Database#loadEnrollmentsForStudent}. */
     public static ArrayList<Enrollment> loadEnrollmentsForStudent(Database database, String studentId) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -134,6 +167,7 @@ public class DatabaseSync {
         return result.value;
     }
 
+    /** Synchronous wrapper around {@link Database#saveEnrollment}. */
     public static Result<Enrollment> saveEnrollment(Database database, Enrollment enrollment) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -147,6 +181,7 @@ public class DatabaseSync {
         return result;
     }
 
+    /** Synchronous wrapper around {@link Database#deleteEnrollment}. */
     public static boolean deleteEnrollment(Database database, String enrollmentId) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -159,6 +194,7 @@ public class DatabaseSync {
         return result.success;
     }
 
+    /** Synchronous wrapper around {@link Database#updateEnrollmentGrades} — sets the raw point total; callers must also record a {@link PointsHistory} row (see {@link #savePointsHistory}) to keep the audit trail meaningful, this method alone doesn't. */
     public static Result<Enrollment> updateEnrollmentGrades(Database database, String enrollmentId, int newGrades) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -174,6 +210,7 @@ public class DatabaseSync {
 
     /* ----------------------------- Points history ------------------------------ */
 
+    /** Synchronous wrapper around {@link Database#savePointsHistory}. */
     public static Result<PointsHistory> savePointsHistory(Database database, PointsHistory history) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -187,6 +224,7 @@ public class DatabaseSync {
         return result;
     }
 
+    /** Synchronous wrapper around {@link Database#loadHistoryForEnrollment}. */
     public static ArrayList<PointsHistory> loadHistoryForEnrollment(Database database, String enrollmentId) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -202,6 +240,7 @@ public class DatabaseSync {
 
     /* ------------------------------- Disciplines -------------------------------- */
 
+    /** Synchronous wrapper around {@link Database#loadAllDisciplines}. */
     public static ArrayList<Discipline> loadAllDisciplines(Database database) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -215,6 +254,7 @@ public class DatabaseSync {
         return result.value;
     }
 
+    /** Synchronous wrapper around {@link Database#saveDiscipline}. */
     public static Result<Discipline> saveDiscipline(Database database, Discipline discipline) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -228,6 +268,7 @@ public class DatabaseSync {
         return result;
     }
 
+    /** Synchronous wrapper around {@link Database#deleteDiscipline} — {@code result.error} carries a machine-readable reason (e.g. "HAS_GROUPS") when deletion is blocked, for the web API to surface as a 409 body. */
     public static Result<Void> deleteDiscipline(Database database, String id) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -243,6 +284,7 @@ public class DatabaseSync {
 
     /* ------------------------------- Class groups -------------------------------- */
 
+    /** Synchronous wrapper around {@link Database#loadAllClassGroups}. */
     public static ArrayList<ClassGroup> loadAllClassGroups(Database database) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -256,6 +298,7 @@ public class DatabaseSync {
         return result.value;
     }
 
+    /** Synchronous wrapper around {@link Database#loadClassGroupsForDiscipline}. */
     public static ArrayList<ClassGroup> loadClassGroupsForDiscipline(Database database, String disciplineId) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -269,6 +312,7 @@ public class DatabaseSync {
         return result.value;
     }
 
+    /** Synchronous wrapper around {@link Database#saveClassGroup}. */
     public static Result<ClassGroup> saveClassGroup(Database database, ClassGroup group) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -282,6 +326,7 @@ public class DatabaseSync {
         return result;
     }
 
+    /** Synchronous wrapper around {@link Database#deleteClassGroup} — see {@link #deleteDiscipline} for the {@code result.error} convention. */
     public static Result<Void> deleteClassGroup(Database database, String id) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -297,6 +342,7 @@ public class DatabaseSync {
 
     /* ---------------------------------- Goals ------------------------------------ */
 
+    /** Synchronous wrapper around {@link Database#loadGoalsForDiscipline}. */
     public static ArrayList<Goal> loadGoalsForDiscipline(Database database, String disciplineId) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -310,6 +356,7 @@ public class DatabaseSync {
         return result.value;
     }
 
+    /** Synchronous wrapper around {@link Database#saveGoal}. */
     public static Result<Goal> saveGoal(Database database, Goal goal) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -323,6 +370,7 @@ public class DatabaseSync {
         return result;
     }
 
+    /** Synchronous wrapper around {@link Database#deleteGoal}. */
     public static boolean deleteGoal(Database database, String id) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -337,6 +385,7 @@ public class DatabaseSync {
 
     /* ---------------------------- Export / import --------------------------------- */
 
+    /** Synchronous wrapper around {@link Database#loadExportData}. */
     public static ArrayList<StudentExportData> loadExportData(Database database, List<String> studentIds) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -350,6 +399,7 @@ public class DatabaseSync {
         return result.value;
     }
 
+    /** Synchronous wrapper around {@link Database#importExportData} — a bulk overwrite; callers (the web API's import endpoint) should snapshot first via {@link #createFullSnapshot}. */
     public static boolean importExportData(Database database, List<StudentExportData> data) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -363,6 +413,7 @@ public class DatabaseSync {
         return result.success;
     }
 
+    /** Synchronous wrapper around {@link Database#resolveCsvRows} — matches raw CSV rows against existing students before anything is committed. */
     public static CsvImportPlan resolveCsvRows(Database database, List<CsvStudentRow> rows) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -376,6 +427,7 @@ public class DatabaseSync {
         return result.value;
     }
 
+    /** Synchronous wrapper around {@link Database#importCsvRows} — the actual commit step after {@link #resolveCsvRows} has been reviewed/confirmed. */
     public static boolean importCsvRows(Database database, List<ResolvedCsvRow> rows) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);
@@ -391,6 +443,7 @@ public class DatabaseSync {
 
     /* ------------------------------------ Backup ----------------------------------- */
 
+    /** Synchronous wrapper around {@link DbBackup#createFullSnapshot}, used as the safety net taken automatically right before a bulk import commits. */
     public static boolean createFullSnapshot(Context context, Database database, boolean manual) {
         assertNotMainThread();
         CountDownLatch latch = new CountDownLatch(1);

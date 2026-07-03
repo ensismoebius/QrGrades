@@ -20,14 +20,17 @@
 package org.dedira.qrnotas.model;
 
 /**
- * A point target that a teacher sets for a {@link Discipline}, e.g. "Reach 100 points to
- * pass". A student's progress towards a goal is computed separately at read time (see
- * {@link GoalProgress}) — this class only stores the goal's definition, not any student's
- * current progress.
+ * One student tracked by the app, independent of any particular discipline or class. A
+ * student becomes associated with a class group only through an {@link Enrollment}, so the
+ * same Student can be enrolled in several class groups at once.
  */
-public class Goal {
+public class Student {
     public String id;
-    public String disciplineId; // Foreign key: id of the Discipline this goal applies to.
     public String name;
-    public Integer targetPoints = 0; // Number of accumulated points a student must reach to achieve this goal.
+    public String photoPath; // File path to the student's saved photo on device storage; may be null if no photo was taken.
+
+    @Override
+    public String toString() {
+        return name == null ? "" : name;
+    }
 }

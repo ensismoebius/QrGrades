@@ -1,3 +1,22 @@
+/*
+ * QrGrades — track student grades/points, scan QR codes to award points, and optionally
+ * expose the same data to a browser on the local network.
+ * Copyright (C) 2026 André Furlan
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package org.dedira.qrnotas.activities;
 
 import android.app.AlertDialog;
@@ -42,7 +61,7 @@ import org.dedira.qrnotas.util.EdgeToEdge;
 import org.dedira.qrnotas.util.Exporter;
 import org.dedira.qrnotas.util.Importer;
 import org.dedira.qrnotas.util.KeyboardUtils;
-import org.dedira.qrnotas.util.StudentAdapter;
+import org.dedira.qrnotas.util.adapters.StudentAdapter;
 
 import java.io.File;
 import java.io.InputStream;
@@ -53,19 +72,33 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class ListStudents extends AppCompatActivity {
+/**
+ * Lists students — either every student in the app (opened from the nav drawer) or just the
+ * students of one class group (opened from a class group row, with {@code classGroupId}/
+ * {@code groupName} passed in via the Intent). Supports live text search, swipe-to-delete,
+ * multi-select for bulk export, and JSON/CSV import with a safety backup snapshot taken first.
+ */
+public class StudentList extends AppCompatActivity {
     private StudentAdapter arrStudentsAdapter;
     private RecyclerView lstStudents;
     private TextView txtEmpty;
     private Database database;
     private MaterialToolbar toolbar;
     private LoadingDialog loadingDialog;
+    // Runs export/import file work off the main thread; single-threaded so imports/exports
+    // don't race each other against the same database.
     private final ExecutorService exportExecutor = Executors.newSingleThreadExecutor();
     private ActivityResultLauncher<String[]> importFileLauncher;
     private ActivityResultLauncher<String[]> importCsvFileLauncher;
+    // Null when this screen is showing every student in the app rather than one class group's.
     private String classGroupId;
     private String groupName;
 
+    /**
+     * Called once by Android when this screen is created. Reads the optional class-group filter,
+     * registers the file-picker launchers (must happen before STARTED), wires up the toolbar
+     * menu, the RecyclerView + swipe-to-delete, and the live search box.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -78,10 +111,12 @@ public class ListStudents extends AppCompatActivity {
         this.classGroupId = getIntent().getStringExtra("classGroupId");
         this.groupName = getIntent().getStringExtra("groupName");
 
+        // System file picker for "Import JSON" — restricted to application/json.
         this.importFileLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
             if (uri != null) prepareJsonImport(uri);
         });
 
+        // Separate picker (and set of accepted MIME types) for "Import CSV".
         this.importCsvFileLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
             if (uri != null) prepareCsvImport(uri);
         });
@@ -94,6 +129,8 @@ public class ListStudents extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
+                // First back press while selecting just exits selection mode; only a second
+                // press (with nothing selected) actually leaves the screen.
                 if (arrStudentsAdapter.isSelectionMode()) {
                     arrStudentsAdapter.setSelectionMode(false);
                 } else {
@@ -109,6 +146,8 @@ public class ListStudents extends AppCompatActivity {
         this.lstStudents = this.findViewById(R.id.lstStudents);
         this.lstStudents.setAdapter(this.arrStudentsAdapter);
 
+        // Watches the adapter's list for any change so the "empty state" text shows/hides itself
+        // automatically instead of needing a manual check after every add/delete/filter.
         this.arrStudentsAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
             @Override
             public void onChanged() {
@@ -149,6 +188,18 @@ public class ListStudents extends AppCompatActivity {
         loadStudents();
     }
 
+    /**
+     * Called by Android every time this screen becomes visible again. Reloading here keeps the
+     * list current if a student was added/edited/deleted elsewhere while this screen was in the
+     * background.
+     */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadStudents();
+    }
+
+    /** Loads either every student, or (if a class group filter is set) only that group's students. */
     private void loadStudents() {
         IDatabaseOnLoad<ArrayList<Student>> callback = (success, students) -> {
             if (success) {
@@ -165,6 +216,7 @@ public class ListStudents extends AppCompatActivity {
         }
     }
 
+    /** Routes toolbar menu taps (select, select-all, export, import JSON/CSV) to their handlers. */
     private boolean onMenuItemClick(MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.action_select) {
@@ -187,6 +239,11 @@ public class ListStudents extends AppCompatActivity {
         return false;
     }
 
+    /**
+     * Called by the adapter whenever selection mode is entered/exited or the selected count
+     * changes. Swaps which toolbar menu items are visible and what the toolbar shows/does,
+     * matching a "contextual action bar" feel without using the platform ActionMode API.
+     */
     private void onSelectionChanged(boolean selectionMode, int count) {
         toolbar.getMenu().findItem(R.id.action_select).setVisible(!selectionMode);
         toolbar.getMenu().findItem(R.id.action_select_all).setVisible(selectionMode);
@@ -207,6 +264,7 @@ public class ListStudents extends AppCompatActivity {
         }
     }
 
+    /** Asks which export format to use for the currently-selected students, then runs it. */
     private void onExportClicked() {
         List<String> selectedIds = arrStudentsAdapter.getSelectedIds();
         if (selectedIds.isEmpty()) {
@@ -226,6 +284,11 @@ public class ListStudents extends AppCompatActivity {
                 .show();
     }
 
+    /**
+     * Loads the export data for the selected students, then builds the chosen file format on a
+     * background thread (file I/O + PDF/JSON rendering shouldn't block the UI thread) and hands
+     * the finished file off to the system share sheet.
+     */
     private void runExport(List<String> selectedIds, int formatIndex) {
         loadingDialog.show();
         database.loadExportData(selectedIds, (success, data) -> {
@@ -273,6 +336,7 @@ public class ListStudents extends AppCompatActivity {
 
     /* ------------------------------ JSON import ------------------------------ */
 
+    /** Reads and parses the chosen JSON file off the main thread, then asks for confirmation before committing. */
     private void prepareJsonImport(Uri uri) {
         loadingDialog.show();
         exportExecutor.execute(() -> {
@@ -302,6 +366,7 @@ public class ListStudents extends AppCompatActivity {
         });
     }
 
+    /** Shows a summary of how many students are new vs. already existing, before actually importing. */
     private void confirmJsonImport(List<StudentExportData> data) {
         database.loadAllStudents((success, existingStudents) -> {
             Set<String> existingIds = new HashSet<>();
@@ -325,6 +390,7 @@ public class ListStudents extends AppCompatActivity {
         });
     }
 
+    /** Actually commits the JSON import, after first taking a safety snapshot of the current data. */
     private void runJsonImport(List<StudentExportData> data) {
         loadingDialog.show();
         snapshotThenRun(() -> database.importExportData(data, (success, errorMessage) -> {
@@ -340,6 +406,7 @@ public class ListStudents extends AppCompatActivity {
 
     /* ------------------------------- CSV import -------------------------------- */
 
+    /** Reads and parses the chosen CSV file off the main thread, then asks the database to resolve each row against existing students. */
     private void prepareCsvImport(Uri uri) {
         loadingDialog.show();
         exportExecutor.execute(() -> {
@@ -362,11 +429,14 @@ public class ListStudents extends AppCompatActivity {
                     Toast.makeText(this, R.string.csv_import_no_valid_rows, Toast.LENGTH_SHORT).show();
                     return;
                 }
+                // resolveCsvRows matches each row to an existing student (by name/id) or flags it
+                // as new/invalid, producing a CsvImportPlan the confirmation dialog summarizes.
                 database.resolveCsvRows(rows, (success, plan) -> confirmCsvImport(plan));
             });
         });
     }
 
+    /** Shows counts of new/matched students plus up to 5 row errors, before committing the CSV import. */
     private void confirmCsvImport(CsvImportPlan plan) {
         if (plan.resolved.isEmpty()) {
             Toast.makeText(this, R.string.csv_import_no_valid_rows, Toast.LENGTH_SHORT).show();
@@ -390,6 +460,7 @@ public class ListStudents extends AppCompatActivity {
                 .show();
     }
 
+    /** Actually commits the CSV import, after first taking a safety snapshot of the current data. */
     private void runCsvImport(CsvImportPlan plan) {
         loadingDialog.show();
         snapshotThenRun(() -> database.importCsvRows(plan.resolved, (success, errorMessage) -> {
@@ -412,15 +483,21 @@ public class ListStudents extends AppCompatActivity {
         });
     }
 
+    /** Shows the "no students yet" placeholder text and hides the list, or vice versa. */
     private void updateEmptyState() {
         boolean isEmpty = arrStudentsAdapter.getItemCount() == 0;
         txtEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
         lstStudents.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
     }
 
+    /**
+     * Draws the red "delete" background and trash icon that peeks out from behind a row as the
+     * user swipes it left/right, and triggers the actual delete once the swipe completes.
+     * Disabled while in multi-select mode (swiping would conflict with tap-to-select).
+     */
     private class SwipeToDeleteCallback extends ItemTouchHelper.SimpleCallback {
-        private final ColorDrawable background = new ColorDrawable(ContextCompat.getColor(ListStudents.this, R.color.swipe_delete_bg));
-        private final Drawable deleteIcon = ContextCompat.getDrawable(ListStudents.this, R.drawable.ic_delete);
+        private final ColorDrawable background = new ColorDrawable(ContextCompat.getColor(StudentList.this, R.color.swipe_delete_bg));
+        private final Drawable deleteIcon = ContextCompat.getDrawable(StudentList.this, R.drawable.ic_delete);
 
         SwipeToDeleteCallback() {
             super(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT);
@@ -434,6 +511,7 @@ public class ListStudents extends AppCompatActivity {
 
         @Override
         public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
+            // Drag-to-reorder isn't supported, only swipe-to-delete.
             return false;
         }
 
@@ -455,6 +533,7 @@ public class ListStudents extends AppCompatActivity {
             int iconTop = itemView.getTop() + (itemView.getHeight() - iconSize) / 2;
 
             if (dX > 0) {
+                // Swiping right: background/icon grow from the row's left edge.
                 background.setBounds(itemView.getLeft(), itemView.getTop(), itemView.getLeft() + (int) dX, itemView.getBottom());
                 background.draw(c);
                 if (deleteIcon != null) {
@@ -464,6 +543,7 @@ public class ListStudents extends AppCompatActivity {
                     deleteIcon.draw(c);
                 }
             } else if (dX < 0) {
+                // Swiping left: background/icon grow from the row's right edge.
                 background.setBounds(itemView.getRight() + (int) dX, itemView.getTop(), itemView.getRight(), itemView.getBottom());
                 background.draw(c);
                 if (deleteIcon != null) {
@@ -475,6 +555,7 @@ public class ListStudents extends AppCompatActivity {
             }
         }
 
+        /** Converts a dp value to actual pixels for this device's screen density. */
         private float dp(float value) {
             return value * getResources().getDisplayMetrics().density;
         }

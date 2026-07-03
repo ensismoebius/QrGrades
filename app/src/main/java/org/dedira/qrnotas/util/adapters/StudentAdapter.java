@@ -1,4 +1,23 @@
-package org.dedira.qrnotas.util;
+/*
+ * QrGrades — track student grades/points, scan QR codes to award points, and optionally
+ * expose the same data to a browser on the local network.
+ * Copyright (C) 2026 André Furlan
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+package org.dedira.qrnotas.util.adapters;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -25,6 +44,9 @@ import org.dedira.qrnotas.activities.AddOrEditStudent;
 import org.dedira.qrnotas.activities.StudentProgress;
 import org.dedira.qrnotas.dialogs.QrCodeDialog;
 import org.dedira.qrnotas.model.Student;
+import org.dedira.qrnotas.util.BitmapConverter;
+import org.dedira.qrnotas.util.Database;
+import org.dedira.qrnotas.util.TextSearch;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -32,13 +54,21 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * Feeds {@link org.dedira.qrnotas.activities.StudentList}'s RecyclerView: one row per student
+ * with a photo, name, and quick actions (QR code, edit, delete). Also implements the screen's
+ * multi-select mode (checkbox rows, used for bulk export) and the live text-search filter.
+ */
 public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentViewHolder> {
 
+    /** Notified whenever selection mode toggles or the selected-row count changes, so the hosting screen can update its toolbar. */
     public interface SelectionListener {
         void onSelectionChanged(boolean selectionMode, int count);
     }
 
     private final Context context;
+    // "students" is the currently-displayed (possibly filtered) list; "studentsFull" is the
+    // unfiltered source list kept around so filter() can re-derive results without a DB round-trip.
     private final List<Student> students = new ArrayList<>();
     private List<Student> studentsFull = new ArrayList<>();
     private final Set<String> selectedIds = new LinkedHashSet<>();
@@ -53,11 +83,13 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
         this.selectionListener = listener;
     }
 
+    /** Replaces the full source list (e.g. after a fresh load from the database) and re-displays it, diffed against what's currently shown. */
     public void submitFullList(List<Student> newFullList) {
         this.studentsFull = new ArrayList<>(newFullList);
         applyDiff(new ArrayList<>(newFullList));
     }
 
+    /** Filters the full list by name against the given query (accent/case-insensitive via {@link TextSearch}) and displays the result. */
     public void filter(String query) {
         String q = TextSearch.normalize(query == null ? "" : query.trim());
         if (q.isEmpty()) {
@@ -73,6 +105,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
         applyDiff(filtered);
     }
 
+    /** Swaps in a new displayed list using DiffUtil, so the RecyclerView animates only the rows that actually changed. */
     private void applyDiff(List<Student> newList) {
         DiffUtil.DiffResult result = DiffUtil.calculateDiff(new StudentDiffCallback(students, newList));
         students.clear();
@@ -137,6 +170,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
 
     /* -------------------------------------------------------------------------- */
 
+    /** Confirms and performs deletion of the student at {@code position}, including removing their stored photo. */
     public void requestDelete(int position) {
         if (position < 0 || position >= students.size()) return;
         Student student = students.get(position);
@@ -163,6 +197,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
                 .show();
     }
 
+    /** Removes a student from both the displayed and full-source lists after a successful delete. */
     private void removeStudent(Student student) {
         int idx = students.indexOf(student);
         if (idx >= 0) {
@@ -187,6 +222,8 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
         holder.imgPhoto.setImageBitmap(BitmapConverter.loadBitmap(student.photoPath));
 
         boolean selected = selectedIds.contains(student.id);
+        // Clear the listener before setChecked so restoring the checkbox state during rebind
+        // doesn't itself fire a spurious selection-toggle callback.
         holder.chkSelect.setOnCheckedChangeListener(null);
         holder.chkSelect.setVisibility(selectionMode ? View.VISIBLE : View.GONE);
         holder.chkSelect.setChecked(selected);
@@ -207,6 +244,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
         });
 
         holder.itemView.setOnLongClickListener(v -> {
+            // Long-press enters selection mode (if not already in it) and selects this row.
             if (!selectionMode) setSelectionMode(true);
             toggleSelection(student.id, holder.getBindingAdapterPosition());
             return true;
@@ -221,6 +259,8 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
             intent.putExtra("selectedStudentId", student.id);
 
             if (context instanceof Activity) {
+                // Shared-element transition: the tapped row's photo appears to morph into the
+                // edit screen's photo, using the "studentPhoto" transition name set on both views.
                 Activity activity = (Activity) context;
                 ActivityOptionsCompat options = ActivityOptionsCompat.makeSceneTransitionAnimation(
                         activity, holder.imgPhoto, "studentPhoto");
@@ -257,6 +297,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
         }
     }
 
+    /** Tells DiffUtil which students are "the same" (by id) vs. merely equal in content (name/photo), so it can animate updates vs. inserts/removals correctly. */
     private static class StudentDiffCallback extends DiffUtil.Callback {
         private final List<Student> oldList;
         private final List<Student> newList;

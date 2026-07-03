@@ -1,3 +1,22 @@
+/*
+ * QrGrades — track student grades/points, scan QR codes to award points, and optionally
+ * expose the same data to a browser on the local network.
+ * Copyright (C) 2026 André Furlan
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package org.dedira.qrnotas.util;
 
 import android.content.ContentValues;
@@ -21,6 +40,7 @@ import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.model.StudentExportData;
 import org.dedira.qrnotas.model.IDatabaseOnDelete;
 import org.dedira.qrnotas.model.IDatabaseOnLoad;
+import org.dedira.qrnotas.model.IDatabaseOnResult;
 import org.dedira.qrnotas.model.IDatabaseOnSave;
 import org.dedira.qrnotas.model.IDatabaseOnUpdate;
 
@@ -40,6 +60,15 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Central data-access layer for every entity in the app (students, disciplines, class groups,
+ * goals, points history), backed by SQLite via {@link StudentDbHelper}. Every public method here
+ * follows the same async pattern: the actual database work runs on a single-thread
+ * {@link #executor} (so writes never race each other), and the result is posted back to the
+ * caller's listener on the main thread via {@link #postResult} — meaning it's always safe to
+ * touch UI directly inside a listener's callback. {@link DatabaseSync} builds a synchronous
+ * bridge on top of this for use from non-UI threads (e.g. the LAN web server).
+ */
 public class Database {
     private final Context appContext;
     private final StudentDbHelper dbHelper;
@@ -51,9 +80,14 @@ public class Database {
         dbHelper = new StudentDbHelper(context);
     }
 
+    /** Hands a callback back to the main thread — every listener invocation in this class goes through here. */
     private void postResult(Runnable r) {
         mainHandler.post(r);
     }
+
+    /* --------------------------- Cursor → model mapping ----------------------------- */
+    // One small "from cursor" method per table, isolating the column-name lookups so the rest of
+    // the class deals in plain model objects instead of raw Cursor indices.
 
     private static Student studentFromCursor(Cursor cursor) {
         Student s = new Student();
@@ -122,6 +156,7 @@ public class Database {
         return null;
     }
 
+    /** Case-insensitive comparison that treats null the same as an empty string, so sorting never throws on missing names. */
     private static int compareNullable(String a, String b) {
         if (a == null) a = "";
         if (b == null) b = "";
@@ -130,6 +165,7 @@ public class Database {
 
     /* ------------------------------ Students ------------------------------ */
 
+    /** Deletes a student along with every enrollment (and each enrollment's points history) they had — nothing is left orphaned. */
     public void deleteStudent(String studentId, final IDatabaseOnDelete<Student> listener) {
         executor.execute(() -> {
             SQLiteDatabase db = dbHelper.getWritableDatabase();
@@ -168,6 +204,7 @@ public class Database {
         });
     }
 
+    /** Loads only the students enrolled in one specific class group, via a join on enrollments. */
     public void loadStudentsForClassGroup(String classGroupId, final IDatabaseOnLoad<ArrayList<Student>> listener) {
         executor.execute(() -> {
             ArrayList<Student> studentList = new ArrayList<>();
@@ -184,6 +221,7 @@ public class Database {
         });
     }
 
+    /** Inserts a new student, or replaces the existing row if {@code s.id} is already set (create-or-update in one call). */
     public void saveStudent(Student s, final IDatabaseOnSave<Student> listener) {
         executor.execute(() -> {
             if (s.id == null) s.id = UUID.randomUUID().toString();
@@ -232,6 +270,7 @@ public class Database {
         });
     }
 
+    /** Deletes an enrollment and its points history — a student's history only makes sense tied to a still-existing enrollment. */
     public void deleteEnrollment(String enrollmentId, final IDatabaseOnDelete<Enrollment> listener) {
         executor.execute(() -> {
             SQLiteDatabase db = dbHelper.getWritableDatabase();
@@ -244,6 +283,12 @@ public class Database {
         });
     }
 
+    /**
+     * Overwrites an enrollment's raw point total. Callers are expected to also write a
+     * {@link PointsHistory} row (see {@link #savePointsHistory}) alongside this — this method by
+     * itself doesn't create an audit trail entry, it's the low-level "set the number" step of the
+     * delta-then-history pattern used everywhere points are awarded.
+     */
     public void updateEnrollmentGrades(String enrollmentId, int newGrades, final IDatabaseOnUpdate<Enrollment> listener) {
         executor.execute(() -> {
             SQLiteDatabase db = dbHelper.getWritableDatabase();
@@ -282,6 +327,7 @@ public class Database {
         });
     }
 
+    /** Finds the (single) enrollment linking this student to this specific class group, if any. */
     public void loadEnrollment(String studentId, String classGroupId, final IDatabaseOnLoad<Enrollment> listener) {
         executor.execute(() -> {
             SQLiteDatabase db = dbHelper.getReadableDatabase();
@@ -300,6 +346,9 @@ public class Database {
     public void loadEnrollmentForStudentInDiscipline(String studentId, String disciplineId, final IDatabaseOnLoad<Enrollment> listener) {
         executor.execute(() -> {
             SQLiteDatabase db = dbHelper.getReadableDatabase();
+            // Joins through class_groups since enrollments only store a class group id, not a
+            // discipline id directly — a discipline can have several class groups, but a student
+            // should only ever be enrolled in one of them (hence LIMIT 1).
             String sql = "SELECT e." + StudentDbHelper.COL_ENROLLMENT_ID
                     + ", e." + StudentDbHelper.COL_ENROLLMENT_STUDENT_ID
                     + ", e." + StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID
@@ -361,6 +410,8 @@ public class Database {
         executor.execute(() -> {
             ArrayList<String> notes = new ArrayList<>();
             SQLiteDatabase db = dbHelper.getReadableDatabase();
+            // GROUP BY the note text (deduplicating repeated notes) while keeping each group's
+            // most recent use time, then order by that so recently-reused notes surface first.
             String sql = "SELECT " + StudentDbHelper.COL_HISTORY_NOTE + ", MAX(" + StudentDbHelper.COL_HISTORY_CREATED_AT + ") AS latest "
                     + "FROM " + StudentDbHelper.TABLE_POINTS_HISTORY + " "
                     + "WHERE " + StudentDbHelper.COL_HISTORY_NOTE + " IS NOT NULL AND TRIM(" + StudentDbHelper.COL_HISTORY_NOTE + ") != '' "
@@ -408,6 +459,7 @@ public class Database {
         });
     }
 
+    /** Refuses to delete a discipline that still has class groups (reported as "HAS_GROUPS") — the teacher must remove those first, since cascading would silently destroy student enrollments. */
     public void deleteDiscipline(String id, final IDatabaseOnResult listener) {
         executor.execute(() -> {
             SQLiteDatabase db = dbHelper.getWritableDatabase();
@@ -475,6 +527,7 @@ public class Database {
         });
     }
 
+    /** Refuses to delete a class group that still has enrolled students (reported as "HAS_STUDENTS") — same reasoning as {@link #deleteDiscipline}. */
     public void deleteClassGroup(String id, final IDatabaseOnResult listener) {
         executor.execute(() -> {
             SQLiteDatabase db = dbHelper.getWritableDatabase();
@@ -512,6 +565,7 @@ public class Database {
         });
     }
 
+    /** Loaded in ascending target-point order, so goal lists/progress bars naturally read easiest-to-hardest. */
     public void loadGoalsForDiscipline(String disciplineId, final IDatabaseOnLoad<ArrayList<Goal>> listener) {
         executor.execute(() -> {
             ArrayList<Goal> list = new ArrayList<>();
@@ -546,6 +600,9 @@ public class Database {
         executor.execute(() -> {
             SQLiteDatabase db = dbHelper.getReadableDatabase();
 
+            // Every lookup table is loaded up front into an in-memory Map, so the per-enrollment
+            // loop below is pure in-memory joining instead of one query per row (which would be
+            // very slow for a roster of any real size).
             Map<String, String> disciplineNames = new HashMap<>();
             try (Cursor cursor = db.query(StudentDbHelper.TABLE_DISCIPLINES, null, null, null, null, null, null)) {
                 while (cursor.moveToNext()) {
@@ -604,6 +661,8 @@ public class Database {
                     while (cursor.moveToNext()) enrollments.add(enrollmentFromCursor(cursor));
                 }
             } else if (!studentIds.isEmpty()) {
+                // Builds a "?,?,?..." placeholder string matching studentIds.size(), since SQLite
+                // has no way to bind a variable-length IN(...) list directly.
                 StringBuilder placeholders = new StringBuilder();
                 for (int i = 0; i < studentIds.size(); i++) {
                     if (i > 0) placeholders.append(",");
@@ -639,6 +698,8 @@ public class Database {
                 List<Goal> goals = disciplineId != null ? goalsByDiscipline.get(disciplineId) : null;
                 if (goals != null) {
                     for (Goal g : goals) {
+                        // GoalProgress computes achieved/remaining from the enrollment's current
+                        // points at construction time — it's a snapshot, not a live reference.
                         data.goals.add(new GoalProgress(g.name, g.targetPoints, e.grades));
                     }
                 }
@@ -673,6 +734,8 @@ public class Database {
     public void importExportData(List<StudentExportData> data, final IDatabaseOnResult listener) {
         executor.execute(() -> {
             SQLiteDatabase db = dbHelper.getWritableDatabase();
+            // Wrapped in a single transaction: either the whole import lands, or (if something
+            // throws before setTransactionSuccessful()) none of it does — no half-imported state.
             db.beginTransaction();
             try {
                 for (StudentExportData s : data) {
@@ -744,6 +807,7 @@ public class Database {
         });
     }
 
+    /** Inserts a goal only if one with the same discipline+name+target doesn't already exist, since the export format has no goal id to match on directly. */
     private static void upsertGoal(SQLiteDatabase db, String disciplineId, String name, int targetPoints) {
         try (Cursor cursor = db.query(StudentDbHelper.TABLE_GOALS,
                 new String[]{StudentDbHelper.COL_GOAL_ID},
@@ -789,6 +853,8 @@ public class Database {
             try (Cursor cursor = db.query(StudentDbHelper.TABLE_CLASS_GROUPS, null, null, null, null, null, null)) {
                 while (cursor.moveToNext()) {
                     ClassGroup g = classGroupFromCursor(cursor);
+                    // Keyed by disciplineId+name (not name alone) since the same class-group name
+                    // ("Morning A") could legitimately exist under two different disciplines.
                     classGroupByKey.put(g.disciplineId + "|" + normalize(g.name), g);
                 }
             }
@@ -846,6 +912,8 @@ public class Database {
             SQLiteDatabase db = dbHelper.getWritableDatabase();
             db.beginTransaction();
             try {
+                // A student appearing on multiple CSV rows (e.g. enrolled in several class
+                // groups) must only be inserted once — this set prevents duplicate insert attempts.
                 Set<String> insertedStudentIds = new HashSet<>();
                 for (ResolvedCsvRow row : rows) {
                     if (row.isNewStudent && insertedStudentIds.add(row.studentId)) {
@@ -864,6 +932,8 @@ public class Database {
                         enrollmentExists = cursor.moveToFirst();
                     }
 
+                    // Only create the enrollment if it's genuinely missing — an existing one is
+                    // left completely untouched so a re-import never wipes out real points.
                     if (!enrollmentExists) {
                         ContentValues enrollmentValues = new ContentValues();
                         enrollmentValues.put(StudentDbHelper.COL_ENROLLMENT_ID, UUID.randomUUID().toString());
@@ -894,6 +964,8 @@ public class Database {
      */
     public void createSnapshot(File destFile, final IDatabaseOnResult listener) {
         executor.execute(() -> {
+            // Forces the database file to actually exist on disk before copying it (a brand new
+            // Database instance won't have created the file yet without this call).
             dbHelper.getReadableDatabase();
             File dbFile = appContext.getDatabasePath(StudentDbHelper.DB_NAME);
 

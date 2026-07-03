@@ -20,14 +20,18 @@
 package org.dedira.qrnotas.model;
 
 /**
- * A point target that a teacher sets for a {@link Discipline}, e.g. "Reach 100 points to
- * pass". A student's progress towards a goal is computed separately at read time (see
- * {@link GoalProgress}) — this class only stores the goal's definition, not any student's
- * current progress.
+ * Callback used to receive the outcome of a database operation that doesn't return a specific
+ * object (e.g. running a batch update, or an operation whose caller only cares whether it
+ * worked). Database work runs on a background thread so it doesn't freeze the UI; once it
+ * finishes, the app calls this callback — posted back to the main/UI thread — with whether it
+ * succeeded and, if not, why.
  */
-public class Goal {
-    public String id;
-    public String disciplineId; // Foreign key: id of the Discipline this goal applies to.
-    public String name;
-    public Integer targetPoints = 0; // Number of accumulated points a student must reach to achieve this goal.
+public interface IDatabaseOnResult {
+    /**
+     * Called once the operation finishes.
+     *
+     * @param success      whether the operation completed without error.
+     * @param errorMessage human-readable description of what went wrong, or null on success.
+     */
+    void onResult(boolean success, String errorMessage);
 }

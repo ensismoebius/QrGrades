@@ -1,3 +1,22 @@
+/*
+ * QrGrades — track student grades/points, scan QR codes to award points, and optionally
+ * expose the same data to a browser on the local network.
+ * Copyright (C) 2026 André Furlan
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package org.dedira.qrnotas.activities;
 
 import android.os.Bundle;
@@ -15,8 +34,15 @@ import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.EdgeToEdge;
-import org.dedira.qrnotas.util.GoalAdapter;
+import org.dedira.qrnotas.util.adapters.GoalAdapter;
 
+/**
+ * Lists the point-total goals (e.g. "R: 10 points", "MB: 30 points") defined for one discipline,
+ * reached by tapping the "goals" card on {@link DisciplineDetail}. Lets the teacher add a new
+ * goal via the floating "+" button; each row (via {@link GoalAdapter}) supports editing/deleting.
+ * These goals are what drives the progress bars shown on {@link StudentProgress} and on the main
+ * award-points screen.
+ */
 public class GoalList extends AppCompatActivity {
     private GoalAdapter adapter;
     private RecyclerView recyclerView;
@@ -24,10 +50,16 @@ public class GoalList extends AppCompatActivity {
     private Database database;
     private String disciplineId;
 
+    /**
+     * Called once by Android when this screen is created. Reads which discipline's goals to
+     * show, sets up the toolbar/back button, wires the RecyclerView to its adapter, and starts
+     * the first data load.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ActivityTransitions.enter(this);
+        // Shared "list of X with an add button" layout, reused by DisciplineList/ClassGroupList/GoalList.
         setContentView(R.layout.activity_entity_list);
         EdgeToEdge.apply(this);
 
@@ -52,6 +84,8 @@ public class GoalList extends AppCompatActivity {
         this.recyclerView = this.findViewById(R.id.lstEntities);
         this.recyclerView.setAdapter(adapter);
 
+        // Watches the adapter's list for any change so the "empty state" text shows/hides itself
+        // automatically instead of needing a manual check after every add/delete.
         adapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
             @Override
             public void onChanged() {
@@ -75,18 +109,25 @@ public class GoalList extends AppCompatActivity {
         loadGoals();
     }
 
+    /**
+     * Called by Android every time this screen becomes visible again. Reloading here keeps the
+     * list current if a goal was added/edited/deleted elsewhere while this screen was in the
+     * background.
+     */
     @Override
     protected void onResume() {
         super.onResume();
         loadGoals();
     }
 
+    /** Asks the database for this discipline's goals and hands the result to the adapter. */
     private void loadGoals() {
         database.loadGoalsForDiscipline(disciplineId, (success, goals) -> {
             if (success) adapter.submitList(goals);
         });
     }
 
+    /** Shows the "no goals yet" placeholder text and hides the list, or vice versa. */
     private void updateEmptyState() {
         boolean isEmpty = adapter.getItemCount() == 0;
         txtEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);

@@ -1,3 +1,22 @@
+/*
+ * QrGrades — track student grades/points, scan QR codes to award points, and optionally
+ * expose the same data to a browser on the local network.
+ * Copyright (C) 2026 André Furlan
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package org.dedira.qrnotas.activities;
 
 import android.Manifest;
@@ -59,6 +78,19 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * This is the "home screen" of QrGrades — the first thing a teacher sees when opening the app
+ * (and also the screen the Quick Settings tile jumps straight into for fast scanning).
+ * <p>
+ * Its job is: let the teacher pick which discipline (subject/class) they are currently teaching,
+ * point the camera at a student's QR code (or pick the student manually) to identify them,
+ * choose how many points to add or remove, optionally attach a note, and save that change to the
+ * database. It also shows the student's current point total and progress toward any goals defined
+ * for that discipline.
+ * <p>
+ * The navigation drawer on this screen is the gateway to the rest of the app: adding/editing
+ * students, listing students, managing disciplines, backups, and the local web server.
+ */
 public class Main extends AppCompatActivity {
     private LoadingDialog loadingDialog;
     private CodeScanner mCodeScanner;
@@ -83,22 +115,36 @@ public class Main extends AppCompatActivity {
     private MediaPlayer mediaPlayer;
     private ActivityResultLauncher<String> cameraPermissionLauncher;
 
+    /**
+     * Called once by Android when this Activity (screen) is first created — this is where all
+     * one-time setup happens: finding views by id, wiring up click listeners, creating the
+     * database helper, and starting the QR code scanner view. Android may call this again later
+     * (e.g. after the app was killed in the background), so nothing here should assume it only
+     * ever runs once per app lifetime.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         applyShowOverLockScreen();
+        // Plays the shared enter/exit animation used across the app so navigating between
+        // screens feels consistent.
         ActivityTransitions.forward(this);
         setContentView(R.layout.activity_main);
+        // Makes the app content draw behind the system status/navigation bars (modern
+        // "edge-to-edge" look) while still keeping padding so content isn't hidden under them.
         EdgeToEdge.apply(this);
 
         /********************************************/
         /********** Create media player *************/
         /********************************************/
+        // Preloads the "beep" sound played whenever a QR code is successfully scanned.
         mediaPlayer = MediaPlayer.create(this, R.raw.qr_scanned);
 
         /********************************************/
         /************** Text objects ****************/
         /********************************************/
+        // findViewById looks up the widgets declared in activity_main.xml by their id so we can
+        // read/change what they show from Java code.
         this.txtName = this.findViewById(R.id.txtName);
         this.imgPhoto = this.findViewById(R.id.imgPhoto);
         this.txtPoints = this.findViewById(R.id.txtPoints);
@@ -112,6 +158,9 @@ public class Main extends AppCompatActivity {
         this.drawerLayout = this.findViewById(R.id.drawerLayout);
         this.loadingDialog = new LoadingDialog(this);
 
+        // Overrides the system Back button/gesture. Instead of leaving the app immediately, we
+        // first close the navigation drawer if it's open, or dismiss the "add points" overlay if
+        // it's showing, and only let the normal back behavior happen otherwise.
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -128,6 +177,9 @@ public class Main extends AppCompatActivity {
             }
         });
 
+        // Registers the callback Android will invoke after the user answers the camera
+        // permission prompt (granted or denied). This must be set up in onCreate (before the
+        // Activity is fully started) — Android enforces this and will crash if registered later.
         this.cameraPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
             if (granted) showScannerGranted();
             else cameraPermissionOverlay.setVisibility(View.VISIBLE);
@@ -160,6 +212,8 @@ public class Main extends AppCompatActivity {
 
         NavigationView navView = this.findViewById(R.id.navView);
         navView.setNavigationItemSelectedListener(this::onNavItemSelected);
+        // Keeps the drawer's own content from being drawn under the status bar: reads how much
+        // inset the system bars need and applies that as top padding to the drawer's contents.
         ViewCompat.setOnApplyWindowInsetsListener(navView, (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(v.getPaddingLeft(), bars.top, v.getPaddingRight(), v.getPaddingBottom());
@@ -178,6 +232,9 @@ public class Main extends AppCompatActivity {
         CodeScannerView scannerView = findViewById(R.id.scnView);
         scannerView.setOnClickListener(view -> requestCameraAndStartScanning());
         this.mCodeScanner = new CodeScanner(this, scannerView);
+        // setDecodeCallback fires on a background thread owned by the scanner library whenever a
+        // QR code is successfully decoded, so we hop back to the UI thread with runOnUiThread
+        // before touching any views or showing dialogs.
         this.mCodeScanner.setDecodeCallback(result -> runOnUiThread(() -> onQrScanned(result.getText())));
     }
 
@@ -189,9 +246,13 @@ public class Main extends AppCompatActivity {
     @SuppressWarnings("deprecation") // FLAG_SHOW_WHEN_LOCKED/FLAG_TURN_SCREEN_ON: only path below API 27, where setShowWhenLocked/setTurnScreenOn don't exist yet
     private void applyShowOverLockScreen() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            // Modern (API 27+) way to ask the system to show this Activity over the lock screen
+            // and turn the screen on.
             setShowWhenLocked(true);
             setTurnScreenOn(true);
         } else {
+            // Older devices don't have the methods above, so the same effect is achieved with
+            // window flags instead.
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                     | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                     | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -206,26 +267,50 @@ public class Main extends AppCompatActivity {
      * the wrong discipline by default.
      */
     private void loadDisciplines() {
+        // loadAllDisciplines runs the database query off the main thread and delivers the result
+        // through this callback; Database is responsible for posting the callback back onto the
+        // UI thread, which is why it's safe to touch views directly inside it here.
         this.database.loadAllDisciplines((success, results) -> {
             this.disciplines = results != null ? results : new ArrayList<>();
 
             List<String> names = new ArrayList<>();
             for (Discipline d : this.disciplines) names.add(d.name);
+            // Feeds the dropdown (an AutoCompleteTextView) the list of discipline names to show
+            // as suggestions/options.
             dropdownDiscipline.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, names));
 
             dropdownDiscipline.setOnItemClickListener((parent, view, position, id) ->
                     selectDiscipline(this.disciplines.get(position)));
+
+            // Reload keeps an already-picked discipline selected (e.g. after a background resume),
+            // only dropping the selection if that discipline was renamed/deleted elsewhere meanwhile.
+            if (this.currentDisciplineId != null) {
+                Discipline stillExists = null;
+                for (Discipline d : this.disciplines) {
+                    if (d.id.equals(this.currentDisciplineId)) { stillExists = d; break; }
+                }
+                if (stillExists != null) {
+                    dropdownDiscipline.setText(stillExists.name, false);
+                } else {
+                    this.currentDisciplineId = null;
+                    dropdownDiscipline.setText("", false);
+                }
+            }
         });
     }
 
+    /** Stores which discipline the teacher picked and updates the dropdown/warning UI to match. */
     private void selectDiscipline(Discipline discipline) {
         this.currentDisciplineId = discipline.id;
+        // The "false" here means "don't re-trigger the filtering/suggestion popup" — we're just
+        // displaying the chosen name, not letting the user type search text.
         this.dropdownDiscipline.setText(discipline.name, false);
         this.txtDisciplineWarning.setVisibility(View.GONE);
     }
 
     /* --------------------------------- QR scanning ------------------------------------ */
 
+    /** Called once a QR code has been decoded into text (expected to be a student id). */
     private void onQrScanned(String studentId) {
         if (!requireDisciplineSelected()) return;
         mediaPlayer.start();
@@ -238,6 +323,11 @@ public class Main extends AppCompatActivity {
         new StudentPickerDialog(this, this.database, picked -> loadStudentForPoints(picked.id)).show();
     }
 
+    /**
+     * Guards every "identify a student" entry point (QR scan or manual pick) so points can never
+     * be recorded before a discipline has been chosen. Shows a warning and returns false if none
+     * is selected yet.
+     */
     private boolean requireDisciplineSelected() {
         if (this.currentDisciplineId != null) return true;
         this.txtDisciplineWarning.setVisibility(View.VISIBLE);
@@ -246,11 +336,18 @@ public class Main extends AppCompatActivity {
         return false;
     }
 
+    /**
+     * Looks the student up by id, then checks whether they're enrolled in the currently selected
+     * discipline. If they are, their info and progress are shown so the teacher can add points;
+     * if not, {@link #warnStudentNotInDiscipline} offers to enroll them on the spot.
+     */
     private void loadStudentForPoints(String studentId) {
         this.loadingDialog.show();
         this.loadingDialog.setCancelable(false);
         this.loadingDialog.setCanceledOnTouchOutside(false);
 
+        // Database calls below run asynchronously (off the main thread) and call back later with
+        // the result; nested callbacks here just chain "load student" -> "load enrollment".
         this.database.loadStudent(studentId, (success, object) -> {
             if (!success) {
                 this.loadingDialog.dismiss();
@@ -277,6 +374,7 @@ public class Main extends AppCompatActivity {
         });
     }
 
+    /** Shows a dialog explaining the scanned/picked student isn't enrolled in this discipline, offering to enroll them. */
     private void warnStudentNotInDiscipline(Student student, String disciplineId) {
         String disciplineName = "";
         for (Discipline d : this.disciplines) {
@@ -295,6 +393,11 @@ public class Main extends AppCompatActivity {
                 .show();
     }
 
+    /**
+     * Looks up which class groups (sections) exist for this discipline so the teacher can pick
+     * which one to enroll the student into. If there's only one class group, it's chosen
+     * automatically instead of showing a redundant picker.
+     */
     private void offerEnrollment(Student student, String disciplineId, String disciplineName) {
         this.loadingDialog.show();
         this.database.loadClassGroupsForDiscipline(disciplineId, (success, groups) -> {
@@ -320,6 +423,7 @@ public class Main extends AppCompatActivity {
         });
     }
 
+    /** Creates a brand-new Enrollment (student + class group, starting at 0 points) and saves it. */
     private void enrollStudent(Student student, ClassGroup classGroup, String disciplineName) {
         this.loadingDialog.show();
 
@@ -347,6 +451,7 @@ public class Main extends AppCompatActivity {
         });
     }
 
+    /** Starts the camera preview if permission is already granted, otherwise asks for it (showing the overlay meanwhile). */
     private void requestCameraAndStartScanning() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             showScannerGranted();
@@ -356,12 +461,18 @@ public class Main extends AppCompatActivity {
         }
     }
 
+    /** Hides the "camera permission needed" overlay and starts the live camera preview/scanning. */
     private void showScannerGranted() {
         cameraPermissionOverlay.setVisibility(View.GONE);
         mCodeScanner.startPreview();
         scannerStarted = true;
     }
 
+    /**
+     * Handles taps on items in the navigation drawer: closes the drawer, then either triggers the
+     * manual point-award flow directly or launches the matching Activity for everything else
+     * (add student, list students, disciplines, backups, web server).
+     */
     private boolean onNavItemSelected(MenuItem item) {
         drawerLayout.closeDrawer(GravityCompat.START);
 
@@ -373,20 +484,28 @@ public class Main extends AppCompatActivity {
 
         Class<? extends AppCompatActivity> target = null;
         if (id == R.id.navAddStudent) target = AddOrEditStudent.class;
-        else if (id == R.id.navListStudents) target = ListStudents.class;
+        else if (id == R.id.navListStudents) target = StudentList.class;
         else if (id == R.id.navDisciplines) target = DisciplineList.class;
         else if (id == R.id.navBackups) target = BackupList.class;
         else if (id == R.id.navWebServer) target = WebServerActivity.class;
 
+        // Intent here just means "open this other screen"; no extra data needs to be passed.
         if (target != null) startActivity(new Intent(this, target));
         return true;
     }
 
+    /** Converts a density-independent pixel (dp) value into actual screen pixels for this device. */
     private float dp(float value) {
         return value * getResources().getDisplayMetrics().density;
     }
 
+    /**
+     * Fetches the export/progress data (current points + goal progress) for the given enrollment
+     * and, once found, hands it to {@link #bindProgress} to update the UI.
+     */
     private void loadProgress(Enrollment enrollment) {
+        // loadExportData can return data for multiple enrollments at once (it takes a list), even
+        // though here we only ever ask for a single one — we scan the results for the matching id.
         this.database.loadExportData(Collections.singletonList(enrollment.studentId), (success, results) -> {
             if (!success || results == null) return;
             for (StudentExportData data : results) {
@@ -398,14 +517,18 @@ public class Main extends AppCompatActivity {
         });
     }
 
+    /** Renders the student's current point total and one progress row per goal defined for the discipline. */
     private void bindProgress(StudentExportData data) {
         this.txtCurrentPoints.setText(String.valueOf(data.points));
+        // Clears any goal rows left over from a previous student before adding new ones.
         this.goalsContainer.removeAllViews();
 
         if (data.goals == null || data.goals.isEmpty()) return;
 
         LayoutInflater inflater = LayoutInflater.from(this);
         for (GoalProgress goal : new ArrayList<>(data.goals)) {
+            // Inflates one copy of the item_goal_progress.xml layout per goal, without attaching
+            // it to goalsContainer yet ("false" = attachToRoot false), so we can fill it in first.
             View row = inflater.inflate(R.layout.item_goal_progress, goalsContainer, false);
             TextView txtGoalName = row.findViewById(R.id.txtGoalName);
             TextView txtGoalStatus = row.findViewById(R.id.txtGoalStatus);
@@ -432,12 +555,14 @@ public class Main extends AppCompatActivity {
         }
     }
 
+    /** Resolves a theme attribute (e.g. colorTertiary) to its actual color value for the app's current theme. */
     private int fetchThemeColor(int attr) {
         android.util.TypedValue value = new android.util.TypedValue();
         getTheme().resolveAttribute(attr, value, true);
         return value.data;
     }
 
+    /** Animates the "add points" overlay into view (fade + slide up) once a valid student/enrollment is loaded. */
     private void revealStudentContent() {
         if (addPointsOverlay.getVisibility() == View.VISIBLE) return;
 
@@ -455,6 +580,7 @@ public class Main extends AppCompatActivity {
                 .start();
     }
 
+    /** Small "pop" animation used to give visual feedback when the point counter changes. */
     private void bounce(View view) {
         view.animate().cancel();
         view.setScaleX(1f);
@@ -467,6 +593,10 @@ public class Main extends AppCompatActivity {
                 .start();
     }
 
+    /**
+     * Handles the "Continue" button: validates a student and a non-zero point delta are set, then
+     * opens the note dialog so the teacher can optionally attach a reason before saving.
+     */
     private void onContinueClick() {
         if (this.student == null || this.currentEnrollment == null) {
             Toast.makeText(this, R.string.scan_first, Toast.LENGTH_SHORT).show();
@@ -481,6 +611,11 @@ public class Main extends AppCompatActivity {
         new NoteDialog(this, this.database, this.extraPoints, this.student.name, this::onNoteConfirmed).show();
     }
 
+    /**
+     * Called after the teacher confirms (or skips) the note dialog. Applies the point delta to the
+     * student's enrollment, records the change in the points history log, shows an undo-capable
+     * confirmation, and resets the screen for the next scan.
+     */
     private void onNoteConfirmed(String note) {
         if (this.student == null || this.currentEnrollment == null) return;
 
@@ -507,9 +642,13 @@ public class Main extends AppCompatActivity {
             history.pointsDelta = delta;
             history.note = note;
             history.createdAt = System.currentTimeMillis();
+            // Fire-and-forget save: we don't need to react to success/failure of the history log
+            // itself, so the callback body is intentionally empty.
             this.database.savePointsHistory(history, (histSuccess, savedHistory) -> {
             });
 
+            // Snackbar with an "Undo" action lets the teacher revert an accidental point change
+            // within a few seconds without navigating anywhere.
             Snackbar.make(this.btnContinue, getString(R.string.points_added, delta), Snackbar.LENGTH_LONG)
                     .setAction(R.string.undo, v -> undoPoints(enrollmentId, previousGrades))
                     .show();
@@ -518,6 +657,7 @@ public class Main extends AppCompatActivity {
         });
     }
 
+    /** Clears the currently loaded student/enrollment and animates the overlay back out, readying the screen for the next scan. */
     private void resetToStart() {
         this.student = null;
         this.currentEnrollment = null;
@@ -536,6 +676,7 @@ public class Main extends AppCompatActivity {
                 .start();
     }
 
+    /** Restores the enrollment's point total to what it was before the last change, used by the Snackbar's "Undo" action. */
     private void undoPoints(String enrollmentId, int previousGrades) {
         this.database.updateEnrollmentGrades(enrollmentId, previousGrades, (success, updatedEnrollment) -> {
             if (!success) {
@@ -549,13 +690,25 @@ public class Main extends AppCompatActivity {
         });
     }
 
+    /**
+     * Called by Android every time this screen comes back to the foreground (including the very
+     * first time, right after onCreate). Used here to re-request the camera and restart scanning,
+     * recreate the media player (it was released in onStop), and reload disciplines in case they
+     * changed while this screen was in the background.
+     */
     @Override
     protected void onResume() {
         super.onResume();
         requestCameraAndStartScanning();
         mediaPlayer = MediaPlayer.create(this, R.raw.qr_scanned);
+        loadDisciplines();
     }
 
+    /**
+     * Called by Android when this screen is no longer in the foreground (e.g. another screen is
+     * opened on top). The camera preview is stopped and its resources released here so the camera
+     * isn't held open (and draining battery) while this screen isn't visible.
+     */
     @Override
     protected void onPause() {
         super.onPause();
@@ -566,6 +719,11 @@ public class Main extends AppCompatActivity {
         }
     }
 
+    /**
+     * Called by Android when this screen is no longer visible at all (e.g. user left the app).
+     * The media player is stopped and released here to free its native resources; any exception
+     * during that cleanup is intentionally swallowed since there's nothing useful to do about it.
+     */
     @Override
     protected void onStop() {
         super.onStop();
@@ -581,6 +739,7 @@ public class Main extends AppCompatActivity {
 
     }
 
+    /** Click handler for the "+" floating action button: increases the point delta, up to a cap of +5. */
     private void onClick(View v) {
         if (this.extraPoints >= 5) return;
         this.extraPoints++;
@@ -588,6 +747,7 @@ public class Main extends AppCompatActivity {
         bounce(this.txtPoints);
     }
 
+    /** Refreshes the point-delta label's text (e.g. "+3" or "-2") and color (red for negative, accent for positive/zero). */
     private void updateExtraPointsLabel() {
         this.txtPoints.setText(String.format(Locale.getDefault(), "%+d", this.extraPoints));
         int colorAttr = this.extraPoints < 0
