@@ -47,6 +47,7 @@ import org.robolectric.RuntimeEnvironment;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -793,8 +794,8 @@ public class DatabaseTest {
     }
 
     @Test
-    public void resolveCsvRows_unknownDisciplineBecomesError() throws InterruptedException {
-        List<CsvStudentRow> rows = Collections.singletonList(new CsvStudentRow(2, "André", "Unknown", "A"));
+    public void resolveCsvRows_unknownDisciplineGetsAutoCreated() throws InterruptedException {
+        List<CsvStudentRow> rows = Collections.singletonList(new CsvStudentRow(2, "André", "New Discipline", "A"));
         Result<CsvImportPlan> r = new Result<>();
         database.resolveCsvRows(rows, (success, value) -> {
             r.value = value;
@@ -802,16 +803,20 @@ public class DatabaseTest {
         });
         idle(r);
 
-        assertTrue(r.value.resolved.isEmpty());
-        assertEquals(1, r.value.errors.size());
-        CsvRowError error = r.value.errors.get(0);
-        assertEquals(2, error.lineNumber);
-        assertTrue(error.reason.contains("Unknown discipline"));
+        assertTrue(r.value.errors.isEmpty());
+        assertEquals(1, r.value.resolved.size());
+        ResolvedCsvRow row = r.value.resolved.get(0);
+        assertTrue(row.isNewDiscipline);
+        assertTrue(row.isNewClassGroup);
+        assertEquals("New Discipline", row.disciplineName);
+        assertEquals("A", row.classGroupName);
+        assertEquals(1, r.value.newDisciplineCount());
+        assertEquals(1, r.value.newClassGroupCount());
     }
 
     @Test
-    public void resolveCsvRows_unknownClassGroupBecomesError() throws InterruptedException {
-        saveDiscipline("BDI");
+    public void resolveCsvRows_unknownClassGroupGetsAutoCreatedUnderExistingDiscipline() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
         List<CsvStudentRow> rows = Collections.singletonList(new CsvStudentRow(2, "André", "BDI", "Z"));
         Result<CsvImportPlan> r = new Result<>();
         database.resolveCsvRows(rows, (success, value) -> {
@@ -820,9 +825,31 @@ public class DatabaseTest {
         });
         idle(r);
 
+        assertTrue(r.value.errors.isEmpty());
+        assertEquals(1, r.value.resolved.size());
+        ResolvedCsvRow row = r.value.resolved.get(0);
+        assertFalse(row.isNewDiscipline);
+        assertEquals(discipline.id, row.disciplineId);
+        assertTrue(row.isNewClassGroup);
+        assertEquals("Z", row.classGroupName);
+    }
+
+    @Test
+    public void resolveCsvRows_blankDisciplineOrClassGroupBecomesError() throws InterruptedException {
+        List<CsvStudentRow> rows = Arrays.asList(
+                new CsvStudentRow(2, "André", "", "A"),
+                new CsvStudentRow(3, "Beatriz", "BDI", ""));
+        Result<CsvImportPlan> r = new Result<>();
+        database.resolveCsvRows(rows, (success, value) -> {
+            r.value = value;
+            r.done = true;
+        });
+        idle(r);
+
         assertTrue(r.value.resolved.isEmpty());
-        assertEquals(1, r.value.errors.size());
-        assertTrue(r.value.errors.get(0).reason.contains("Unknown class group"));
+        assertEquals(2, r.value.errors.size());
+        assertTrue(r.value.errors.get(0).reason.contains("Missing discipline name"));
+        assertTrue(r.value.errors.get(1).reason.contains("Missing class group name"));
     }
 
     @Test
@@ -835,8 +862,8 @@ public class DatabaseTest {
         });
 
         List<ResolvedCsvRow> rows = new ArrayList<>();
-        rows.add(new ResolvedCsvRow(existing.id, "André", false, discipline.id, group.id));
-        rows.add(new ResolvedCsvRow("new-student-id", "Beatriz", true, discipline.id, group.id));
+        rows.add(new ResolvedCsvRow(existing.id, "André", false, discipline.id, discipline.name, false, group.id, group.name, false));
+        rows.add(new ResolvedCsvRow("new-student-id", "Beatriz", true, discipline.id, discipline.name, false, group.id, group.name, false));
 
         Result<Void> r = new Result<>();
         database.importCsvRows(rows, (success, error) -> {
@@ -861,6 +888,54 @@ public class DatabaseTest {
         });
         idle(reloaded);
         assertEquals(42, reloaded.value.grades);
+    }
+
+    @Test
+    public void importCsvRows_createsNewDisciplineAndClassGroupWhenFlagged() throws InterruptedException {
+        String newDisciplineId = java.util.UUID.randomUUID().toString();
+        String newClassGroupId = java.util.UUID.randomUUID().toString();
+
+        List<ResolvedCsvRow> rows = new ArrayList<>();
+        rows.add(new ResolvedCsvRow("student-1", "André", true,
+                newDisciplineId, "DS", true, newClassGroupId, "GRUPO A", true));
+        // A second student in the same brand-new discipline/class group — the discipline/class
+        // group insert must only happen once, not once per row.
+        rows.add(new ResolvedCsvRow("student-2", "Beatriz", true,
+                newDisciplineId, "DS", true, newClassGroupId, "GRUPO A", true));
+
+        Result<Void> r = new Result<>();
+        database.importCsvRows(rows, (success, error) -> {
+            r.success = success;
+            r.done = true;
+        });
+        idle(r);
+        assertTrue(r.success);
+
+        Result<ArrayList<Discipline>> disciplines = new Result<>();
+        database.loadAllDisciplines((success, value) -> {
+            disciplines.value = value;
+            disciplines.done = true;
+        });
+        idle(disciplines);
+        assertEquals(1, disciplines.value.size());
+        assertEquals("DS", disciplines.value.get(0).name);
+
+        Result<ArrayList<ClassGroup>> groups = new Result<>();
+        database.loadAllClassGroups((success, value) -> {
+            groups.value = value;
+            groups.done = true;
+        });
+        idle(groups);
+        assertEquals(1, groups.value.size());
+        assertEquals("GRUPO A", groups.value.get(0).name);
+
+        Result<ArrayList<Student>> students = new Result<>();
+        database.loadAllStudents((success, value) -> {
+            students.value = value;
+            students.done = true;
+        });
+        idle(students);
+        assertEquals(2, students.value.size());
     }
 
     /* ------------------------------ Backups ----------------------------------- */

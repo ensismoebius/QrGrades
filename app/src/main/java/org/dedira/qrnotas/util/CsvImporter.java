@@ -67,6 +67,13 @@ public class CsvImporter {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
             String headerLine = reader.readLine();
             if (headerLine == null) throw new CsvFormatException("The file is empty.");
+            // Spreadsheet apps (Excel in particular) commonly save UTF-8 CSVs with a leading BOM
+            // (U+FEFF). InputStreamReader doesn't strip it (that's only automatic for UTF-16), so
+            // without this it stays glued to the first header cell ("﻿name" != "name") and
+            // silently breaks header matching for whichever column happens to be first.
+            if (!headerLine.isEmpty() && headerLine.charAt(0) == '\uFEFF') {
+                headerLine = headerLine.substring(1);
+            }
 
             // Figure out which column index holds each required field by normalizing header
             // labels (lowercase, no spaces/underscores) and matching against known names.

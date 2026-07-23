@@ -154,6 +154,7 @@
     <string name="import_csv_action">Import CSV</string>
     <string name="csv_import_confirm_title">Import roster?</string>
     <string name="csv_import_summary" tools:ignore="PluralsCandidate">"%1$d new student(s), %2$d matched to existing students, %3$d row(s) skipped."</string>
+    <string name="csv_import_new_structure" tools:ignore="PluralsCandidate">"%1$d new discipline(s) and %2$d new class group(s) will be created."</string>
     <string name="csv_import_error_line">"Line %1$d: %2$s"</string>
     <string name="csv_import_no_valid_rows">No valid rows to import.</string>
     <string name="csv_import_invalid_file">"Invalid CSV file: %1$s"</string>

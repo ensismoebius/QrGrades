@@ -20,7 +20,9 @@
 package org.dedira.qrnotas.model;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Result of matching all rows parsed from an imported roster CSV against the database.
@@ -46,5 +48,19 @@ public class CsvImportPlan {
     public int matchedStudentCount() {
         // Everyone who isn't "new" must already have matched an existing student.
         return resolved.size() - newStudentCount();
+    }
+
+    /** Counts how many distinct disciplines named in the CSV don't exist yet and will be created on import. */
+    public int newDisciplineCount() {
+        Set<String> ids = new HashSet<>();
+        for (ResolvedCsvRow row : resolved) if (row.isNewDiscipline) ids.add(row.disciplineId);
+        return ids.size();
+    }
+
+    /** Counts how many distinct class groups named in the CSV don't exist yet and will be created on import. */
+    public int newClassGroupCount() {
+        Set<String> ids = new HashSet<>();
+        for (ResolvedCsvRow row : resolved) if (row.isNewClassGroup) ids.add(row.classGroupId);
+        return ids.size();
     }
 }

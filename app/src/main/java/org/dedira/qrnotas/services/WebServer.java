@@ -1017,6 +1017,8 @@ public class WebServer extends NanoHTTPD {
         result.put("success", success);
         result.put("newCount", plan.newStudentCount());
         result.put("matchedCount", plan.matchedStudentCount());
+        result.put("newDisciplineCount", plan.newDisciplineCount());
+        result.put("newClassGroupCount", plan.newClassGroupCount());
         // Report every row that couldn't be imported, with its line number and reason, so the
         // teacher can fix the CSV and re-upload just the problem rows.
         JSONArray errors = new JSONArray();

@@ -1019,8 +1019,12 @@ public class Database {
     /**
      * Matches parsed CSV rows against existing disciplines/class-groups/students by
      * case-insensitive name. Class groups are matched within their resolved discipline only
-     * (names may repeat across disciplines). Rows with no matching discipline/class-group become
-     * a {@link CsvRowError} instead of being auto-created or silently dropped.
+     * (names may repeat across disciplines). A discipline or class group named in the CSV but not
+     * found in the database is not an error: a new id is generated for it here (reused by every
+     * other row that names the same one) and {@link Database#importCsvRows} creates the actual
+     * row when the plan is committed — this lets a whole roster (disciplines, class groups, and
+     * students together) be bootstrapped from one CSV. Only a row with a blank discipline/class
+     * group name becomes a {@link CsvRowError}, since there's nothing to create from nothing.
      */
     public void resolveCsvRows(List<CsvStudentRow> rows, final IDatabaseOnLoad<CsvImportPlan> listener) {
         executor.execute(() -> {
@@ -1054,24 +1058,44 @@ public class Database {
 
             CsvImportPlan plan = new CsvImportPlan();
             for (CsvStudentRow row : rows) {
-                Discipline discipline = disciplineByName.get(normalize(row.disciplineName));
-                if (discipline == null) {
-                    plan.errors.add(new CsvRowError(row.lineNumber, "Unknown discipline \"" + row.disciplineName + "\""));
+                String disciplineName = row.disciplineName == null ? "" : row.disciplineName.trim();
+                if (disciplineName.isEmpty()) {
+                    plan.errors.add(new CsvRowError(row.lineNumber, "Missing discipline name"));
+                    continue;
+                }
+                String classGroupName = row.classGroupName == null ? "" : row.classGroupName.trim();
+                if (classGroupName.isEmpty()) {
+                    plan.errors.add(new CsvRowError(row.lineNumber, "Missing class group name"));
                     continue;
                 }
 
-                ClassGroup classGroup = classGroupByKey.get(discipline.id + "|" + normalize(row.classGroupName));
-                if (classGroup == null) {
-                    plan.errors.add(new CsvRowError(row.lineNumber,
-                            "Unknown class group \"" + row.classGroupName + "\" in " + discipline.name));
-                    continue;
+                Discipline discipline = disciplineByName.get(normalize(disciplineName));
+                boolean isNewDiscipline = discipline == null;
+                if (isNewDiscipline) {
+                    // Remember this newly-seen discipline so later rows for it (and its class
+                    // groups) in this file reuse the same id instead of creating a duplicate.
+                    discipline = new Discipline();
+                    discipline.id = UUID.randomUUID().toString();
+                    discipline.name = disciplineName;
+                    disciplineByName.put(normalize(disciplineName), discipline);
+                }
+
+                String classGroupKey = discipline.id + "|" + normalize(classGroupName);
+                ClassGroup classGroup = classGroupByKey.get(classGroupKey);
+                boolean isNewClassGroup = classGroup == null;
+                if (isNewClassGroup) {
+                    classGroup = new ClassGroup();
+                    classGroup.id = UUID.randomUUID().toString();
+                    classGroup.disciplineId = discipline.id;
+                    classGroup.name = classGroupName;
+                    classGroupByKey.put(classGroupKey, classGroup);
                 }
 
                 Student existing = studentByName.get(normalize(row.name));
-                boolean isNew = existing == null;
-                String studentId = isNew ? UUID.randomUUID().toString() : existing.id;
+                boolean isNewStudent = existing == null;
+                String studentId = isNewStudent ? UUID.randomUUID().toString() : existing.id;
 
-                if (isNew) {
+                if (isNewStudent) {
                     // Remember this newly-seen name so later rows for the same student in this
                     // file reuse the same id instead of creating a duplicate.
                     Student placeholder = new Student();
@@ -1080,7 +1104,9 @@ public class Database {
                     studentByName.put(normalize(row.name), placeholder);
                 }
 
-                plan.resolved.add(new ResolvedCsvRow(studentId, row.name, isNew, discipline.id, classGroup.id));
+                plan.resolved.add(new ResolvedCsvRow(studentId, row.name, isNewStudent,
+                        discipline.id, discipline.name, isNewDiscipline,
+                        classGroup.id, classGroup.name, isNewClassGroup));
             }
 
             postResult(() -> listener.onLoadComplete(true, plan));
@@ -1088,19 +1114,39 @@ public class Database {
     }
 
     /**
-     * Creates new students and enrollments from a resolved CSV plan. Never resets an existing
-     * enrollment's grades: an enrollment is only inserted if the student wasn't already enrolled
-     * in that class group.
+     * Creates new disciplines, class groups, students and enrollments from a resolved CSV plan.
+     * Never resets an existing enrollment's grades: an enrollment is only inserted if the student
+     * wasn't already enrolled in that class group.
      */
     public void importCsvRows(List<ResolvedCsvRow> rows, final IDatabaseOnResult listener) {
         executor.execute(() -> {
             SQLiteDatabase db = dbHelper.getWritableDatabase();
             db.beginTransaction();
             try {
-                // A student appearing on multiple CSV rows (e.g. enrolled in several class
-                // groups) must only be inserted once — this set prevents duplicate insert attempts.
+                // The same new discipline/class-group/student can appear on several CSV rows
+                // (e.g. every student in a class names that class's discipline) — these sets make
+                // sure each one is only inserted once.
+                Set<String> insertedDisciplineIds = new HashSet<>();
+                Set<String> insertedClassGroupIds = new HashSet<>();
                 Set<String> insertedStudentIds = new HashSet<>();
                 for (ResolvedCsvRow row : rows) {
+                    if (row.isNewDiscipline && insertedDisciplineIds.add(row.disciplineId)) {
+                        ContentValues disciplineValues = new ContentValues();
+                        disciplineValues.put(StudentDbHelper.COL_DISCIPLINE_ID, row.disciplineId);
+                        disciplineValues.put(StudentDbHelper.COL_DISCIPLINE_NAME, row.disciplineName);
+                        db.insertWithOnConflict(StudentDbHelper.TABLE_DISCIPLINES, null, disciplineValues,
+                                SQLiteDatabase.CONFLICT_IGNORE);
+                    }
+
+                    if (row.isNewClassGroup && insertedClassGroupIds.add(row.classGroupId)) {
+                        ContentValues classGroupValues = new ContentValues();
+                        classGroupValues.put(StudentDbHelper.COL_CLASS_GROUP_ID_PK, row.classGroupId);
+                        classGroupValues.put(StudentDbHelper.COL_CLASS_GROUP_DISCIPLINE_ID, row.disciplineId);
+                        classGroupValues.put(StudentDbHelper.COL_CLASS_GROUP_NAME, row.classGroupName);
+                        db.insertWithOnConflict(StudentDbHelper.TABLE_CLASS_GROUPS, null, classGroupValues,
+                                SQLiteDatabase.CONFLICT_IGNORE);
+                    }
+
                     if (row.isNewStudent && insertedStudentIds.add(row.studentId)) {
                         ContentValues studentValues = new ContentValues();
                         studentValues.put(StudentDbHelper.COL_ID, row.studentId);

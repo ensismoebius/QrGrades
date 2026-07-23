@@ -785,6 +785,9 @@
             resultEl.innerHTML = '';
             api('/api/import/csv', { method: 'POST', body: fd }).then(function (res) {
                 var text = 'Imported. New students: ' + res.newCount + ', matched: ' + res.matchedCount + '.';
+                if (res.newDisciplineCount || res.newClassGroupCount) {
+                    text += ' New disciplines: ' + res.newDisciplineCount + ', new class groups: ' + res.newClassGroupCount + '.';
+                }
                 if (res.errors && res.errors.length) {
                     text += '\n' + res.errors.map(function (er) { return 'Line ' + er.line + ': ' + er.reason; }).join('\n');
                 }

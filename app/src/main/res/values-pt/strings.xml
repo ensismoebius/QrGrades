@@ -154,6 +154,7 @@
     <string name="import_csv_action">Importar CSV</string>
     <string name="csv_import_confirm_title">Importar turma?</string>
     <string name="csv_import_summary">"%1$d aluno(s) novo(s), %2$d correspondente(s) a alunos existentes, %3$d linha(s) ignorada(s)."</string>
+    <string name="csv_import_new_structure">"%1$d disciplina(s) nova(s) e %2$d turma(s) nova(s) serão criadas."</string>
     <string name="csv_import_error_line">"Linha %1$d: %2$s"</string>
     <string name="csv_import_no_valid_rows">Nenhuma linha válida para importar.</string>
     <string name="csv_import_invalid_file">"Arquivo CSV inválido: %1$s"</string>

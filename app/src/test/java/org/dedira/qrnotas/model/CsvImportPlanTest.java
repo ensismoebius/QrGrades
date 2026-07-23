@@ -51,9 +51,9 @@ public class CsvImportPlanTest {
         // The "d1"/"c1" discipline/class-group ids are arbitrary and reused across all three
         // rows on purpose: this test only cares about the isNewStudent flag (the boolean
         // argument), not which discipline/class-group the rows belong to.
-        plan.resolved.add(new ResolvedCsvRow("s1", "André", true, "d1", "c1"));
-        plan.resolved.add(new ResolvedCsvRow("s2", "Beatriz", false, "d1", "c1"));
-        plan.resolved.add(new ResolvedCsvRow("s3", "Caio", true, "d1", "c1"));
+        plan.resolved.add(new ResolvedCsvRow("s1", "André", true, "d1", "BDI", false, "c1", "A", false));
+        plan.resolved.add(new ResolvedCsvRow("s2", "Beatriz", false, "d1", "BDI", false, "c1", "A", false));
+        plan.resolved.add(new ResolvedCsvRow("s3", "Caio", true, "d1", "BDI", false, "c1", "A", false));
 
         assertEquals(2, plan.newStudentCount());
         assertEquals(1, plan.matchedStudentCount());
@@ -64,13 +64,28 @@ public class CsvImportPlanTest {
     @Test
     public void errorsDoNotAffectStudentCounts() {
         CsvImportPlan plan = new CsvImportPlan();
-        plan.resolved.add(new ResolvedCsvRow("s1", "André", true, "d1", "c1"));
+        plan.resolved.add(new ResolvedCsvRow("s1", "André", true, "d1", "BDI", false, "c1", "A", false));
         // Line number 5 and the reason text below are arbitrary placeholders; only the fact
         // that this row landed in "errors" (rather than "resolved") matters for this test.
-        plan.errors.add(new CsvRowError(5, "Unknown discipline"));
+        plan.errors.add(new CsvRowError(5, "Missing discipline name"));
 
         assertEquals(1, plan.newStudentCount());
         assertEquals(0, plan.matchedStudentCount());
         assertEquals(1, plan.errors.size());
+    }
+
+    // Verifies newDisciplineCount()/newClassGroupCount() tally distinct ids flagged as new,
+    // and don't double-count when several rows share the same brand-new discipline/class group
+    // (e.g. every student in the same new class, which is the common case for a roster import).
+    @Test
+    public void newStructureCountsAreDistinctAndFlagged() {
+        CsvImportPlan plan = new CsvImportPlan();
+        plan.resolved.add(new ResolvedCsvRow("s1", "André", true, "d1", "DS", true, "c1", "GRUPO A", true));
+        plan.resolved.add(new ResolvedCsvRow("s2", "Beatriz", true, "d1", "DS", true, "c1", "GRUPO A", true));
+        plan.resolved.add(new ResolvedCsvRow("s3", "Caio", true, "d1", "DS", true, "c2", "GRUPO B", true));
+        plan.resolved.add(new ResolvedCsvRow("s4", "Duda", false, "d2", "BDI", false, "c3", "A", false));
+
+        assertEquals(1, plan.newDisciplineCount());
+        assertEquals(2, plan.newClassGroupCount());
     }
 }

@@ -445,6 +445,10 @@ public class StudentList extends AppCompatActivity {
 
         StringBuilder message = new StringBuilder(getString(R.string.csv_import_summary,
                 plan.newStudentCount(), plan.matchedStudentCount(), plan.errors.size()));
+        if (plan.newDisciplineCount() > 0 || plan.newClassGroupCount() > 0) {
+            message.append("\n").append(getString(R.string.csv_import_new_structure,
+                    plan.newDisciplineCount(), plan.newClassGroupCount()));
+        }
         int shown = 0;
         for (CsvRowError error : plan.errors) {
             if (shown >= 5) break;
