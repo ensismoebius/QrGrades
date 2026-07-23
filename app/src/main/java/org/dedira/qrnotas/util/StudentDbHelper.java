@@ -36,7 +36,7 @@ public class StudentDbHelper extends SQLiteOpenHelper {
     static final String DB_NAME = "qrgrades.db";
     // Bump this whenever the schema changes (new table/column/etc.) — SQLiteOpenHelper compares
     // this against the version stored in the existing DB file and calls onUpgrade() if it's higher.
-    private static final int DB_VERSION = 4;
+    private static final int DB_VERSION = 5;
 
     public static final String TABLE_STUDENTS = "students";
     public static final String COL_ID = "id";
@@ -72,6 +72,23 @@ public class StudentDbHelper extends SQLiteOpenHelper {
     public static final String COL_HISTORY_POINTS_DELTA = "points_delta";
     public static final String COL_HISTORY_NOTE = "note";
     public static final String COL_HISTORY_CREATED_AT = "created_at";
+
+    // One row per bathroom trip. "returned_at" stays NULL while the student is out; "evaded"
+    // is set once a trip goes unreturned for longer than Database.BATHROOM_EVASION_MS.
+    public static final String TABLE_BATHROOM_VISITS = "bathroom_visits";
+    public static final String COL_BATHROOM_ID = "id";
+    public static final String COL_BATHROOM_STUDENT_ID = "student_id";
+    public static final String COL_BATHROOM_WENT_AT = "went_at";
+    public static final String COL_BATHROOM_RETURNED_AT = "returned_at";
+    public static final String COL_BATHROOM_EVADED = "evaded";
+
+    // One row per indiscipline record a teacher registers against a student.
+    public static final String TABLE_INDISCIPLINE_EVENTS = "indiscipline_events";
+    public static final String COL_INDISCIPLINE_ID = "id";
+    public static final String COL_INDISCIPLINE_STUDENT_ID = "student_id";
+    public static final String COL_INDISCIPLINE_DISCIPLINE_ID = "discipline_id";
+    public static final String COL_INDISCIPLINE_NOTE = "note";
+    public static final String COL_INDISCIPLINE_CREATED_AT = "created_at";
 
     /** Creates the helper. The actual DB file isn't touched yet — SQLiteOpenHelper opens it lazily on first use. */
     public StudentDbHelper(Context context) {
@@ -124,6 +141,20 @@ public class StudentDbHelper extends SQLiteOpenHelper {
                 COL_HISTORY_POINTS_DELTA + " INTEGER NOT NULL, " +
                 COL_HISTORY_NOTE + " TEXT, " +
                 COL_HISTORY_CREATED_AT + " INTEGER NOT NULL)");
+
+        db.execSQL("CREATE TABLE " + TABLE_BATHROOM_VISITS + " (" +
+                COL_BATHROOM_ID + " TEXT PRIMARY KEY, " +
+                COL_BATHROOM_STUDENT_ID + " TEXT NOT NULL, " +
+                COL_BATHROOM_WENT_AT + " INTEGER NOT NULL, " +
+                COL_BATHROOM_RETURNED_AT + " INTEGER, " +
+                COL_BATHROOM_EVADED + " INTEGER NOT NULL DEFAULT 0)");
+
+        db.execSQL("CREATE TABLE " + TABLE_INDISCIPLINE_EVENTS + " (" +
+                COL_INDISCIPLINE_ID + " TEXT PRIMARY KEY, " +
+                COL_INDISCIPLINE_STUDENT_ID + " TEXT NOT NULL, " +
+                COL_INDISCIPLINE_DISCIPLINE_ID + " TEXT, " +
+                COL_INDISCIPLINE_NOTE + " TEXT, " +
+                COL_INDISCIPLINE_CREATED_AT + " INTEGER NOT NULL)");
     }
 
     /**
@@ -138,6 +169,8 @@ public class StudentDbHelper extends SQLiteOpenHelper {
         // Drop in reverse-ish dependency order (tables that reference others first) purely by
         // convention; SQLite here has no foreign-key constraints enabled, so order doesn't
         // actually matter for correctness, just tidiness.
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_INDISCIPLINE_EVENTS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_BATHROOM_VISITS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_POINTS_HISTORY);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_ENROLLMENTS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_STUDENTS);

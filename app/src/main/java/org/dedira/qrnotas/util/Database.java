@@ -26,6 +26,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.os.Handler;
 import android.os.Looper;
 
+import org.dedira.qrnotas.model.BathroomVisit;
 import org.dedira.qrnotas.model.ClassGroup;
 import org.dedira.qrnotas.model.CsvImportPlan;
 import org.dedira.qrnotas.model.CsvRowError;
@@ -34,6 +35,7 @@ import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.Goal;
 import org.dedira.qrnotas.model.GoalProgress;
+import org.dedira.qrnotas.model.IndisciplineEvent;
 import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.ResolvedCsvRow;
 import org.dedira.qrnotas.model.Student;
@@ -70,6 +72,10 @@ import java.util.concurrent.Executors;
  * bridge on top of this for use from non-UI threads (e.g. the LAN web server).
  */
 public class Database {
+    // A bathroom trip that hasn't been checked back in after this long is auto-marked "evaded"
+    // (see markExpiredBathroomVisitsEvaded), rather than staying "active" forever.
+    public static final long BATHROOM_EVASION_MS = 2 * 60 * 60 * 1000L;
+
     private final Context appContext;
     private final StudentDbHelper dbHelper;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -140,6 +146,27 @@ public class Database {
         return h;
     }
 
+    private static BathroomVisit bathroomVisitFromCursor(Cursor cursor) {
+        BathroomVisit v = new BathroomVisit();
+        v.id = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_BATHROOM_ID));
+        v.studentId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_BATHROOM_STUDENT_ID));
+        v.wentAt = cursor.getLong(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_BATHROOM_WENT_AT));
+        int returnedIdx = cursor.getColumnIndexOrThrow(StudentDbHelper.COL_BATHROOM_RETURNED_AT);
+        v.returnedAt = cursor.isNull(returnedIdx) ? null : cursor.getLong(returnedIdx);
+        v.evaded = cursor.getInt(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_BATHROOM_EVADED)) != 0;
+        return v;
+    }
+
+    private static IndisciplineEvent indisciplineEventFromCursor(Cursor cursor) {
+        IndisciplineEvent e = new IndisciplineEvent();
+        e.id = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_INDISCIPLINE_ID));
+        e.studentId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_INDISCIPLINE_STUDENT_ID));
+        e.disciplineId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_INDISCIPLINE_DISCIPLINE_ID));
+        e.note = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_INDISCIPLINE_NOTE));
+        e.createdAt = cursor.getLong(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_INDISCIPLINE_CREATED_AT));
+        return e;
+    }
+
     private static Student queryStudentById(SQLiteDatabase db, String id) {
         try (Cursor cursor = db.query(StudentDbHelper.TABLE_STUDENTS, null,
                 StudentDbHelper.COL_ID + "=?", new String[]{id}, null, null, null)) {
@@ -183,6 +210,10 @@ public class Database {
             }
             db.delete(StudentDbHelper.TABLE_ENROLLMENTS,
                     StudentDbHelper.COL_ENROLLMENT_STUDENT_ID + "=?", new String[]{studentId});
+            db.delete(StudentDbHelper.TABLE_BATHROOM_VISITS,
+                    StudentDbHelper.COL_BATHROOM_STUDENT_ID + "=?", new String[]{studentId});
+            db.delete(StudentDbHelper.TABLE_INDISCIPLINE_EVENTS,
+                    StudentDbHelper.COL_INDISCIPLINE_STUDENT_ID + "=?", new String[]{studentId});
 
             int rows = db.delete(StudentDbHelper.TABLE_STUDENTS, StudentDbHelper.COL_ID + "=?", new String[]{studentId});
             boolean success = rows > 0;
@@ -423,6 +454,160 @@ public class Database {
                 }
             }
             postResult(() -> listener.onLoadComplete(true, notes));
+        });
+    }
+
+    /* --------------------------- Bathroom visits ----------------------------- */
+
+    /**
+     * Flips any visit that's still "active" (no return time yet) but has been out longer than
+     * {@link #BATHROOM_EVASION_MS} into a closed, evaded state. Called at the start of every
+     * bathroom read/write below instead of via a background job/timer, since a teacher only ever
+     * needs an up-to-date answer at the moment they look or act — there's no UI that needs to
+     * visibly flip live while on screen.
+     */
+    private static void markExpiredBathroomVisitsEvaded(SQLiteDatabase db) {
+        long cutoff = System.currentTimeMillis() - BATHROOM_EVASION_MS;
+        ContentValues values = new ContentValues();
+        values.put(StudentDbHelper.COL_BATHROOM_EVADED, 1);
+        db.update(StudentDbHelper.TABLE_BATHROOM_VISITS, values,
+                StudentDbHelper.COL_BATHROOM_RETURNED_AT + " IS NULL AND " + StudentDbHelper.COL_BATHROOM_EVADED + "=0 AND "
+                        + StudentDbHelper.COL_BATHROOM_WENT_AT + "<?",
+                new String[]{String.valueOf(cutoff)});
+    }
+
+    /** The still-open visit for a student, if any (not returned yet and not evaded). At most one should ever exist per student. */
+    private static BathroomVisit queryActiveBathroomVisit(SQLiteDatabase db, String studentId) {
+        try (Cursor cursor = db.query(StudentDbHelper.TABLE_BATHROOM_VISITS, null,
+                StudentDbHelper.COL_BATHROOM_STUDENT_ID + "=? AND " + StudentDbHelper.COL_BATHROOM_RETURNED_AT + " IS NULL AND "
+                        + StudentDbHelper.COL_BATHROOM_EVADED + "=0",
+                new String[]{studentId}, null, null, null)) {
+            if (cursor.moveToFirst()) return bathroomVisitFromCursor(cursor);
+        }
+        return null;
+    }
+
+    /** Loads the student's currently-open bathroom visit, if any — used to enable/disable the "go"/"came back" actions. */
+    public void loadActiveBathroomVisit(String studentId, final IDatabaseOnLoad<BathroomVisit> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            markExpiredBathroomVisitsEvaded(db);
+            BathroomVisit visit = queryActiveBathroomVisit(db, studentId);
+            postResult(() -> listener.onLoadComplete(visit != null, visit));
+        });
+    }
+
+    /** Starts a bathroom visit for a student. Fails (success=false) if that student already has one open. */
+    public void startBathroomVisit(String studentId, final IDatabaseOnSave<BathroomVisit> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            markExpiredBathroomVisitsEvaded(db);
+
+            if (queryActiveBathroomVisit(db, studentId) != null) {
+                postResult(() -> listener.onSaveComplete(false, null));
+                return;
+            }
+
+            BathroomVisit visit = new BathroomVisit();
+            visit.id = UUID.randomUUID().toString();
+            visit.studentId = studentId;
+            visit.wentAt = System.currentTimeMillis();
+            visit.returnedAt = null;
+            visit.evaded = false;
+
+            ContentValues values = new ContentValues();
+            values.put(StudentDbHelper.COL_BATHROOM_ID, visit.id);
+            values.put(StudentDbHelper.COL_BATHROOM_STUDENT_ID, visit.studentId);
+            values.put(StudentDbHelper.COL_BATHROOM_WENT_AT, visit.wentAt);
+            values.putNull(StudentDbHelper.COL_BATHROOM_RETURNED_AT);
+            values.put(StudentDbHelper.COL_BATHROOM_EVADED, 0);
+
+            long result = db.insert(StudentDbHelper.TABLE_BATHROOM_VISITS, null, values);
+            boolean success = result != -1;
+            postResult(() -> listener.onSaveComplete(success, success ? visit : null));
+        });
+    }
+
+    /**
+     * Closes a student's open bathroom visit, stamping {@code returnedAt} and computing whether
+     * the trip exceeded {@link #BATHROOM_EVASION_MS} (marked evaded even though they did come
+     * back, since the whole point of the limit is to flag trips that took too long). Fails
+     * (success=false) if the student has no open visit.
+     */
+    public void endBathroomVisit(String studentId, final IDatabaseOnUpdate<BathroomVisit> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            markExpiredBathroomVisitsEvaded(db);
+
+            BathroomVisit visit = queryActiveBathroomVisit(db, studentId);
+            if (visit == null) {
+                postResult(() -> listener.onUpdateComplete(false, null));
+                return;
+            }
+
+            long now = System.currentTimeMillis();
+            boolean evaded = (now - visit.wentAt) > BATHROOM_EVASION_MS;
+
+            ContentValues values = new ContentValues();
+            values.put(StudentDbHelper.COL_BATHROOM_RETURNED_AT, now);
+            values.put(StudentDbHelper.COL_BATHROOM_EVADED, evaded ? 1 : 0);
+            db.update(StudentDbHelper.TABLE_BATHROOM_VISITS, values,
+                    StudentDbHelper.COL_BATHROOM_ID + "=?", new String[]{visit.id});
+
+            visit.returnedAt = now;
+            visit.evaded = evaded;
+            postResult(() -> listener.onUpdateComplete(true, visit));
+        });
+    }
+
+    /** Every bathroom visit ever recorded, most recent first — used by the web admin view. */
+    public void loadAllBathroomVisits(final IDatabaseOnLoad<ArrayList<BathroomVisit>> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            markExpiredBathroomVisitsEvaded(db);
+
+            ArrayList<BathroomVisit> list = new ArrayList<>();
+            try (Cursor cursor = db.query(StudentDbHelper.TABLE_BATHROOM_VISITS, null, null, null, null, null,
+                    StudentDbHelper.COL_BATHROOM_WENT_AT + " DESC")) {
+                while (cursor.moveToNext()) list.add(bathroomVisitFromCursor(cursor));
+            }
+            postResult(() -> listener.onLoadComplete(true, list));
+        });
+    }
+
+    /* -------------------------- Indiscipline events --------------------------- */
+
+    public void saveIndisciplineEvent(IndisciplineEvent e, final IDatabaseOnSave<IndisciplineEvent> listener) {
+        executor.execute(() -> {
+            if (e.id == null) e.id = UUID.randomUUID().toString();
+            if (e.createdAt == 0) e.createdAt = System.currentTimeMillis();
+
+            ContentValues values = new ContentValues();
+            values.put(StudentDbHelper.COL_INDISCIPLINE_ID, e.id);
+            values.put(StudentDbHelper.COL_INDISCIPLINE_STUDENT_ID, e.studentId);
+            values.put(StudentDbHelper.COL_INDISCIPLINE_DISCIPLINE_ID, e.disciplineId);
+            values.put(StudentDbHelper.COL_INDISCIPLINE_NOTE, e.note);
+            values.put(StudentDbHelper.COL_INDISCIPLINE_CREATED_AT, e.createdAt);
+
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            long result = db.insertWithOnConflict(StudentDbHelper.TABLE_INDISCIPLINE_EVENTS, null, values,
+                    SQLiteDatabase.CONFLICT_REPLACE);
+            boolean success = result != -1;
+
+            postResult(() -> listener.onSaveComplete(success, e));
+        });
+    }
+
+    /** Every indiscipline record ever registered, most recent first — used by the web admin view. */
+    public void loadAllIndisciplineEvents(final IDatabaseOnLoad<ArrayList<IndisciplineEvent>> listener) {
+        executor.execute(() -> {
+            ArrayList<IndisciplineEvent> list = new ArrayList<>();
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            try (Cursor cursor = db.query(StudentDbHelper.TABLE_INDISCIPLINE_EVENTS, null, null, null, null, null,
+                    StudentDbHelper.COL_INDISCIPLINE_CREATED_AT + " DESC")) {
+                while (cursor.moveToNext()) list.add(indisciplineEventFromCursor(cursor));
+            }
+            postResult(() -> listener.onLoadComplete(true, list));
         });
     }
 

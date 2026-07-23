@@ -7,9 +7,12 @@
         students: [],
         overview: [],
         goalsByDiscipline: {},
+        bathroomVisits: [],
+        indisciplineEvents: [],
         tab: 'overview',
         leaderboardDisciplineId: null,
-        studentsDisciplineId: null
+        studentsDisciplineId: null,
+        bathroomStudentId: null
     };
 
     /* ------------------------------- API helper ------------------------------- */
@@ -88,6 +91,7 @@
         else if (tab === 'disciplines') renderDisciplines();
         else if (tab === 'classgroups') renderClassGroups();
         else if (tab === 'goals') renderGoals();
+        else if (tab === 'bathroom') renderBathroom();
         else if (tab === 'data') renderData();
     }
 
@@ -98,13 +102,20 @@
             api('/api/disciplines').then(function (d) { state.disciplines = d; }),
             api('/api/classgroups').then(function (g) { state.classGroups = g; }),
             api('/api/students').then(function (s) { state.students = s; }),
-            api('/api/overview').then(function (o) { state.overview = o; })
+            api('/api/overview').then(function (o) { state.overview = o; }),
+            api('/api/bathroom').then(function (v) { state.bathroomVisits = v; }),
+            api('/api/indiscipline').then(function (e) { state.indisciplineEvents = e; })
         ]).then(function () { renderTab(state.tab); });
     }
 
     function disciplineName(id) {
         var d = state.disciplines.find(function (x) { return x.id === id; });
         return d ? d.name : '';
+    }
+
+    function studentName(id) {
+        var s = state.students.find(function (x) { return x.id === id; });
+        return s ? s.name : '(unknown student)';
     }
 
     function classGroupName(id) {
@@ -540,6 +551,100 @@
                 if (!confirm('Delete goal "' + g.name + '"?')) return;
                 api('/api/goals/' + g.id, { method: 'DELETE' }).then(function () { closeModal(); renderGoals(); });
             } : null);
+    }
+
+    /* --------------------------- Bathroom & indiscipline ------------------------------ */
+
+    function formatDateTime(ms) {
+        return ms == null ? '' : new Date(ms).toLocaleString();
+    }
+
+    function formatDuration(ms) {
+        var totalSeconds = Math.floor(ms / 1000);
+        var h = Math.floor(totalSeconds / 3600);
+        var m = Math.floor((totalSeconds % 3600) / 60);
+        var s = totalSeconds % 60;
+        return h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    function studentOptions(selectedId) {
+        return state.students.map(function (s) {
+            return '<option value="' + s.id + '"' + (s.id === selectedId ? ' selected' : '') + '>' + escapeHtml(s.name) + '</option>';
+        }).join('');
+    }
+
+    function renderBathroom() {
+        var el = document.getElementById('tab-bathroom');
+        if (state.students.length === 0) {
+            el.innerHTML = '<div class="card"><p>Add a student first.</p></div>';
+            return;
+        }
+
+        var openVisits = state.bathroomVisits.filter(function (v) { return v.returnedAt == null; });
+
+        el.innerHTML =
+            '<div class="card"><h2>Send to the bathroom</h2>' +
+            '<form class="inline-form" id="bathroom-start-form"><select name="studentId">' + studentOptions(null) + '</select>' +
+            '<button type="submit" class="btn">Go to bathroom</button></form>' +
+            '<div id="bathroom-start-result"></div></div>' +
+
+            '<div class="card"><h2>Currently out (' + openVisits.length + ')</h2>' +
+            (openVisits.length === 0 ? '<p>Nobody is out right now.</p>' :
+                '<div class="table-wrap"><table><thead><tr><th>Student</th><th>Went at</th><th></th></tr></thead><tbody id="bathroom-open-body"></tbody></table></div>') +
+            '</div>' +
+
+            '<div class="card"><h2>Bathroom log</h2>' +
+            '<div class="table-wrap"><table><thead><tr><th>Student</th><th>Went at</th><th>Returned at</th><th>Duration</th><th>Evaded</th></tr></thead>' +
+            '<tbody>' + state.bathroomVisits.map(function (v) {
+                var duration = v.returnedAt != null ? formatDuration(v.returnedAt - v.wentAt) : '—';
+                return '<tr' + (v.evaded ? ' class="warning-row"' : '') + '><td>' + escapeHtml(studentName(v.studentId)) + '</td>' +
+                    '<td>' + formatDateTime(v.wentAt) + '</td><td>' + formatDateTime(v.returnedAt) + '</td>' +
+                    '<td>' + duration + '</td><td>' + (v.evaded ? 'Yes' : 'No') + '</td></tr>';
+            }).join('') + '</tbody></table></div></div>' +
+
+            '<div class="card"><h2>Register indiscipline</h2>' +
+            '<form class="inline-form" id="indiscipline-form"><select name="studentId">' + studentOptions(null) + '</select>' +
+            '<input type="text" name="note" placeholder="note (optional)">' +
+            '<button type="submit" class="btn danger">Register</button></form>' +
+            '<div id="indiscipline-result"></div>' +
+            '<div class="table-wrap"><table><thead><tr><th>Student</th><th>When</th><th>Note</th></tr></thead>' +
+            '<tbody>' + state.indisciplineEvents.map(function (e) {
+                return '<tr><td>' + escapeHtml(studentName(e.studentId)) + '</td><td>' + formatDateTime(e.createdAt) +
+                    '</td><td>' + escapeHtml(e.note) + '</td></tr>';
+            }).join('') + '</tbody></table></div></div>';
+
+        var openBody = document.getElementById('bathroom-open-body');
+        if (openBody) {
+            openVisits.forEach(function (v) {
+                var tr = document.createElement('tr');
+                tr.innerHTML = '<td>' + escapeHtml(studentName(v.studentId)) + '</td><td>' + formatDateTime(v.wentAt) + '</td>' +
+                    '<td><button type="button" class="btn secondary">Mark back</button></td>';
+                tr.querySelector('button').addEventListener('click', function () {
+                    api('/api/bathroom/' + v.studentId + '/return', { method: 'POST' })
+                        .then(function () { return loadAll(); }).then(function () { selectTab('bathroom'); })
+                        .catch(function (err) { alert(err.message); });
+                });
+                openBody.appendChild(tr);
+            });
+        }
+
+        document.getElementById('bathroom-start-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var fd = new FormData(e.target);
+            var resultEl = document.getElementById('bathroom-start-result');
+            api('/api/bathroom', { method: 'POST', body: { studentId: fd.get('studentId') } })
+                .then(function () { return loadAll(); }).then(function () { selectTab('bathroom'); })
+                .catch(function (err) { resultEl.innerHTML = '<div class="summary-banner error">' + escapeHtml(err.message) + '</div>'; });
+        });
+
+        document.getElementById('indiscipline-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var fd = new FormData(e.target);
+            var resultEl = document.getElementById('indiscipline-result');
+            api('/api/indiscipline', { method: 'POST', body: { studentId: fd.get('studentId'), note: fd.get('note') || '' } })
+                .then(function () { return loadAll(); }).then(function () { selectTab('bathroom'); })
+                .catch(function (err) { resultEl.innerHTML = '<div class="summary-banner error">' + escapeHtml(err.message) + '</div>'; });
+        });
     }
 
     /* ----------------------------- Import / export ----------------------------------- */

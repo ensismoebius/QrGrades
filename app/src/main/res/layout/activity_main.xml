@@ -285,6 +285,44 @@
                     app:icon="@drawable/ic_check"
                     app:iconGravity="textStart" />
 
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_md"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnBathroomLeave"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="@dimen/spacing_xs"
+                        android:layout_weight="1"
+                        android:text="@string/go_to_bathroom_button"
+                        android:textSize="12sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnBathroomReturn"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/spacing_xs"
+                        android:layout_weight="1"
+                        android:text="@string/came_back_bathroom_button"
+                        android:textSize="12sp" />
+
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnIndiscipline"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_xs"
+                    android:text="@string/indiscipline_button"
+                    android:textColor="?attr/colorError"
+                    app:strokeColor="?attr/colorError" />
+
             </LinearLayout>
 
         </androidx.core.widget.NestedScrollView>

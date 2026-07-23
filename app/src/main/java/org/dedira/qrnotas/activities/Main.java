@@ -32,6 +32,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -61,10 +62,12 @@ import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.dialogs.LoadingDialog;
 import org.dedira.qrnotas.dialogs.NoteDialog;
 import org.dedira.qrnotas.dialogs.StudentPickerDialog;
+import org.dedira.qrnotas.model.BathroomVisit;
 import org.dedira.qrnotas.model.ClassGroup;
 import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.GoalProgress;
+import org.dedira.qrnotas.model.IndisciplineEvent;
 import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.model.StudentExportData;
@@ -102,6 +105,10 @@ public class Main extends AppCompatActivity {
     private View addPointsOverlay;
     private View cameraPermissionOverlay;
     private MaterialButton btnContinue;
+    private MaterialButton btnBathroomLeave;
+    private MaterialButton btnBathroomReturn;
+    private MaterialButton btnIndiscipline;
+    private BathroomVisit activeBathroomVisit;
     private AutoCompleteTextView dropdownDiscipline;
     private View txtDisciplineWarning;
     private DrawerLayout drawerLayout;
@@ -222,6 +229,13 @@ public class Main extends AppCompatActivity {
 
         this.btnContinue = this.findViewById(R.id.btnContinue);
         this.btnContinue.setOnClickListener(v -> onContinueClick());
+
+        this.btnBathroomLeave = this.findViewById(R.id.btnBathroomLeave);
+        this.btnBathroomLeave.setOnClickListener(v -> onBathroomLeaveClick());
+        this.btnBathroomReturn = this.findViewById(R.id.btnBathroomReturn);
+        this.btnBathroomReturn.setOnClickListener(v -> onBathroomReturnClick());
+        this.btnIndiscipline = this.findViewById(R.id.btnIndiscipline);
+        this.btnIndiscipline.setOnClickListener(v -> onIndisciplineClick());
 
         updateExtraPointsLabel();
         loadDisciplines();
@@ -369,6 +383,7 @@ public class Main extends AppCompatActivity {
                 this.txtName.setText(object.name);
                 this.imgPhoto.setImageBitmap(BitmapConverter.loadBitmap(object.photoPath));
                 loadProgress(enrollment);
+                loadBathroomState();
                 revealStudentContent();
             });
         });
@@ -447,6 +462,7 @@ public class Main extends AppCompatActivity {
             this.txtName.setText(student.name);
             this.imgPhoto.setImageBitmap(BitmapConverter.loadBitmap(student.photoPath));
             loadProgress(saved);
+            loadBathroomState();
             revealStudentContent();
         });
     }
@@ -661,6 +677,7 @@ public class Main extends AppCompatActivity {
     private void resetToStart() {
         this.student = null;
         this.currentEnrollment = null;
+        this.activeBathroomVisit = null;
         this.extraPoints = 1;
         updateExtraPointsLabel();
         this.goalsContainer.removeAllViews();
@@ -687,6 +704,127 @@ public class Main extends AppCompatActivity {
                 this.currentEnrollment = updatedEnrollment;
             }
             Toast.makeText(this, R.string.undo_done, Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    /* --------------------------- Bathroom / indiscipline -------------------------------- */
+
+    /**
+     * Looks up whether the currently-loaded student has an open bathroom visit, then enables the
+     * matching action ("go" vs. "came back") — called every time a new student is identified so
+     * the buttons never show stale state from whoever was scanned previously.
+     */
+    private void loadBathroomState() {
+        if (this.student == null) return;
+        final String studentId = this.student.id;
+        this.database.loadActiveBathroomVisit(studentId, (found, visit) -> {
+            if (this.student == null || !studentId.equals(this.student.id)) return;
+            this.activeBathroomVisit = found ? visit : null;
+            updateBathroomButtons();
+        });
+    }
+
+    /** Enables exactly one of "go to bathroom" / "came back", based on {@link #activeBathroomVisit}. */
+    private void updateBathroomButtons() {
+        boolean out = this.activeBathroomVisit != null;
+        this.btnBathroomLeave.setEnabled(!out);
+        this.btnBathroomReturn.setEnabled(out);
+    }
+
+    /** Click handler for "go to bathroom": records the student as having left, using the already-identified (scanned or manually picked) student. */
+    private void onBathroomLeaveClick() {
+        if (this.student == null) return;
+        final Student leavingStudent = this.student;
+
+        this.database.startBathroomVisit(leavingStudent.id, (success, visit) -> {
+            if (!success) {
+                Toast.makeText(this, getString(R.string.bathroom_already_out, leavingStudent.name), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (this.student != null && this.student.id.equals(leavingStudent.id)) {
+                this.activeBathroomVisit = visit;
+                updateBathroomButtons();
+            }
+            Toast.makeText(this, getString(R.string.bathroom_left, leavingStudent.name), Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    /** Click handler for "came back": closes the student's open bathroom visit and shows how long they were out. */
+    private void onBathroomReturnClick() {
+        if (this.student == null) return;
+        final Student returningStudent = this.student;
+
+        this.database.endBathroomVisit(returningStudent.id, (success, visit) -> {
+            if (!success) {
+                Toast.makeText(this, getString(R.string.bathroom_not_out, returningStudent.name), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (this.student != null && this.student.id.equals(returningStudent.id)) {
+                this.activeBathroomVisit = null;
+                updateBathroomButtons();
+            }
+            showBathroomReturnSummary(returningStudent, visit);
+        });
+    }
+
+    /** Shows how long the student was out, flagging it if the trip went past the evasion window. */
+    private void showBathroomReturnSummary(Student student, BathroomVisit visit) {
+        long durationMs = visit.returnedAt - visit.wentAt;
+        String message = getString(R.string.bathroom_return_summary, student.name, formatDuration(durationMs));
+        if (visit.evaded) message += "\n\n" + getString(R.string.bathroom_evaded_warning);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.bathroom_return_title)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
+    /** Formats a millisecond duration as "H:MM:SS". */
+    private String formatDuration(long durationMs) {
+        long totalSeconds = durationMs / 1000;
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+        return String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds);
+    }
+
+    /** Click handler for "Indiscipline": prompts for an optional note, then saves a new indiscipline record for the identified student. */
+    private void onIndisciplineClick() {
+        if (this.student == null) return;
+        final Student targetStudent = this.student;
+        final String disciplineId = this.currentDisciplineId;
+
+        EditText input = new EditText(this);
+        input.setHint(R.string.indiscipline_note_hint);
+        int padding = (int) dp(20);
+        input.setPadding(padding, padding, padding, 0);
+
+        new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.indiscipline_dialog_title, targetStudent.name))
+                .setView(input)
+                .setPositiveButton(R.string.save, (dialog, which) -> {
+                    String note = input.getText() == null ? "" : input.getText().toString().trim();
+                    saveIndisciplineEvent(targetStudent, disciplineId, note);
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    /** Persists a new indiscipline record and reports success/failure to the teacher. */
+    private void saveIndisciplineEvent(Student student, String disciplineId, String note) {
+        IndisciplineEvent event = new IndisciplineEvent();
+        event.studentId = student.id;
+        event.disciplineId = disciplineId;
+        event.note = note;
+        event.createdAt = System.currentTimeMillis();
+
+        this.database.saveIndisciplineEvent(event, (success, saved) -> {
+            if (success) {
+                Toast.makeText(this, getString(R.string.indiscipline_saved, student.name), Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, R.string.indiscipline_save_failed, Toast.LENGTH_SHORT).show();
+            }
         });
     }
 

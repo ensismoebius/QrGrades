@@ -22,12 +22,14 @@ package org.dedira.qrnotas.util;
 import android.content.Context;
 import android.os.Looper;
 
+import org.dedira.qrnotas.model.BathroomVisit;
 import org.dedira.qrnotas.model.ClassGroup;
 import org.dedira.qrnotas.model.CsvImportPlan;
 import org.dedira.qrnotas.model.CsvStudentRow;
 import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.Goal;
+import org.dedira.qrnotas.model.IndisciplineEvent;
 import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.ResolvedCsvRow;
 import org.dedira.qrnotas.model.Student;
@@ -236,6 +238,80 @@ public class DatabaseSync {
         });
         awaitLatch(latch);
         return result.value;
+    }
+
+    /* ----------------------------- Bathroom visits ------------------------------ */
+
+    /** Synchronous wrapper around {@link Database#loadAllBathroomVisits}. */
+    public static ArrayList<BathroomVisit> loadAllBathroomVisits(Database database) {
+        assertNotMainThread();
+        CountDownLatch latch = new CountDownLatch(1);
+        Result<ArrayList<BathroomVisit>> result = new Result<>();
+        database.loadAllBathroomVisits((success, value) -> {
+            result.success = success;
+            result.value = value;
+            latch.countDown();
+        });
+        awaitLatch(latch);
+        return result.value;
+    }
+
+    /** Synchronous wrapper around {@link Database#startBathroomVisit}. */
+    public static Result<BathroomVisit> startBathroomVisit(Database database, String studentId) {
+        assertNotMainThread();
+        CountDownLatch latch = new CountDownLatch(1);
+        Result<BathroomVisit> result = new Result<>();
+        database.startBathroomVisit(studentId, (success, value) -> {
+            result.success = success;
+            result.value = value;
+            latch.countDown();
+        });
+        awaitLatch(latch);
+        return result;
+    }
+
+    /** Synchronous wrapper around {@link Database#endBathroomVisit}. */
+    public static Result<BathroomVisit> endBathroomVisit(Database database, String studentId) {
+        assertNotMainThread();
+        CountDownLatch latch = new CountDownLatch(1);
+        Result<BathroomVisit> result = new Result<>();
+        database.endBathroomVisit(studentId, (success, value) -> {
+            result.success = success;
+            result.value = value;
+            latch.countDown();
+        });
+        awaitLatch(latch);
+        return result;
+    }
+
+    /* --------------------------- Indiscipline events ----------------------------- */
+
+    /** Synchronous wrapper around {@link Database#loadAllIndisciplineEvents}. */
+    public static ArrayList<IndisciplineEvent> loadAllIndisciplineEvents(Database database) {
+        assertNotMainThread();
+        CountDownLatch latch = new CountDownLatch(1);
+        Result<ArrayList<IndisciplineEvent>> result = new Result<>();
+        database.loadAllIndisciplineEvents((success, value) -> {
+            result.success = success;
+            result.value = value;
+            latch.countDown();
+        });
+        awaitLatch(latch);
+        return result.value;
+    }
+
+    /** Synchronous wrapper around {@link Database#saveIndisciplineEvent}. */
+    public static Result<IndisciplineEvent> saveIndisciplineEvent(Database database, IndisciplineEvent event) {
+        assertNotMainThread();
+        CountDownLatch latch = new CountDownLatch(1);
+        Result<IndisciplineEvent> result = new Result<>();
+        database.saveIndisciplineEvent(event, (success, value) -> {
+            result.success = success;
+            result.value = value;
+            latch.countDown();
+        });
+        awaitLatch(latch);
+        return result;
     }
 
     /* ------------------------------- Disciplines -------------------------------- */

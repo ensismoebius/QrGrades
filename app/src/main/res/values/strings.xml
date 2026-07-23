@@ -44,6 +44,23 @@
     <string name="enrolled_success">"%1$s enrolled in %2$s."</string>
     <string name="enroll_failed">Failed to enroll student.</string>
 
+    <!-- Bathroom / indiscipline -->
+    <string name="go_to_bathroom_button">Go to bathroom</string>
+    <string name="came_back_bathroom_button">Came back</string>
+    <string name="indiscipline_button">Indiscipline</string>
+    <string name="bathroom_left">"%1$s went to the bathroom."</string>
+    <string name="bathroom_already_out">"%1$s is already out — mark them back first."</string>
+    <string name="bathroom_start_failed">Failed to record the bathroom trip.</string>
+    <string name="bathroom_not_out">"%1$s isn\'t marked as out."</string>
+    <string name="bathroom_return_failed">Failed to record the return.</string>
+    <string name="bathroom_return_title">Welcome back</string>
+    <string name="bathroom_return_summary">"%1$s was away for %2$s."</string>
+    <string name="bathroom_evaded_warning">"That\'s over the 2-hour limit — this trip has been marked as evaded."</string>
+    <string name="indiscipline_dialog_title">"Indiscipline record for %1$s"</string>
+    <string name="indiscipline_note_hint">What happened? (optional)</string>
+    <string name="indiscipline_saved">"Indiscipline recorded for %1$s."</string>
+    <string name="indiscipline_save_failed">Failed to save the indiscipline record.</string>
+
     <!-- Add/edit student -->
     <string name="name_hint">Student name</string>
     <string name="add_student_title">Add student</string>

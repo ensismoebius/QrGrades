@@ -23,6 +23,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
+import org.dedira.qrnotas.model.BathroomVisit;
 import org.dedira.qrnotas.model.ClassGroup;
 import org.dedira.qrnotas.model.CsvImportPlan;
 import org.dedira.qrnotas.model.CsvRowError;
@@ -30,6 +31,7 @@ import org.dedira.qrnotas.model.CsvStudentRow;
 import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.Goal;
+import org.dedira.qrnotas.model.IndisciplineEvent;
 import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.model.StudentExportData;
@@ -184,6 +186,10 @@ public class WebServer extends NanoHTTPD {
             case "history":
                 if (method == Method.GET) return handleHistory(session);
                 break;
+            case "bathroom":
+                return routeBathroom(session, method, parts);
+            case "indiscipline":
+                return routeIndiscipline(session, method, parts);
             case "export":
                 if (method == Method.GET) return handleExport(session);
                 break;
@@ -758,6 +764,108 @@ public class WebServer extends NanoHTTPD {
         obj.put("note", h.note == null ? "" : h.note);
         obj.put("createdAt", h.createdAt);
         return obj;
+    }
+
+    /* ------------------------------- Bathroom visits ------------------------------------ */
+
+    /**
+     * Dispatches all /api/bathroom... requests: list every visit / start a new one on the
+     * collection, and a nested "/return" sub-resource (keyed by student id, not visit id, since
+     * a student has at most one open visit at a time) to close it out.
+     */
+    private Response routeBathroom(IHTTPSession session, Method method, String[] parts) throws Exception {
+        if (parts.length == 1) {
+            if (method == Method.GET) return handleListBathroomVisits();
+            if (method == Method.POST) return handleStartBathroomVisit(session);
+        } else if (parts.length == 3 && parts[2].equals("return") && method == Method.POST) {
+            // "/api/bathroom/{studentId}/return"
+            return handleEndBathroomVisit(parts[1]);
+        }
+        return notFound();
+    }
+
+    /** Converts a {@link BathroomVisit} entity into the JSON shape the web UI expects. */
+    private static JSONObject bathroomVisitJson(BathroomVisit v) throws JSONException {
+        JSONObject obj = new JSONObject();
+        obj.put("id", v.id);
+        obj.put("studentId", v.studentId);
+        obj.put("wentAt", v.wentAt);
+        obj.put("returnedAt", v.returnedAt == null ? JSONObject.NULL : v.returnedAt);
+        obj.put("evaded", v.evaded);
+        return obj;
+    }
+
+    /** Handles GET /api/bathroom: returns every bathroom visit ever recorded, most recent first. */
+    private Response handleListBathroomVisits() throws JSONException {
+        ArrayList<BathroomVisit> list = DatabaseSync.loadAllBathroomVisits(database);
+        JSONArray array = new JSONArray();
+        if (list != null) for (BathroomVisit v : list) array.put(bathroomVisitJson(v));
+        return jsonResponse(Response.Status.OK, array);
+    }
+
+    /** Handles POST /api/bathroom: starts a bathroom visit for the student in the JSON body's "studentId" field. */
+    private Response handleStartBathroomVisit(IHTTPSession session) throws Exception {
+        JSONObject body = readJsonBody(session);
+        String studentId = body.optString("studentId", "");
+        if (studentId.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "studentId is required");
+
+        DatabaseSync.Result<BathroomVisit> result = DatabaseSync.startBathroomVisit(database, studentId);
+        if (!result.success) return jsonError(Response.Status.CONFLICT, "student already has an open bathroom visit");
+        return jsonResponse(Response.Status.OK, bathroomVisitJson(result.value));
+    }
+
+    /** Handles POST /api/bathroom/{studentId}/return: closes that student's open bathroom visit. */
+    private Response handleEndBathroomVisit(String studentId) throws JSONException {
+        DatabaseSync.Result<BathroomVisit> result = DatabaseSync.endBathroomVisit(database, studentId);
+        if (!result.success) return jsonError(Response.Status.NOT_FOUND, "student has no open bathroom visit");
+        return jsonResponse(Response.Status.OK, bathroomVisitJson(result.value));
+    }
+
+    /* ------------------------------ Indiscipline events ---------------------------------- */
+
+    /** Dispatches all /api/indiscipline... requests: list/create on the collection. */
+    private Response routeIndiscipline(IHTTPSession session, Method method, String[] parts) throws Exception {
+        if (parts.length == 1) {
+            if (method == Method.GET) return handleListIndisciplineEvents();
+            if (method == Method.POST) return handleCreateIndisciplineEvent(session);
+        }
+        return notFound();
+    }
+
+    /** Converts an {@link IndisciplineEvent} entity into the JSON shape the web UI expects. */
+    private static JSONObject indisciplineEventJson(IndisciplineEvent e) throws JSONException {
+        JSONObject obj = new JSONObject();
+        obj.put("id", e.id);
+        obj.put("studentId", e.studentId);
+        obj.put("disciplineId", e.disciplineId == null ? JSONObject.NULL : e.disciplineId);
+        obj.put("note", e.note == null ? "" : e.note);
+        obj.put("createdAt", e.createdAt);
+        return obj;
+    }
+
+    /** Handles GET /api/indiscipline: returns every indiscipline record ever registered, most recent first. */
+    private Response handleListIndisciplineEvents() throws JSONException {
+        ArrayList<IndisciplineEvent> list = DatabaseSync.loadAllIndisciplineEvents(database);
+        JSONArray array = new JSONArray();
+        if (list != null) for (IndisciplineEvent e : list) array.put(indisciplineEventJson(e));
+        return jsonResponse(Response.Status.OK, array);
+    }
+
+    /** Handles POST /api/indiscipline: registers a new indiscipline record from the JSON body's "studentId" (required), "disciplineId" and "note" (both optional). */
+    private Response handleCreateIndisciplineEvent(IHTTPSession session) throws Exception {
+        JSONObject body = readJsonBody(session);
+        String studentId = body.optString("studentId", "");
+        if (studentId.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "studentId is required");
+
+        IndisciplineEvent event = new IndisciplineEvent();
+        event.studentId = studentId;
+        event.disciplineId = body.isNull("disciplineId") ? null : body.optString("disciplineId", null);
+        event.note = body.optString("note", "");
+        event.createdAt = System.currentTimeMillis();
+
+        DatabaseSync.Result<IndisciplineEvent> result = DatabaseSync.saveIndisciplineEvent(database, event);
+        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "failed to save indiscipline record");
+        return jsonResponse(Response.Status.OK, indisciplineEventJson(result.value));
     }
 
     /* ---------------------------------- Export ---------------------------------------- */
