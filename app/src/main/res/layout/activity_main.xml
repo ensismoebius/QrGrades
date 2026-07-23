@@ -239,39 +239,14 @@
                 android:textColor="?attr/colorError"
                 app:strokeColor="?attr/colorError" />
 
-            <LinearLayout
-                android:id="@+id/pendingActionHintGroup"
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_sm"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:visibility="gone">
-
-                <TextView
-                    android:id="@+id/txtActionHint"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    tools:text="Scan a QR code to send this student to the bathroom" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnPickManually"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/pick_manually" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnCancelPendingAction"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/cancel" />
-
-            </LinearLayout>
+                android:layout_marginTop="@dimen/spacing_xs"
+                android:gravity="center"
+                android:text="@string/long_press_manual_hint"
+                android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
+                android:textColor="?attr/colorOnSurfaceVariant" />
 
         </LinearLayout>
 

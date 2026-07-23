@@ -69,7 +69,8 @@ public class CsvImporter {
             if (headerLine == null) throw new CsvFormatException("The file is empty.");
             // Spreadsheet apps (Excel in particular) commonly save UTF-8 CSVs with a leading BOM
             // (U+FEFF). InputStreamReader doesn't strip it (that's only automatic for UTF-16), so
-            // without this it stays glued to the first header cell ("﻿name" != "name") and
+            // without this it stays glued to the first header cell (e.g. "name" would decode as
+            // U+FEFF followed by "name", which never equals the literal string "name") and
             // silently breaks header matching for whichever column happens to be first.
             if (!headerLine.isEmpty() && headerLine.charAt(0) == '\uFEFF') {
                 headerLine = headerLine.substring(1);

@@ -50,9 +50,7 @@
     <string name="indiscipline_button">Indisciplina</string>
     <string name="bathroom_left">"%1$s foi ao banheiro."</string>
     <string name="bathroom_already_out">"%1$s já está fora — registre o retorno primeiro."</string>
-    <string name="bathroom_start_failed">Falha ao registrar a ida ao banheiro.</string>
     <string name="bathroom_not_out">"%1$s não está marcado(a) como fora."</string>
-    <string name="bathroom_return_failed">Falha ao registrar o retorno.</string>
     <string name="bathroom_return_title">Bem-vindo(a) de volta</string>
     <string name="bathroom_return_summary">"%1$s ficou fora por %2$s."</string>
     <string name="bathroom_evaded_warning">"Isso passou do limite de 2 horas — esta saída foi marcada como evasão."</string>
@@ -60,10 +58,10 @@
     <string name="indiscipline_note_hint">O que aconteceu? (opcional)</string>
     <string name="indiscipline_saved">"Indisciplina registrada para %1$s."</string>
     <string name="indiscipline_save_failed">Falha ao salvar o registro de indisciplina.</string>
-    <string name="pick_manually">Selecionar manualmente</string>
-    <string name="bathroom_leave_hint">Escaneie um QR code (ou selecione manualmente) para enviar um aluno ao banheiro.</string>
-    <string name="bathroom_return_hint">Escaneie um QR code (ou selecione manualmente) para marcar o retorno de um aluno do banheiro.</string>
-    <string name="indiscipline_hint">Escaneie um QR code (ou selecione manualmente) para registrar uma indisciplina.</string>
+    <string name="long_press_manual_hint">Toque e segure um botão acima para selecionar um aluno manualmente em vez de escanear.</string>
+    <string name="bathroom_leave_hint">Escaneie um QR code para enviar um aluno ao banheiro.</string>
+    <string name="bathroom_return_hint">Escaneie um QR code para marcar o retorno de um aluno do banheiro.</string>
+    <string name="indiscipline_hint">Escaneie um QR code para registrar uma indisciplina.</string>
     <string name="bathroom_status_out">"%1$s está fora no momento (banheiro)."</string>
 
     <!-- Add/edit student -->

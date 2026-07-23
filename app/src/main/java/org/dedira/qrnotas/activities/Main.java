@@ -122,13 +122,10 @@ public class Main extends AppCompatActivity {
     private MaterialButton btnBathroomReturn;
     private MaterialButton btnIndiscipline;
     private TextView txtBathroomStatus;
-    private View pendingActionHintGroup;
-    private TextView txtActionHint;
-    private MaterialButton btnPickManually;
-    private MaterialButton btnCancelPendingAction;
+    private Snackbar pendingActionSnackbar;
     private PendingAction pendingAction = PendingAction.POINTS;
     private AutoCompleteTextView dropdownDiscipline;
-    private View txtDisciplineWarning;
+    private TextView txtDisciplineWarning;
     private DrawerLayout drawerLayout;
     private Student student;
     private Enrollment currentEnrollment;
@@ -253,20 +250,18 @@ public class Main extends AppCompatActivity {
         this.btnContinue.setOnClickListener(v -> onContinueClick());
 
         this.txtBathroomStatus = this.findViewById(R.id.txtBathroomStatus);
-        this.pendingActionHintGroup = this.findViewById(R.id.pendingActionHintGroup);
-        this.txtActionHint = this.findViewById(R.id.txtActionHint);
 
+        // Tapping one of these arms it (waits for the next scan/manual pick); press-and-hold
+        // skips straight to the manual student picker for that same action.
         this.btnBathroomLeave = this.findViewById(R.id.btnBathroomLeave);
         this.btnBathroomLeave.setOnClickListener(v -> armPendingAction(PendingAction.BATHROOM_LEAVE));
+        this.btnBathroomLeave.setOnLongClickListener(v -> pickManuallyFor(PendingAction.BATHROOM_LEAVE));
         this.btnBathroomReturn = this.findViewById(R.id.btnBathroomReturn);
         this.btnBathroomReturn.setOnClickListener(v -> armPendingAction(PendingAction.BATHROOM_RETURN));
+        this.btnBathroomReturn.setOnLongClickListener(v -> pickManuallyFor(PendingAction.BATHROOM_RETURN));
         this.btnIndiscipline = this.findViewById(R.id.btnIndiscipline);
         this.btnIndiscipline.setOnClickListener(v -> armPendingAction(PendingAction.INDISCIPLINE));
-
-        this.btnPickManually = this.findViewById(R.id.btnPickManually);
-        this.btnPickManually.setOnClickListener(v -> pickStudentManually());
-        this.btnCancelPendingAction = this.findViewById(R.id.btnCancelPendingAction);
-        this.btnCancelPendingAction.setOnClickListener(v -> cancelPendingAction());
+        this.btnIndiscipline.setOnLongClickListener(v -> pickManuallyFor(PendingAction.INDISCIPLINE));
 
         updateExtraPointsLabel();
         loadDisciplines();
@@ -368,15 +363,22 @@ public class Main extends AppCompatActivity {
     /** Entry point for "Award points manually" (nav drawer item) — always the points flow, regardless of any armed start-screen action. */
     private void selectStudentManually() {
         this.pendingAction = PendingAction.POINTS;
-        updateActionHint();
+        dismissPendingActionSnackbar();
         pickStudentManually();
+    }
+
+    /** Long-press handler for the bathroom/indiscipline buttons: skips scanning and opens the manual picker straight away for that action. */
+    private boolean pickManuallyFor(PendingAction action) {
+        this.pendingAction = action;
+        dismissPendingActionSnackbar();
+        pickStudentManually();
+        return true;
     }
 
     /**
      * Opens the manual student picker for whichever action is currently armed (points, by
-     * default). This is the "or pick manually" alternative to scanning, offered both from the
-     * nav drawer (always points) and from the start-screen hint shown once a bathroom/indiscipline
-     * action has been armed.
+     * default). This is the "or pick manually" alternative to scanning, reachable from the nav
+     * drawer (always points) or by pressing and holding a bathroom/indiscipline button.
      */
     private void pickStudentManually() {
         if (this.pendingAction == PendingAction.POINTS && !requireDisciplineSelected()) return;
@@ -391,7 +393,7 @@ public class Main extends AppCompatActivity {
     private void identifyStudent(String studentId) {
         PendingAction action = this.pendingAction;
         this.pendingAction = PendingAction.POINTS;
-        updateActionHint();
+        dismissPendingActionSnackbar();
 
         switch (action) {
             case BATHROOM_LEAVE:
@@ -413,14 +415,16 @@ public class Main extends AppCompatActivity {
     /**
      * Guards the points flow specifically (QR scan or manual pick) so points can never be
      * recorded before a discipline has been chosen. Bathroom/indiscipline actions don't need a
-     * discipline selected — a hall pass or a behavior note isn't tied to a subject. Shows a
-     * warning and returns false if none is selected yet.
+     * discipline selected — a hall pass or a behavior note isn't tied to a subject. Shows the
+     * warning inline (no separate Toast — a Toast here would just duplicate this same message,
+     * and can render clipped by the status bar under edge-to-edge) and returns false if none is
+     * selected yet.
      */
     private boolean requireDisciplineSelected() {
         if (this.currentDisciplineId != null) return true;
-        this.txtDisciplineWarning.setVisibility(View.VISIBLE);
         int message = this.disciplines.isEmpty() ? R.string.no_disciplines_for_scan : R.string.select_discipline_before_scan;
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        this.txtDisciplineWarning.setText(message);
+        this.txtDisciplineWarning.setVisibility(View.VISIBLE);
         return false;
     }
 
@@ -782,29 +786,16 @@ public class Main extends AppCompatActivity {
 
     /**
      * Arms a start-screen action (bathroom leave/return, indiscipline): the next student
-     * identified — by the already-live camera or by tapping "Pick manually" — is routed to it
-     * instead of the points flow. Shows a hint explaining what to do next, with a way to cancel.
+     * identified — by the already-live camera or by pressing and holding the same button — is
+     * routed to it instead of the points flow. An indefinite Snackbar (standard Android UI for
+     * "waiting on you to do something next") explains what to do and offers a way to cancel,
+     * instead of a hand-rolled layout row that has to fit next to two buttons.
      */
     private void armPendingAction(PendingAction action) {
         this.pendingAction = action;
-        updateActionHint();
-    }
-
-    /** Un-arms whatever start-screen action was pending, back to the default (points). */
-    private void cancelPendingAction() {
-        this.pendingAction = PendingAction.POINTS;
-        updateActionHint();
-    }
-
-    /** Shows/hides the "scan or pick manually" hint strip depending on whether an action is currently armed. */
-    private void updateActionHint() {
-        if (this.pendingAction == PendingAction.POINTS) {
-            this.pendingActionHintGroup.setVisibility(View.GONE);
-            return;
-        }
 
         int hintRes;
-        switch (this.pendingAction) {
+        switch (action) {
             case BATHROOM_LEAVE:
                 hintRes = R.string.bathroom_leave_hint;
                 break;
@@ -816,8 +807,25 @@ public class Main extends AppCompatActivity {
                 hintRes = R.string.indiscipline_hint;
                 break;
         }
-        this.txtActionHint.setText(hintRes);
-        this.pendingActionHintGroup.setVisibility(View.VISIBLE);
+
+        dismissPendingActionSnackbar();
+        this.pendingActionSnackbar = Snackbar.make(this.btnIndiscipline, hintRes, Snackbar.LENGTH_INDEFINITE)
+                .setAction(R.string.cancel, v -> cancelPendingAction());
+        this.pendingActionSnackbar.show();
+    }
+
+    /** Un-arms whatever start-screen action was pending, back to the default (points). */
+    private void cancelPendingAction() {
+        this.pendingAction = PendingAction.POINTS;
+        dismissPendingActionSnackbar();
+    }
+
+    /** Hides the "waiting for a scan" Snackbar, if one is showing — called once the armed action is either handled or cancelled. */
+    private void dismissPendingActionSnackbar() {
+        if (this.pendingActionSnackbar != null) {
+            this.pendingActionSnackbar.dismiss();
+            this.pendingActionSnackbar = null;
+        }
     }
 
     /**

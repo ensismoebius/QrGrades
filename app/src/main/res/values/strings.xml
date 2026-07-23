@@ -50,9 +50,7 @@
     <string name="indiscipline_button">Indiscipline</string>
     <string name="bathroom_left">"%1$s went to the bathroom."</string>
     <string name="bathroom_already_out">"%1$s is already out — mark them back first."</string>
-    <string name="bathroom_start_failed">Failed to record the bathroom trip.</string>
     <string name="bathroom_not_out">"%1$s isn\'t marked as out."</string>
-    <string name="bathroom_return_failed">Failed to record the return.</string>
     <string name="bathroom_return_title">Welcome back</string>
     <string name="bathroom_return_summary">"%1$s was away for %2$s."</string>
     <string name="bathroom_evaded_warning">"That\'s over the 2-hour limit — this trip has been marked as evaded."</string>
@@ -60,10 +58,10 @@
     <string name="indiscipline_note_hint">What happened? (optional)</string>
     <string name="indiscipline_saved">"Indiscipline recorded for %1$s."</string>
     <string name="indiscipline_save_failed">Failed to save the indiscipline record.</string>
-    <string name="pick_manually">Pick manually</string>
-    <string name="bathroom_leave_hint">Scan a QR code (or pick manually) to send a student to the bathroom.</string>
-    <string name="bathroom_return_hint">Scan a QR code (or pick manually) to mark a student back from the bathroom.</string>
-    <string name="indiscipline_hint">Scan a QR code (or pick manually) to register an indiscipline record.</string>
+    <string name="long_press_manual_hint">Press and hold a button above to pick a student manually instead of scanning.</string>
+    <string name="bathroom_leave_hint">Scan a QR code to send a student to the bathroom.</string>
+    <string name="bathroom_return_hint">Scan a QR code to mark a student back from the bathroom.</string>
+    <string name="indiscipline_hint">Scan a QR code to register an indiscipline record.</string>
     <string name="bathroom_status_out">"%1$s is currently out (bathroom)."</string>
 
     <!-- Add/edit student -->
