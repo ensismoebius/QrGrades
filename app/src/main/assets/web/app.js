@@ -12,7 +12,9 @@
         tab: 'overview',
         leaderboardDisciplineId: null,
         studentsDisciplineId: null,
-        bathroomStudentId: null
+        bathroomStudentId: null,
+        qrDisciplineId: null,
+        qrExcludedIds: {}
     };
 
     /* ------------------------------- API helper ------------------------------- */
@@ -92,6 +94,7 @@
         else if (tab === 'classgroups') renderClassGroups();
         else if (tab === 'goals') renderGoals();
         else if (tab === 'bathroom') renderBathroom();
+        else if (tab === 'qrcodes') renderQrCodes();
         else if (tab === 'data') renderData();
     }
 
@@ -645,6 +648,95 @@
                 .then(function () { return loadAll(); }).then(function () { selectTab('bathroom'); })
                 .catch(function (err) { resultEl.innerHTML = '<div class="summary-banner error">' + escapeHtml(err.message) + '</div>'; });
         });
+    }
+
+    /* ---------------------------------- QR codes --------------------------------------- */
+
+    // "João Pedro Silva" -> "João P. S." — first name kept in full, every other name reduced
+    // to its initial, as requested for the printable QR code sheet.
+    function abbreviateName(name) {
+        var parts = (name || '').trim().split(/\s+/).filter(Boolean);
+        if (parts.length <= 1) return parts.join('');
+        return parts[0] + ' ' + parts.slice(1).map(function (p) {
+            return p.charAt(0).toUpperCase() + '.';
+        }).join(' ');
+    }
+
+    function renderQrCodes() {
+        var el = document.getElementById('tab-qrcodes');
+        if (state.students.length === 0) {
+            el.innerHTML = '<div class="card"><p>Add a student first.</p></div>';
+            return;
+        }
+
+        var enrolledIds = null;
+        if (state.qrDisciplineId) {
+            enrolledIds = {};
+            state.overview.forEach(function (row) {
+                if (row.disciplineId === state.qrDisciplineId) enrolledIds[row.studentId] = true;
+            });
+        }
+        var candidates = enrolledIds ? state.students.filter(function (s) { return enrolledIds[s.id]; }) : state.students;
+
+        el.innerHTML =
+            '<div class="card no-print">' +
+            '<div class="row"><h2 style="flex:1">Print QR codes</h2>' +
+            '<label>Discipline:</label><select id="qr-discipline"><option value="">All students</option>' +
+            disciplineOptions(state.qrDisciplineId) + '</select>' +
+            '<button type="button" class="btn secondary" id="qr-select-all">Select all</button>' +
+            '<button type="button" class="btn secondary" id="qr-select-none">Select none</button>' +
+            '<button type="button" class="btn" id="qr-print-btn">Print</button></div>' +
+            '<p>Each code prints with the student\'s first name in full and the rest of their name abbreviated to initials.</p>' +
+            '<div class="table-wrap"><table><thead><tr><th></th><th>Name</th><th>Label preview</th></tr></thead>' +
+            '<tbody id="qr-select-body"></tbody></table></div>' +
+            '</div>' +
+            '<div id="qr-print-grid" class="qr-grid"></div>';
+
+        document.getElementById('qr-discipline').value = state.qrDisciplineId || '';
+        document.getElementById('qr-discipline').addEventListener('change', function (e) {
+            state.qrDisciplineId = e.target.value || null;
+            renderQrCodes();
+        });
+
+        var body = document.getElementById('qr-select-body');
+        candidates.forEach(function (s) {
+            var tr = document.createElement('tr');
+            var checked = !state.qrExcludedIds[s.id];
+            tr.innerHTML = '<td><input type="checkbox" data-student-id="' + s.id + '"' + (checked ? ' checked' : '') + '></td>' +
+                '<td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(abbreviateName(s.name)) + '</td>';
+            tr.querySelector('input').addEventListener('change', function (e) {
+                if (e.target.checked) delete state.qrExcludedIds[s.id];
+                else state.qrExcludedIds[s.id] = true;
+                updateQrPrintGrid(candidates);
+            });
+            body.appendChild(tr);
+        });
+
+        document.getElementById('qr-select-all').addEventListener('click', function () {
+            candidates.forEach(function (s) { delete state.qrExcludedIds[s.id]; });
+            renderQrCodes();
+        });
+        document.getElementById('qr-select-none').addEventListener('click', function () {
+            candidates.forEach(function (s) { state.qrExcludedIds[s.id] = true; });
+            renderQrCodes();
+        });
+        document.getElementById('qr-print-btn').addEventListener('click', function () {
+            window.print();
+        });
+
+        updateQrPrintGrid(candidates);
+    }
+
+    function updateQrPrintGrid(candidates) {
+        var grid = document.getElementById('qr-print-grid');
+        if (!grid) return;
+        var selected = candidates.filter(function (s) { return !state.qrExcludedIds[s.id]; });
+        grid.innerHTML = selected.map(function (s) {
+            return '<div class="qr-item">' +
+                '<img src="/api/students/' + s.id + '/qrcode" alt="">' +
+                '<div class="qr-name">' + escapeHtml(abbreviateName(s.name)) + '</div>' +
+                '</div>';
+        }).join('');
     }
 
     /* ----------------------------- Import / export ----------------------------------- */

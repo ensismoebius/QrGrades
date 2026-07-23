@@ -41,10 +41,12 @@ import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.DatabaseSync;
 import org.dedira.qrnotas.util.Exporter;
 import org.dedira.qrnotas.util.Importer;
+import org.dedira.qrnotas.util.QrCode;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -303,6 +305,9 @@ public class WebServer extends NanoHTTPD {
             String id = parts[1];
             if (method == Method.GET) return handleGetPhoto(id);
             if (method == Method.POST) return handleUploadPhoto(session, id);
+        } else if (parts.length == 3 && parts[2].equals("qrcode")) {
+            // "/api/students/{id}/qrcode"
+            if (method == Method.GET) return handleGetQrCode(parts[1]);
         }
         return notFound();
     }
@@ -374,6 +379,25 @@ public class WebServer extends NanoHTTPD {
         } catch (IOException e) {
             return notFound();
         }
+    }
+
+    /**
+     * Handles GET /api/students/{id}/qrcode: generates (on the fly, nothing is cached on disk)
+     * and streams a PNG of the student's personal QR code — the same id-encoded image
+     * {@link org.dedira.qrnotas.dialogs.QrCodeDialog} shows in-app — so the web UI's "print QR
+     * codes" feature can lay it out next to the student's name without needing the phone.
+     */
+    private Response handleGetQrCode(String id) {
+        Student student = DatabaseSync.loadStudent(database, id);
+        if (student == null) return notFound();
+
+        Bitmap qrBitmap = QrCode.generateQRCode(student.id);
+        if (qrBitmap == null) return jsonError(Response.Status.INTERNAL_ERROR, "failed to generate QR code");
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        qrBitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+        byte[] png = out.toByteArray();
+        return newFixedLengthResponse(Response.Status.OK, "image/png", new ByteArrayInputStream(png), png.length);
     }
 
     /**
