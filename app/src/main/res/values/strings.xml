@@ -60,6 +60,11 @@
     <string name="indiscipline_note_hint">What happened? (optional)</string>
     <string name="indiscipline_saved">"Indiscipline recorded for %1$s."</string>
     <string name="indiscipline_save_failed">Failed to save the indiscipline record.</string>
+    <string name="pick_manually">Pick manually</string>
+    <string name="bathroom_leave_hint">Scan a QR code (or pick manually) to send a student to the bathroom.</string>
+    <string name="bathroom_return_hint">Scan a QR code (or pick manually) to mark a student back from the bathroom.</string>
+    <string name="indiscipline_hint">Scan a QR code (or pick manually) to register an indiscipline record.</string>
+    <string name="bathroom_status_out">"%1$s is currently out (bathroom)."</string>
 
     <!-- Add/edit student -->
     <string name="name_hint">Student name</string>

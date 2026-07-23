@@ -91,10 +91,23 @@ import java.util.Locale;
  * database. It also shows the student's current point total and progress toward any goals defined
  * for that discipline.
  * <p>
+ * The same start screen also has three standalone actions — "go to bathroom", "came back", and
+ * "indiscipline" — each of which arms the shared camera (or a manual picker) for the next
+ * identified student instead of the points flow; see {@link #armPendingAction}.
+ * <p>
  * The navigation drawer on this screen is the gateway to the rest of the app: adding/editing
  * students, listing students, managing disciplines, backups, and the local web server.
  */
 public class Main extends AppCompatActivity {
+
+    /**
+     * What the next identified student (via QR scan or manual pick) should be used for. The
+     * camera view is shared by every one of these flows — tapping a start-screen action "arms"
+     * it here, and the very next student identified is routed accordingly, then this resets back
+     * to {@link #POINTS} so a stray extra scan doesn't repeat the action.
+     */
+    private enum PendingAction { POINTS, BATHROOM_LEAVE, BATHROOM_RETURN, INDISCIPLINE }
+
     private LoadingDialog loadingDialog;
     private CodeScanner mCodeScanner;
     private TextView txtName;
@@ -108,7 +121,12 @@ public class Main extends AppCompatActivity {
     private MaterialButton btnBathroomLeave;
     private MaterialButton btnBathroomReturn;
     private MaterialButton btnIndiscipline;
-    private BathroomVisit activeBathroomVisit;
+    private TextView txtBathroomStatus;
+    private View pendingActionHintGroup;
+    private TextView txtActionHint;
+    private MaterialButton btnPickManually;
+    private MaterialButton btnCancelPendingAction;
+    private PendingAction pendingAction = PendingAction.POINTS;
     private AutoCompleteTextView dropdownDiscipline;
     private View txtDisciplineWarning;
     private DrawerLayout drawerLayout;
@@ -179,6 +197,10 @@ public class Main extends AppCompatActivity {
                     resetToStart();
                     return;
                 }
+                if (pendingAction != PendingAction.POINTS) {
+                    cancelPendingAction();
+                    return;
+                }
                 setEnabled(false);
                 getOnBackPressedDispatcher().onBackPressed();
             }
@@ -230,12 +252,21 @@ public class Main extends AppCompatActivity {
         this.btnContinue = this.findViewById(R.id.btnContinue);
         this.btnContinue.setOnClickListener(v -> onContinueClick());
 
+        this.txtBathroomStatus = this.findViewById(R.id.txtBathroomStatus);
+        this.pendingActionHintGroup = this.findViewById(R.id.pendingActionHintGroup);
+        this.txtActionHint = this.findViewById(R.id.txtActionHint);
+
         this.btnBathroomLeave = this.findViewById(R.id.btnBathroomLeave);
-        this.btnBathroomLeave.setOnClickListener(v -> onBathroomLeaveClick());
+        this.btnBathroomLeave.setOnClickListener(v -> armPendingAction(PendingAction.BATHROOM_LEAVE));
         this.btnBathroomReturn = this.findViewById(R.id.btnBathroomReturn);
-        this.btnBathroomReturn.setOnClickListener(v -> onBathroomReturnClick());
+        this.btnBathroomReturn.setOnClickListener(v -> armPendingAction(PendingAction.BATHROOM_RETURN));
         this.btnIndiscipline = this.findViewById(R.id.btnIndiscipline);
-        this.btnIndiscipline.setOnClickListener(v -> onIndisciplineClick());
+        this.btnIndiscipline.setOnClickListener(v -> armPendingAction(PendingAction.INDISCIPLINE));
+
+        this.btnPickManually = this.findViewById(R.id.btnPickManually);
+        this.btnPickManually.setOnClickListener(v -> pickStudentManually());
+        this.btnCancelPendingAction = this.findViewById(R.id.btnCancelPendingAction);
+        this.btnCancelPendingAction.setOnClickListener(v -> cancelPendingAction());
 
         updateExtraPointsLabel();
         loadDisciplines();
@@ -324,23 +355,66 @@ public class Main extends AppCompatActivity {
 
     /* --------------------------------- QR scanning ------------------------------------ */
 
-    /** Called once a QR code has been decoded into text (expected to be a student id). */
+    /**
+     * Called once a QR code has been decoded into text (expected to be a student id). The camera
+     * view is shared by every "identify a student" flow, so this always routes through
+     * {@link #identifyStudent}, which decides what to actually do based on {@link #pendingAction}.
+     */
     private void onQrScanned(String studentId) {
-        if (!requireDisciplineSelected()) return;
         mediaPlayer.start();
-        loadStudentForPoints(studentId);
+        identifyStudent(studentId);
     }
 
-    /** Entry point for "Award points manually" — same flow as a QR scan, minus the scan itself. */
+    /** Entry point for "Award points manually" (nav drawer item) — always the points flow, regardless of any armed start-screen action. */
     private void selectStudentManually() {
-        if (!requireDisciplineSelected()) return;
-        new StudentPickerDialog(this, this.database, picked -> loadStudentForPoints(picked.id)).show();
+        this.pendingAction = PendingAction.POINTS;
+        updateActionHint();
+        pickStudentManually();
     }
 
     /**
-     * Guards every "identify a student" entry point (QR scan or manual pick) so points can never
-     * be recorded before a discipline has been chosen. Shows a warning and returns false if none
-     * is selected yet.
+     * Opens the manual student picker for whichever action is currently armed (points, by
+     * default). This is the "or pick manually" alternative to scanning, offered both from the
+     * nav drawer (always points) and from the start-screen hint shown once a bathroom/indiscipline
+     * action has been armed.
+     */
+    private void pickStudentManually() {
+        if (this.pendingAction == PendingAction.POINTS && !requireDisciplineSelected()) return;
+        new StudentPickerDialog(this, this.database, picked -> identifyStudent(picked.id)).show();
+    }
+
+    /**
+     * Routes a just-identified student (by QR scan or manual pick) to whichever action was armed
+     * via the start-screen buttons, then immediately resets {@link #pendingAction} back to
+     * {@link PendingAction#POINTS} so a second, unrelated scan doesn't repeat it.
+     */
+    private void identifyStudent(String studentId) {
+        PendingAction action = this.pendingAction;
+        this.pendingAction = PendingAction.POINTS;
+        updateActionHint();
+
+        switch (action) {
+            case BATHROOM_LEAVE:
+                beginBathroomLeave(studentId);
+                break;
+            case BATHROOM_RETURN:
+                beginBathroomReturn(studentId);
+                break;
+            case INDISCIPLINE:
+                beginIndiscipline(studentId);
+                break;
+            case POINTS:
+            default:
+                if (!requireDisciplineSelected()) return;
+                loadStudentForPoints(studentId);
+        }
+    }
+
+    /**
+     * Guards the points flow specifically (QR scan or manual pick) so points can never be
+     * recorded before a discipline has been chosen. Bathroom/indiscipline actions don't need a
+     * discipline selected — a hall pass or a behavior note isn't tied to a subject. Shows a
+     * warning and returns false if none is selected yet.
      */
     private boolean requireDisciplineSelected() {
         if (this.currentDisciplineId != null) return true;
@@ -383,7 +457,6 @@ public class Main extends AppCompatActivity {
                 this.txtName.setText(object.name);
                 this.imgPhoto.setImageBitmap(BitmapConverter.loadBitmap(object.photoPath));
                 loadProgress(enrollment);
-                loadBathroomState();
                 revealStudentContent();
             });
         });
@@ -462,7 +535,6 @@ public class Main extends AppCompatActivity {
             this.txtName.setText(student.name);
             this.imgPhoto.setImageBitmap(BitmapConverter.loadBitmap(student.photoPath));
             loadProgress(saved);
-            loadBathroomState();
             revealStudentContent();
         });
     }
@@ -677,7 +749,6 @@ public class Main extends AppCompatActivity {
     private void resetToStart() {
         this.student = null;
         this.currentEnrollment = null;
-        this.activeBathroomVisit = null;
         this.extraPoints = 1;
         updateExtraPointsLabel();
         this.goalsContainer.removeAllViews();
@@ -710,60 +781,107 @@ public class Main extends AppCompatActivity {
     /* --------------------------- Bathroom / indiscipline -------------------------------- */
 
     /**
-     * Looks up whether the currently-loaded student has an open bathroom visit, then enables the
-     * matching action ("go" vs. "came back") — called every time a new student is identified so
-     * the buttons never show stale state from whoever was scanned previously.
+     * Arms a start-screen action (bathroom leave/return, indiscipline): the next student
+     * identified — by the already-live camera or by tapping "Pick manually" — is routed to it
+     * instead of the points flow. Shows a hint explaining what to do next, with a way to cancel.
      */
-    private void loadBathroomState() {
-        if (this.student == null) return;
-        final String studentId = this.student.id;
-        this.database.loadActiveBathroomVisit(studentId, (found, visit) -> {
-            if (this.student == null || !studentId.equals(this.student.id)) return;
-            this.activeBathroomVisit = found ? visit : null;
-            updateBathroomButtons();
+    private void armPendingAction(PendingAction action) {
+        this.pendingAction = action;
+        updateActionHint();
+    }
+
+    /** Un-arms whatever start-screen action was pending, back to the default (points). */
+    private void cancelPendingAction() {
+        this.pendingAction = PendingAction.POINTS;
+        updateActionHint();
+    }
+
+    /** Shows/hides the "scan or pick manually" hint strip depending on whether an action is currently armed. */
+    private void updateActionHint() {
+        if (this.pendingAction == PendingAction.POINTS) {
+            this.pendingActionHintGroup.setVisibility(View.GONE);
+            return;
+        }
+
+        int hintRes;
+        switch (this.pendingAction) {
+            case BATHROOM_LEAVE:
+                hintRes = R.string.bathroom_leave_hint;
+                break;
+            case BATHROOM_RETURN:
+                hintRes = R.string.bathroom_return_hint;
+                break;
+            case INDISCIPLINE:
+            default:
+                hintRes = R.string.indiscipline_hint;
+                break;
+        }
+        this.txtActionHint.setText(hintRes);
+        this.pendingActionHintGroup.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * Refreshes the "go to bathroom" / "came back" button states from the single current hall
+     * pass (at most one student is meant to be out at a time), and shows who that is, if anyone.
+     * Called on every resume and after every bathroom action completes.
+     */
+    private void refreshBathroomAvailability() {
+        this.database.loadAnyActiveBathroomVisit((found, visit) -> {
+            this.btnBathroomLeave.setEnabled(!found);
+            this.btnBathroomReturn.setEnabled(found);
+
+            if (!found) {
+                this.txtBathroomStatus.setVisibility(View.GONE);
+                return;
+            }
+
+            this.database.loadStudent(visit.studentId, (studentFound, outStudent) -> {
+                String name = studentFound ? outStudent.name : "?";
+                this.txtBathroomStatus.setText(getString(R.string.bathroom_status_out, name));
+                this.txtBathroomStatus.setVisibility(View.VISIBLE);
+            });
         });
     }
 
-    /** Enables exactly one of "go to bathroom" / "came back", based on {@link #activeBathroomVisit}. */
-    private void updateBathroomButtons() {
-        boolean out = this.activeBathroomVisit != null;
-        this.btnBathroomLeave.setEnabled(!out);
-        this.btnBathroomReturn.setEnabled(out);
-    }
-
-    /** Click handler for "go to bathroom": records the student as having left, using the already-identified (scanned or manually picked) student. */
-    private void onBathroomLeaveClick() {
-        if (this.student == null) return;
-        final Student leavingStudent = this.student;
-
-        this.database.startBathroomVisit(leavingStudent.id, (success, visit) -> {
-            if (!success) {
-                Toast.makeText(this, getString(R.string.bathroom_already_out, leavingStudent.name), Toast.LENGTH_SHORT).show();
+    /** Looks up the identified student, then records them as having left for the bathroom. */
+    private void beginBathroomLeave(String studentId) {
+        this.loadingDialog.show();
+        this.database.loadStudent(studentId, (found, leavingStudent) -> {
+            this.loadingDialog.dismiss();
+            if (!found) {
+                Toast.makeText(this, R.string.student_not_found, Toast.LENGTH_SHORT).show();
                 return;
             }
-            if (this.student != null && this.student.id.equals(leavingStudent.id)) {
-                this.activeBathroomVisit = visit;
-                updateBathroomButtons();
-            }
-            Toast.makeText(this, getString(R.string.bathroom_left, leavingStudent.name), Toast.LENGTH_SHORT).show();
+
+            this.database.startBathroomVisit(leavingStudent.id, (success, visit) -> {
+                if (!success) {
+                    Toast.makeText(this, getString(R.string.bathroom_already_out, leavingStudent.name), Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, getString(R.string.bathroom_left, leavingStudent.name), Toast.LENGTH_SHORT).show();
+                }
+                refreshBathroomAvailability();
+            });
         });
     }
 
-    /** Click handler for "came back": closes the student's open bathroom visit and shows how long they were out. */
-    private void onBathroomReturnClick() {
-        if (this.student == null) return;
-        final Student returningStudent = this.student;
-
-        this.database.endBathroomVisit(returningStudent.id, (success, visit) -> {
-            if (!success) {
-                Toast.makeText(this, getString(R.string.bathroom_not_out, returningStudent.name), Toast.LENGTH_SHORT).show();
+    /** Looks up the identified student, then closes their open bathroom visit and shows how long they were out. */
+    private void beginBathroomReturn(String studentId) {
+        this.loadingDialog.show();
+        this.database.loadStudent(studentId, (found, returningStudent) -> {
+            this.loadingDialog.dismiss();
+            if (!found) {
+                Toast.makeText(this, R.string.student_not_found, Toast.LENGTH_SHORT).show();
                 return;
             }
-            if (this.student != null && this.student.id.equals(returningStudent.id)) {
-                this.activeBathroomVisit = null;
-                updateBathroomButtons();
-            }
-            showBathroomReturnSummary(returningStudent, visit);
+
+            this.database.endBathroomVisit(returningStudent.id, (success, visit) -> {
+                if (!success) {
+                    Toast.makeText(this, getString(R.string.bathroom_not_out, returningStudent.name), Toast.LENGTH_SHORT).show();
+                } else {
+                    showBathroomReturnSummary(returningStudent, visit);
+                }
+                refreshBathroomAvailability();
+            });
         });
     }
 
@@ -789,10 +907,21 @@ public class Main extends AppCompatActivity {
         return String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds);
     }
 
-    /** Click handler for "Indiscipline": prompts for an optional note, then saves a new indiscipline record for the identified student. */
-    private void onIndisciplineClick() {
-        if (this.student == null) return;
-        final Student targetStudent = this.student;
+    /** Looks up the identified student, then prompts for an optional note and saves a new indiscipline record for them. */
+    private void beginIndiscipline(String studentId) {
+        this.loadingDialog.show();
+        this.database.loadStudent(studentId, (found, targetStudent) -> {
+            this.loadingDialog.dismiss();
+            if (!found) {
+                Toast.makeText(this, R.string.student_not_found, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            showIndisciplineDialog(targetStudent);
+        });
+    }
+
+    /** Prompts for an optional note describing the indiscipline, then saves it. */
+    private void showIndisciplineDialog(Student targetStudent) {
         final String disciplineId = this.currentDisciplineId;
 
         EditText input = new EditText(this);
@@ -840,6 +969,7 @@ public class Main extends AppCompatActivity {
         requestCameraAndStartScanning();
         mediaPlayer = MediaPlayer.create(this, R.raw.qr_scanned);
         loadDisciplines();
+        refreshBathroomAvailability();
     }
 
     /**

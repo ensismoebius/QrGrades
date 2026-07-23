@@ -497,6 +497,28 @@ public class Database {
         });
     }
 
+    /**
+     * Loads whichever bathroom visit is currently open, regardless of which student it belongs
+     * to (a single "hall pass": only one student is meant to be out at a time). Used on the
+     * app's start screen, before any student has been identified yet, to decide whether "go to
+     * bathroom" or "came back" should be the enabled action.
+     */
+    public void loadAnyActiveBathroomVisit(final IDatabaseOnLoad<BathroomVisit> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            markExpiredBathroomVisitsEvaded(db);
+
+            BathroomVisit visit = null;
+            try (Cursor cursor = db.query(StudentDbHelper.TABLE_BATHROOM_VISITS, null,
+                    StudentDbHelper.COL_BATHROOM_RETURNED_AT + " IS NULL AND " + StudentDbHelper.COL_BATHROOM_EVADED + "=0",
+                    null, null, null, StudentDbHelper.COL_BATHROOM_WENT_AT + " ASC", "1")) {
+                if (cursor.moveToFirst()) visit = bathroomVisitFromCursor(cursor);
+            }
+            BathroomVisit finalVisit = visit;
+            postResult(() -> listener.onLoadComplete(finalVisit != null, finalVisit));
+        });
+    }
+
     /** Starts a bathroom visit for a student. Fails (success=false) if that student already has one open. */
     public void startBathroomVisit(String studentId, final IDatabaseOnSave<BathroomVisit> listener) {
         executor.execute(() -> {
