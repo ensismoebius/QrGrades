@@ -23,12 +23,15 @@ import android.Manifest;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -47,6 +50,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.GravityCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.widget.TextViewCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.budiyev.android.codescanner.CodeScanner;
@@ -76,8 +80,10 @@ import org.dedira.qrnotas.util.BitmapConverter;
 import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.EdgeToEdge;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -106,7 +112,7 @@ public class Main extends AppCompatActivity {
      * it here, and the very next student identified is routed accordingly, then this resets back
      * to {@link #POINTS} so a stray extra scan doesn't repeat the action.
      */
-    private enum PendingAction { POINTS, BATHROOM_LEAVE, BATHROOM_RETURN, INDISCIPLINE }
+    private enum PendingAction { POINTS, BATHROOM_LEAVE, INDISCIPLINE }
 
     private LoadingDialog loadingDialog;
     private CodeScanner mCodeScanner;
@@ -122,6 +128,9 @@ public class Main extends AppCompatActivity {
     private MaterialButton btnBathroomReturn;
     private MaterialButton btnIndiscipline;
     private TextView txtBathroomStatus;
+    private View indisciplineListContainer;
+    private LinearLayout indisciplineRowsContainer;
+    private static final int RECENT_INDISCIPLINE_LIMIT = 5;
     private Snackbar pendingActionSnackbar;
     private PendingAction pendingAction = PendingAction.POINTS;
     private AutoCompleteTextView dropdownDiscipline;
@@ -250,6 +259,8 @@ public class Main extends AppCompatActivity {
         this.btnContinue.setOnClickListener(v -> onContinueClick());
 
         this.txtBathroomStatus = this.findViewById(R.id.txtBathroomStatus);
+        this.indisciplineListContainer = this.findViewById(R.id.indisciplineListContainer);
+        this.indisciplineRowsContainer = this.findViewById(R.id.indisciplineRowsContainer);
 
         // Tapping one of these arms it (waits for the next scan/manual pick); press-and-hold
         // skips straight to the manual student picker for that same action.
@@ -257,8 +268,10 @@ public class Main extends AppCompatActivity {
         this.btnBathroomLeave.setOnClickListener(v -> armPendingAction(PendingAction.BATHROOM_LEAVE));
         this.btnBathroomLeave.setOnLongClickListener(v -> pickManuallyFor(PendingAction.BATHROOM_LEAVE));
         this.btnBathroomReturn = this.findViewById(R.id.btnBathroomReturn);
-        this.btnBathroomReturn.setOnClickListener(v -> armPendingAction(PendingAction.BATHROOM_RETURN));
-        this.btnBathroomReturn.setOnLongClickListener(v -> pickManuallyFor(PendingAction.BATHROOM_RETURN));
+        // Unlike the other two actions, "came back" never needs to identify a student first: at
+        // most one student is out at a time (see refreshBathroomAvailability), so tapping this
+        // button just registers that one student's return directly.
+        this.btnBathroomReturn.setOnClickListener(v -> handleBathroomReturn());
         this.btnIndiscipline = this.findViewById(R.id.btnIndiscipline);
         this.btnIndiscipline.setOnClickListener(v -> armPendingAction(PendingAction.INDISCIPLINE));
         this.btnIndiscipline.setOnLongClickListener(v -> pickManuallyFor(PendingAction.INDISCIPLINE));
@@ -398,9 +411,6 @@ public class Main extends AppCompatActivity {
         switch (action) {
             case BATHROOM_LEAVE:
                 beginBathroomLeave(studentId);
-                break;
-            case BATHROOM_RETURN:
-                beginBathroomReturn(studentId);
                 break;
             case INDISCIPLINE:
                 beginIndiscipline(studentId);
@@ -785,11 +795,17 @@ public class Main extends AppCompatActivity {
     /* --------------------------- Bathroom / indiscipline -------------------------------- */
 
     /**
-     * Arms a start-screen action (bathroom leave/return, indiscipline): the next student
-     * identified — by the already-live camera or by pressing and holding the same button — is
-     * routed to it instead of the points flow. An indefinite Snackbar (standard Android UI for
-     * "waiting on you to do something next") explains what to do and offers a way to cancel,
-     * instead of a hand-rolled layout row that has to fit next to two buttons.
+     * Arms a start-screen action (bathroom leave, indiscipline): the next student identified —
+     * by the already-live camera, by tapping "Select manually" below, or by pressing and holding
+     * the same button — is routed to it instead of the points flow. An indefinite Snackbar
+     * (standard Android UI for "waiting on you to do something next") explains what to do next
+     * and offers both alternatives, instead of a hand-rolled layout row that has to fit a full
+     * sentence next to two buttons.
+     * <p>
+     * A Snackbar only supports one built-in action button, so the two we need here ("Select
+     * manually" and "Cancel") are built as a small custom content view and swapped in for the
+     * Snackbar's default content — the outer Snackbar frame (positioning, background, animation,
+     * swipe-to-dismiss) is unaffected, only what's drawn inside it changes.
      */
     private void armPendingAction(PendingAction action) {
         this.pendingAction = action;
@@ -799,9 +815,6 @@ public class Main extends AppCompatActivity {
             case BATHROOM_LEAVE:
                 hintRes = R.string.bathroom_leave_hint;
                 break;
-            case BATHROOM_RETURN:
-                hintRes = R.string.bathroom_return_hint;
-                break;
             case INDISCIPLINE:
             default:
                 hintRes = R.string.indiscipline_hint;
@@ -809,9 +822,65 @@ public class Main extends AppCompatActivity {
         }
 
         dismissPendingActionSnackbar();
-        this.pendingActionSnackbar = Snackbar.make(this.btnIndiscipline, hintRes, Snackbar.LENGTH_INDEFINITE)
-                .setAction(R.string.cancel, v -> cancelPendingAction());
-        this.pendingActionSnackbar.show();
+        Snackbar snackbar = Snackbar.make(this.btnIndiscipline, "", Snackbar.LENGTH_INDEFINITE);
+        // Snackbar.getView() is typed as a plain View, but is actually a ViewGroup (the concrete
+        // Snackbar.SnackbarLayout type is marked @RestrictTo by the library, so it's deliberately
+        // not referenced here — ViewGroup is the public, supported surface that still lets us
+        // swap its content). The default content (a message TextView + a single action Button)
+        // is replaced wholesale — removeAllViews() first, then add our own two-button content —
+        // rather than appended to, since that default content's internal measuring logic only
+        // expects exactly those two children and wasn't built to accommodate a third.
+        ViewGroup snackbarLayout = (ViewGroup) snackbar.getView();
+        snackbarLayout.setPadding(0, 0, 0, 0);
+        snackbarLayout.removeAllViews();
+        snackbarLayout.addView(buildPendingActionSnackbarContent(hintRes));
+
+        this.pendingActionSnackbar = snackbar;
+        snackbar.show();
+    }
+
+    /** Builds the message + "Select manually"/"Cancel" row shown inside the armed-action Snackbar, stacked vertically so the sentence always gets the full width instead of fighting two buttons for space. */
+    private View buildPendingActionSnackbarContent(int messageRes) {
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int paddingH = (int) dp(16);
+        int paddingV = (int) dp(12);
+        container.setPadding(paddingH, paddingV, paddingH, paddingV);
+
+        TextView message = new TextView(this);
+        message.setText(messageRes);
+        // Snackbars are intentionally an inverted-theme surface (dark background regardless of
+        // whether the app is in light or dark mode), so white text is used unconditionally here
+        // rather than a theme attribute, matching the default Snackbar message color.
+        message.setTextColor(Color.WHITE);
+        TextViewCompat.setTextAppearance(message, com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
+        container.addView(message);
+
+        LinearLayout buttonsRow = new LinearLayout(this);
+        buttonsRow.setOrientation(LinearLayout.HORIZONTAL);
+        buttonsRow.setGravity(Gravity.END);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        rowParams.topMargin = (int) dp(4);
+        buttonsRow.setLayoutParams(rowParams);
+
+        buttonsRow.addView(buildSnackbarActionButton(R.string.pick_manually, v -> {
+            dismissPendingActionSnackbar();
+            pickStudentManually();
+        }));
+        buttonsRow.addView(buildSnackbarActionButton(R.string.cancel, v -> cancelPendingAction()));
+        container.addView(buttonsRow);
+
+        return container;
+    }
+
+    /** Builds one borderless white-text button for {@link #buildPendingActionSnackbarContent}, matching the look of a default Snackbar action button. */
+    private MaterialButton buildSnackbarActionButton(int textRes, View.OnClickListener onClick) {
+        MaterialButton button = new MaterialButton(this, null, com.google.android.material.R.attr.borderlessButtonStyle);
+        button.setText(textRes);
+        button.setTextColor(Color.WHITE);
+        button.setOnClickListener(onClick);
+        return button;
     }
 
     /** Un-arms whatever start-screen action was pending, back to the default (points). */
@@ -872,23 +941,37 @@ public class Main extends AppCompatActivity {
         });
     }
 
-    /** Looks up the identified student, then closes their open bathroom visit and shows how long they were out. */
-    private void beginBathroomReturn(String studentId) {
+    /**
+     * Click handler for "Voltou" (came back): since at most one student is out at a time, there's
+     * no student to identify first — this looks up whoever that is, closes their open bathroom
+     * visit, and shows how long they were out, all in one tap.
+     */
+    private void handleBathroomReturn() {
         this.loadingDialog.show();
-        this.database.loadStudent(studentId, (found, returningStudent) -> {
-            this.loadingDialog.dismiss();
+        this.database.loadAnyActiveBathroomVisit((found, activeVisit) -> {
             if (!found) {
-                Toast.makeText(this, R.string.student_not_found, Toast.LENGTH_SHORT).show();
+                // Nobody's actually out (state changed — e.g. auto-marked evaded — since the
+                // button was last refreshed); just resync the buttons instead of erroring.
+                this.loadingDialog.dismiss();
+                refreshBathroomAvailability();
                 return;
             }
 
-            this.database.endBathroomVisit(returningStudent.id, (success, visit) -> {
-                if (!success) {
-                    Toast.makeText(this, getString(R.string.bathroom_not_out, returningStudent.name), Toast.LENGTH_SHORT).show();
-                } else {
-                    showBathroomReturnSummary(returningStudent, visit);
+            this.database.loadStudent(activeVisit.studentId, (studentFound, returningStudent) -> {
+                this.loadingDialog.dismiss();
+                if (!studentFound) {
+                    Toast.makeText(this, R.string.student_not_found, Toast.LENGTH_SHORT).show();
+                    return;
                 }
-                refreshBathroomAvailability();
+
+                this.database.endBathroomVisit(returningStudent.id, (success, visit) -> {
+                    if (!success) {
+                        Toast.makeText(this, getString(R.string.bathroom_not_out, returningStudent.name), Toast.LENGTH_SHORT).show();
+                    } else {
+                        showBathroomReturnSummary(returningStudent, visit);
+                    }
+                    refreshBathroomAvailability();
+                });
             });
         });
     }
@@ -959,10 +1042,39 @@ public class Main extends AppCompatActivity {
         this.database.saveIndisciplineEvent(event, (success, saved) -> {
             if (success) {
                 Toast.makeText(this, getString(R.string.indiscipline_saved, student.name), Toast.LENGTH_SHORT).show();
+                refreshIndisciplineList();
             } else {
                 Toast.makeText(this, R.string.indiscipline_save_failed, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    /** Reloads the most recent indiscipline records so the start screen's list reflects the latest state — called on resume and right after a new one is saved. */
+    private void refreshIndisciplineList() {
+        this.database.loadRecentIndisciplineEvents(RECENT_INDISCIPLINE_LIMIT, (success, events) -> bindIndisciplineList(events));
+    }
+
+    /** Renders the recent-indiscipline list, one compact row per record ("name • time — note"), hiding the whole section when there's nothing to show. */
+    private void bindIndisciplineList(List<IndisciplineEvent> events) {
+        this.indisciplineRowsContainer.removeAllViews();
+        boolean hasEvents = events != null && !events.isEmpty();
+        this.indisciplineListContainer.setVisibility(hasEvents ? View.VISIBLE : View.GONE);
+        if (!hasEvents) return;
+
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+        for (IndisciplineEvent e : events) {
+            TextView row = new TextView(this);
+            String name = e.studentName != null ? e.studentName : "?";
+            String time = timeFormat.format(new Date(e.createdAt));
+            String text = (e.note != null && !e.note.trim().isEmpty())
+                    ? getString(R.string.indiscipline_row_with_note, name, time, e.note)
+                    : getString(R.string.indiscipline_row_no_note, name, time);
+            row.setText(text);
+            TextViewCompat.setTextAppearance(row, com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
+            row.setTextColor(fetchThemeColor(com.google.android.material.R.attr.colorOnSurfaceVariant));
+            row.setPadding(0, (int) dp(2), 0, (int) dp(2));
+            this.indisciplineRowsContainer.addView(row);
+        }
     }
 
     /**
@@ -978,6 +1090,7 @@ public class Main extends AppCompatActivity {
         mediaPlayer = MediaPlayer.create(this, R.raw.qr_scanned);
         loadDisciplines();
         refreshBathroomAvailability();
+        refreshIndisciplineList();
     }
 
     /**

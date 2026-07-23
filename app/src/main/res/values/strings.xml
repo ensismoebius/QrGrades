@@ -58,11 +58,14 @@
     <string name="indiscipline_note_hint">What happened? (optional)</string>
     <string name="indiscipline_saved">"Indiscipline recorded for %1$s."</string>
     <string name="indiscipline_save_failed">Failed to save the indiscipline record.</string>
+    <string name="pick_manually">Select manually</string>
     <string name="long_press_manual_hint">Press and hold a button above to pick a student manually instead of scanning.</string>
     <string name="bathroom_leave_hint">Scan a QR code to send a student to the bathroom.</string>
-    <string name="bathroom_return_hint">Scan a QR code to mark a student back from the bathroom.</string>
     <string name="indiscipline_hint">Scan a QR code to register an indiscipline record.</string>
     <string name="bathroom_status_out">"%1$s is currently out (bathroom)."</string>
+    <string name="indiscipline_recent_title">Recent indiscipline</string>
+    <string name="indiscipline_row_with_note">"%1$s • %2$s — %3$s"</string>
+    <string name="indiscipline_row_no_note">"%1$s • %2$s"</string>
 
     <!-- Add/edit student -->
     <string name="name_hint">Student name</string>

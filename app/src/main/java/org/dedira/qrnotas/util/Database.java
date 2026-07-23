@@ -633,6 +633,38 @@ public class Database {
         });
     }
 
+    /**
+     * The most recently registered indiscipline records, up to {@code limit}, each with its
+     * student's current name resolved via a join — used for the start screen's "recent
+     * indiscipline" list, which needs a name to display, not just a student id. A LEFT JOIN is
+     * used (rather than an inner join) so a record would still show up even if its student was
+     * somehow removed without cascading (normally {@link #deleteStudent} does cascade this).
+     */
+    public void loadRecentIndisciplineEvents(int limit, final IDatabaseOnLoad<ArrayList<IndisciplineEvent>> listener) {
+        executor.execute(() -> {
+            ArrayList<IndisciplineEvent> list = new ArrayList<>();
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            String sql = "SELECT ie." + StudentDbHelper.COL_INDISCIPLINE_ID
+                    + ", ie." + StudentDbHelper.COL_INDISCIPLINE_STUDENT_ID
+                    + ", ie." + StudentDbHelper.COL_INDISCIPLINE_DISCIPLINE_ID
+                    + ", ie." + StudentDbHelper.COL_INDISCIPLINE_NOTE
+                    + ", ie." + StudentDbHelper.COL_INDISCIPLINE_CREATED_AT
+                    + ", s." + StudentDbHelper.COL_NAME + " AS student_name"
+                    + " FROM " + StudentDbHelper.TABLE_INDISCIPLINE_EVENTS + " ie"
+                    + " LEFT JOIN " + StudentDbHelper.TABLE_STUDENTS + " s ON s." + StudentDbHelper.COL_ID
+                    + " = ie." + StudentDbHelper.COL_INDISCIPLINE_STUDENT_ID
+                    + " ORDER BY ie." + StudentDbHelper.COL_INDISCIPLINE_CREATED_AT + " DESC LIMIT ?";
+            try (Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(limit)})) {
+                while (cursor.moveToNext()) {
+                    IndisciplineEvent e = indisciplineEventFromCursor(cursor);
+                    e.studentName = cursor.getString(cursor.getColumnIndexOrThrow("student_name"));
+                    list.add(e);
+                }
+            }
+            postResult(() -> listener.onLoadComplete(true, list));
+        });
+    }
+
     /* ---------------------------- Disciplines ------------------------------ */
 
     public void saveDiscipline(Discipline d, final IDatabaseOnSave<Discipline> listener) {

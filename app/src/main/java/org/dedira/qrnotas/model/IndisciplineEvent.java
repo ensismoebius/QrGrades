@@ -33,4 +33,6 @@ public class IndisciplineEvent {
 
     // Populated only when loaded for a view that needs to show it, to label which discipline it belongs to.
     public String disciplineName;
+    // Populated only when loaded for a view that needs to show it (e.g. the start screen's recent-records list).
+    public String studentName;
 }
