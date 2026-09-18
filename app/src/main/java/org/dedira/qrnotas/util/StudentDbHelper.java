@@ -36,7 +36,7 @@ public class StudentDbHelper extends SQLiteOpenHelper {
     static final String DB_NAME = "qrgrades.db";
     // Bump this whenever the schema changes (new table/column/etc.) — SQLiteOpenHelper compares
     // this against the version stored in the existing DB file and calls onUpgrade() if it's higher.
-    private static final int DB_VERSION = 5;
+    private static final int DB_VERSION = 6;
 
     public static final String TABLE_STUDENTS = "students";
     public static final String COL_ID = "id";
@@ -89,6 +89,15 @@ public class StudentDbHelper extends SQLiteOpenHelper {
     public static final String COL_INDISCIPLINE_DISCIPLINE_ID = "discipline_id";
     public static final String COL_INDISCIPLINE_NOTE = "note";
     public static final String COL_INDISCIPLINE_CREATED_AT = "created_at";
+
+    // One row per QR-code scan/identification, regardless of what it was used for (points,
+    // bathroom, indiscipline) — lets the app flag when the same student's code is scanned
+    // more than once in a day, e.g. to catch a student re-scanning to exploit a busy teacher's
+    // memory.
+    public static final String TABLE_QR_SCANS = "qr_scans";
+    public static final String COL_QR_SCAN_ID = "id";
+    public static final String COL_QR_SCAN_STUDENT_ID = "student_id";
+    public static final String COL_QR_SCAN_AT = "scanned_at";
 
     /** Creates the helper. The actual DB file isn't touched yet — SQLiteOpenHelper opens it lazily on first use. */
     public StudentDbHelper(Context context) {
@@ -155,28 +164,29 @@ public class StudentDbHelper extends SQLiteOpenHelper {
                 COL_INDISCIPLINE_DISCIPLINE_ID + " TEXT, " +
                 COL_INDISCIPLINE_NOTE + " TEXT, " +
                 COL_INDISCIPLINE_CREATED_AT + " INTEGER NOT NULL)");
+
+        db.execSQL("CREATE TABLE " + TABLE_QR_SCANS + " (" +
+                COL_QR_SCAN_ID + " TEXT PRIMARY KEY, " +
+                COL_QR_SCAN_STUDENT_ID + " TEXT NOT NULL, " +
+                COL_QR_SCAN_AT + " INTEGER NOT NULL)");
     }
 
     /**
      * Called automatically by SQLiteOpenHelper when a user upgrades to an app version with a
-     * higher {@link #DB_VERSION} than what's stored in their existing database file. This simple
-     * (destructive) migration just drops every table and recreates them from scratch — acceptable
-     * here because the app also has explicit export/import and local backup features for users
-     * who need to preserve data across an upgrade, but it does mean any data not backed up is lost.
+     * higher {@link #DB_VERSION} than what's stored in their existing database file. Versions up
+     * through 5 used a simple (destructive) migration that dropped every table and recreated them
+     * from scratch, which was acceptable then because the app also has explicit export/import and
+     * local backup features for users who need to preserve data across an upgrade. Version 6 only
+     * adds {@link #TABLE_QR_SCANS} — every other table is identical to what {@link #onCreate}
+     * already produced for any pre-6 install — so this step is additive instead: no reason to wipe
+     * a teacher's students/points/history just to gain a QR-rescan counter. IF NOT EXISTS also
+     * makes this safe to run more than once.
      */
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // Drop in reverse-ish dependency order (tables that reference others first) purely by
-        // convention; SQLite here has no foreign-key constraints enabled, so order doesn't
-        // actually matter for correctness, just tidiness.
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_INDISCIPLINE_EVENTS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_BATHROOM_VISITS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_POINTS_HISTORY);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_ENROLLMENTS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_STUDENTS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_GOALS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_CLASS_GROUPS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_DISCIPLINES);
-        onCreate(db);
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_QR_SCANS + " (" +
+                COL_QR_SCAN_ID + " TEXT PRIMARY KEY, " +
+                COL_QR_SCAN_STUDENT_ID + " TEXT NOT NULL, " +
+                COL_QR_SCAN_AT + " INTEGER NOT NULL)");
     }
 }

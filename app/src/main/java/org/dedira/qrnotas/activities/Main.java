@@ -35,7 +35,6 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -79,6 +78,7 @@ import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.BitmapConverter;
 import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.EdgeToEdge;
+import org.dedira.qrnotas.util.adapters.FuzzyNoteAdapter;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -131,6 +131,8 @@ public class Main extends AppCompatActivity {
     private View indisciplineListContainer;
     private LinearLayout indisciplineRowsContainer;
     private static final int RECENT_INDISCIPLINE_LIMIT = 5;
+    // Maximum number of previously-used indiscipline notes to fetch for the autocomplete suggestions.
+    private static final int INDISCIPLINE_NOTE_HISTORY_LIMIT = 200;
     private Snackbar pendingActionSnackbar;
     private PendingAction pendingAction = PendingAction.POINTS;
     private AutoCompleteTextView dropdownDiscipline;
@@ -394,7 +396,10 @@ public class Main extends AppCompatActivity {
      * drawer (always points) or by pressing and holding a bathroom/indiscipline button.
      */
     private void pickStudentManually() {
-        if (this.pendingAction == PendingAction.POINTS && !requireDisciplineSelected()) return;
+        if (this.pendingAction == PendingAction.POINTS && this.currentDisciplineId == null) {
+            promptDisciplineSelection(this::pickStudentManually);
+            return;
+        }
         new StudentPickerDialog(this, this.database, picked -> identifyStudent(picked.id)).show();
     }
 
@@ -407,6 +412,7 @@ public class Main extends AppCompatActivity {
         PendingAction action = this.pendingAction;
         this.pendingAction = PendingAction.POINTS;
         dismissPendingActionSnackbar();
+        warnIfIdentifiedAgainToday(studentId);
 
         switch (action) {
             case BATHROOM_LEAVE:
@@ -417,9 +423,54 @@ public class Main extends AppCompatActivity {
                 break;
             case POINTS:
             default:
-                if (!requireDisciplineSelected()) return;
+                if (this.currentDisciplineId == null) {
+                    // No need to make the teacher rescan the QR code: just ask which discipline
+                    // this scan belongs to, then continue straight into the points flow for the
+                    // student already identified above.
+                    promptDisciplineSelection(() -> loadStudentForPoints(studentId));
+                    return;
+                }
                 loadStudentForPoints(studentId);
         }
+    }
+
+    /**
+     * Logs this identification (scan or manual pick) and, if the same student has already been
+     * identified earlier today, shows a warning with the running count. A teacher juggling a
+     * full class can easily forget having already sent someone to the bathroom or logged an
+     * indiscipline for them — this catches a repeat before the student benefits from that lapse.
+     */
+    private void warnIfIdentifiedAgainToday(String studentId) {
+        this.database.logScanAndCountToday(studentId, (success, count) -> {
+            if (success && count != null && count > 1) {
+                Toast.makeText(this, getString(R.string.repeat_scan_warning, count), Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    /**
+     * Shows a dialog listing every discipline so the teacher can pick one on the spot — used
+     * when a scan/manual-pick arrives with no discipline selected, so the flow can continue
+     * without forcing a rescan. Runs {@code onSelected} once a discipline has been chosen; does
+     * nothing (beyond the usual inline warning) if there are no disciplines to pick from yet.
+     */
+    private void promptDisciplineSelection(Runnable onSelected) {
+        if (this.disciplines.isEmpty()) {
+            requireDisciplineSelected();
+            return;
+        }
+
+        String[] names = new String[this.disciplines.size()];
+        for (int i = 0; i < this.disciplines.size(); i++) names[i] = this.disciplines.get(i).name;
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.select_discipline_before_scan)
+                .setItems(names, (dialog, which) -> {
+                    selectDiscipline(this.disciplines.get(which));
+                    onSelected.run();
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     /**
@@ -1015,10 +1066,24 @@ public class Main extends AppCompatActivity {
     private void showIndisciplineDialog(Student targetStudent) {
         final String disciplineId = this.currentDisciplineId;
 
-        EditText input = new EditText(this);
+        AutoCompleteTextView input = new AutoCompleteTextView(this);
         input.setHint(R.string.indiscipline_note_hint);
         int padding = (int) dp(20);
         input.setPadding(padding, padding, padding, 0);
+        // A threshold of 0 means the dropdown of suggestions can appear even before the user
+        // types anything (normally it requires N characters).
+        input.setThreshold(0);
+        // Show the suggestion dropdown as soon as the field gains focus or is tapped, not just
+        // when typing — mirrors NoteDialog's points-note field.
+        input.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) input.showDropDown();
+        });
+        input.setOnClickListener(v -> input.showDropDown());
+        // Asynchronously fetch past indiscipline notes for the fuzzy-matched suggestion list.
+        this.database.loadRecentIndisciplineNotes(INDISCIPLINE_NOTE_HISTORY_LIMIT, (success, notes) -> {
+            input.setAdapter(new FuzzyNoteAdapter(this, notes != null ? notes : new ArrayList<>()));
+            if (input.hasFocus()) input.showDropDown();
+        });
 
         new AlertDialog.Builder(this)
                 .setTitle(getString(R.string.indiscipline_dialog_title, targetStudent.name))

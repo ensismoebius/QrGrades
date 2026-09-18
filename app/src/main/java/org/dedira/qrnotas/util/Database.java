@@ -51,6 +51,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -214,6 +215,8 @@ public class Database {
                     StudentDbHelper.COL_BATHROOM_STUDENT_ID + "=?", new String[]{studentId});
             db.delete(StudentDbHelper.TABLE_INDISCIPLINE_EVENTS,
                     StudentDbHelper.COL_INDISCIPLINE_STUDENT_ID + "=?", new String[]{studentId});
+            db.delete(StudentDbHelper.TABLE_QR_SCANS,
+                    StudentDbHelper.COL_QR_SCAN_STUDENT_ID + "=?", new String[]{studentId});
 
             int rows = db.delete(StudentDbHelper.TABLE_STUDENTS, StudentDbHelper.COL_ID + "=?", new String[]{studentId});
             boolean success = rows > 0;
@@ -457,6 +460,25 @@ public class Database {
         });
     }
 
+    /** Distinct note texts across all indiscipline records, most-recently-used first, for the indiscipline dialog's suggestion list. */
+    public void loadRecentIndisciplineNotes(int limit, final IDatabaseOnLoad<ArrayList<String>> listener) {
+        executor.execute(() -> {
+            ArrayList<String> notes = new ArrayList<>();
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            String sql = "SELECT " + StudentDbHelper.COL_INDISCIPLINE_NOTE + ", MAX(" + StudentDbHelper.COL_INDISCIPLINE_CREATED_AT + ") AS latest "
+                    + "FROM " + StudentDbHelper.TABLE_INDISCIPLINE_EVENTS + " "
+                    + "WHERE " + StudentDbHelper.COL_INDISCIPLINE_NOTE + " IS NOT NULL AND TRIM(" + StudentDbHelper.COL_INDISCIPLINE_NOTE + ") != '' "
+                    + "GROUP BY " + StudentDbHelper.COL_INDISCIPLINE_NOTE + " "
+                    + "ORDER BY latest DESC LIMIT ?";
+            try (Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(limit)})) {
+                while (cursor.moveToNext()) {
+                    notes.add(cursor.getString(0));
+                }
+            }
+            postResult(() -> listener.onLoadComplete(true, notes));
+        });
+    }
+
     /* --------------------------- Bathroom visits ----------------------------- */
 
     /**
@@ -662,6 +684,48 @@ public class Database {
                 }
             }
             postResult(() -> listener.onLoadComplete(true, list));
+        });
+    }
+
+    /* ------------------------------ QR scan log ------------------------------- */
+
+    /**
+     * Records that this student's QR code was just identified (scanned, or picked manually —
+     * either way the teacher is looking at them right now), then reports back how many times
+     * that's happened today, this scan included. A teacher juggling a full class can easily
+     * forget having already sent someone to the bathroom or logged an indiscipline for them
+     * earlier the same day; surfacing the count lets the app flag a repeat before the student
+     * benefits from that lapse.
+     */
+    public void logScanAndCountToday(String studentId, final IDatabaseOnLoad<Integer> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            long now = System.currentTimeMillis();
+
+            ContentValues values = new ContentValues();
+            values.put(StudentDbHelper.COL_QR_SCAN_ID, UUID.randomUUID().toString());
+            values.put(StudentDbHelper.COL_QR_SCAN_STUDENT_ID, studentId);
+            values.put(StudentDbHelper.COL_QR_SCAN_AT, now);
+            db.insert(StudentDbHelper.TABLE_QR_SCANS, null, values);
+
+            Calendar startOfDay = Calendar.getInstance();
+            startOfDay.setTimeInMillis(now);
+            startOfDay.set(Calendar.HOUR_OF_DAY, 0);
+            startOfDay.set(Calendar.MINUTE, 0);
+            startOfDay.set(Calendar.SECOND, 0);
+            startOfDay.set(Calendar.MILLISECOND, 0);
+            long dayStart = startOfDay.getTimeInMillis();
+            long dayEnd = dayStart + 24L * 60 * 60 * 1000;
+
+            int count = 0;
+            try (Cursor cursor = db.query(StudentDbHelper.TABLE_QR_SCANS, new String[]{"COUNT(*)"},
+                    StudentDbHelper.COL_QR_SCAN_STUDENT_ID + "=? AND " + StudentDbHelper.COL_QR_SCAN_AT + ">=? AND " + StudentDbHelper.COL_QR_SCAN_AT + "<?",
+                    new String[]{studentId, String.valueOf(dayStart), String.valueOf(dayEnd)}, null, null, null)) {
+                if (cursor.moveToFirst()) count = cursor.getInt(0);
+            }
+
+            final int finalCount = count;
+            postResult(() -> listener.onLoadComplete(true, finalCount));
         });
     }
 

@@ -43,6 +43,7 @@
     <string name="no_class_groups_for_discipline">"Esta disciplina ainda não tem turmas. Cadastre uma primeiro."</string>
     <string name="enrolled_success">"%1$s matriculado(a) em %2$s."</string>
     <string name="enroll_failed">Falha ao matricular o aluno.</string>
+    <string name="repeat_scan_warning">"Atenção: este código QR já foi escaneado %1$d vezes hoje."</string>
 
     <!-- Banheiro / indisciplina -->
     <string name="go_to_bathroom_button">Ir ao banheiro</string>
@@ -178,6 +179,8 @@
     <string name="restore_confirm_title">Restaurar este backup?</string>
     <string name="restore_confirm_message">"Isso vai substituir todos os dados atuais pelos do backup selecionado. O aplicativo será reiniciado. Esta ação não pode ser desfeita."</string>
     <string name="restore_failed">Falha ao restaurar.</string>
+    <string name="share_backup">Compartilhar backup</string>
+    <string name="share_backup_failed">Falha ao compartilhar o backup.</string>
 
     <!-- Atalho rápido -->
     <string name="qr_scan_tile_label">Escanear QR</string>

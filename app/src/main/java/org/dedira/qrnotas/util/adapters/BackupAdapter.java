@@ -66,6 +66,8 @@ public class BackupAdapter extends RecyclerView.Adapter<BackupAdapter.ViewHolder
         void onRestore(File snapshot);
 
         void onDelete(File snapshot);
+
+        void onShare(File snapshot);
     }
 
     private final Context context;
@@ -123,6 +125,7 @@ public class BackupAdapter extends RecyclerView.Adapter<BackupAdapter.ViewHolder
         // this adapter, which is expected to perform the actual restore/delete operation.
         holder.btnRestore.setOnClickListener(v -> listener.onRestore(file));
         holder.btnDelete.setOnClickListener(v -> listener.onDelete(file));
+        holder.btnShare.setOnClickListener(v -> listener.onShare(file));
     }
 
     /** Tells the RecyclerView how many rows to show; called whenever it needs to know the list size. */
@@ -139,6 +142,7 @@ public class BackupAdapter extends RecyclerView.Adapter<BackupAdapter.ViewHolder
         final TextView txtDetail;
         final ImageButton btnRestore;
         final ImageButton btnDelete;
+        final ImageButton btnShare;
 
         ViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -146,6 +150,7 @@ public class BackupAdapter extends RecyclerView.Adapter<BackupAdapter.ViewHolder
             txtDetail = itemView.findViewById(R.id.txtBackupDetail);
             btnRestore = itemView.findViewById(R.id.btnRestoreBackup);
             btnDelete = itemView.findViewById(R.id.btnDeleteBackup);
+            btnShare = itemView.findViewById(R.id.btnShareBackup);
         }
     }
 

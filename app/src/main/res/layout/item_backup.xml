@@ -22,7 +22,7 @@
             android:maxLines="1"
             android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
             android:textColor="?attr/colorOnSurface"
-            app:layout_constraintEnd_toStartOf="@id/btnRestoreBackup"
+            app:layout_constraintEnd_toStartOf="@id/btnShareBackup"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -33,9 +33,21 @@
             android:layout_marginTop="@dimen/spacing_xs"
             android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
             android:textColor="?attr/colorOnSurfaceVariant"
-            app:layout_constraintEnd_toStartOf="@id/btnRestoreBackup"
+            app:layout_constraintEnd_toStartOf="@id/btnShareBackup"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/txtBackupTimestamp" />
+
+        <ImageButton
+            android:id="@+id/btnShareBackup"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/share_backup"
+            android:src="@drawable/ic_share"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnRestoreBackup"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorPrimary" />
 
         <ImageButton
             android:id="@+id/btnRestoreBackup"

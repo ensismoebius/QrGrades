@@ -40,6 +40,7 @@ import org.dedira.qrnotas.util.adapters.BackupAdapter;
 import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.DbBackup;
 import org.dedira.qrnotas.util.EdgeToEdge;
+import org.dedira.qrnotas.util.Exporter;
 
 import java.io.File;
 import java.io.IOException;
@@ -124,6 +125,11 @@ public class BackupList extends AppCompatActivity {
                 // Refresh the on-screen list so the deleted snapshot disappears immediately.
                 loadSnapshots();
             }
+
+            @Override
+            public void onShare(File snapshot) {
+                shareSnapshot(snapshot);
+            }
         });
         this.recyclerView = this.findViewById(R.id.lstEntities);
         this.recyclerView.setAdapter(adapter);
@@ -189,6 +195,19 @@ public class BackupList extends AppCompatActivity {
                 Toast.makeText(this, R.string.backup_failed, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    /**
+     * Opens the system share sheet so the teacher can send a backup snapshot to themselves via
+     * email, cloud storage, etc. — the only way to get a copy of the backup off the device,
+     * since snapshots are otherwise kept in the app's private storage.
+     */
+    private void shareSnapshot(File snapshot) {
+        try {
+            Exporter.share(this, snapshot, "application/zip");
+        } catch (IllegalArgumentException e) {
+            Toast.makeText(this, R.string.share_backup_failed, Toast.LENGTH_SHORT).show();
+        }
     }
 
     /**

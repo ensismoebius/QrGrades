@@ -43,6 +43,7 @@
     <string name="no_class_groups_for_discipline">"This discipline has no classes yet. Add one first."</string>
     <string name="enrolled_success">"%1$s enrolled in %2$s."</string>
     <string name="enroll_failed">Failed to enroll student.</string>
+    <string name="repeat_scan_warning" tools:ignore="PluralsCandidate">"Heads up: this QR code has already been scanned %1$d times today."</string>
 
     <!-- Bathroom / indiscipline -->
     <string name="go_to_bathroom_button">Go to bathroom</string>
@@ -178,6 +179,8 @@
     <string name="restore_confirm_title">Restore this backup?</string>
     <string name="restore_confirm_message">"This replaces all current data with the selected backup. The app will restart. This cannot be undone."</string>
     <string name="restore_failed">Restore failed.</string>
+    <string name="share_backup">Share backup</string>
+    <string name="share_backup_failed">Failed to share backup.</string>
 
     <!-- Quick Settings tile -->
     <string name="qr_scan_tile_label">Scan QR</string>
