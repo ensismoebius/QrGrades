@@ -27,5 +27,5 @@
     <!-- Floor for the bottom nav pill's content row (icon + label), set via code in Main.java —
          see the comment on Widget.QrGrades.BottomNavigationView in styles.xml for why this can't
          just be android:minHeight in the layout. -->
-    <dimen name="bottom_nav_min_height">52dp</dimen>
+    <dimen name="bottom_nav_min_height">72dp</dimen>
 </resources>

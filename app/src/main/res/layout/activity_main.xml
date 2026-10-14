@@ -44,8 +44,8 @@
             android:layout_height="wrap_content"
             android:background="@android:color/transparent"
             app:itemIconTint="@color/bottom_nav_icon_tint"
-            app:itemPaddingBottom="2dp"
-            app:itemPaddingTop="2dp"
+            app:itemPaddingBottom="6dp"
+            app:itemPaddingTop="6dp"
             app:itemTextColor="@color/bottom_nav_icon_tint"
             app:menu="@menu/bottom_nav_menu" />
 
