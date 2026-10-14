@@ -65,8 +65,25 @@ public class EdgeToEdge {
             root = ((ViewGroup) root).getChildAt(0);
         }
 
-        // Remember whatever padding the view already had in XML/code, so the inset padding we
-        // add below is additive rather than overwriting designer-intended spacing.
+        applyInsetPadding(root);
+    }
+
+    /**
+     * Fragment variant of {@link #apply(Activity)}: pads the Fragment's own root view directly
+     * instead of looking it up via {@code android.R.id.content}, since in a single-Activity
+     * Navigation Component app that id's child is the permanent NavHostFragment container, not
+     * the per-screen layout. Call once per Fragment, typically in {@code onViewCreated}.
+     */
+    public static void apply(View fragmentRoot) {
+        if (fragmentRoot == null) return;
+        applyInsetPadding(fragmentRoot);
+    }
+
+    /**
+     * Remembers whatever padding the view already had in XML/code, so the inset padding applied
+     * on every system-bar change is additive rather than overwriting designer-intended spacing.
+     */
+    private static void applyInsetPadding(View root) {
         int initialLeft = root.getPaddingLeft();
         int initialTop = root.getPaddingTop();
         int initialRight = root.getPaddingRight();

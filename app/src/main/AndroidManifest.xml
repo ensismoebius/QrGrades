@@ -28,36 +28,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.QrGrades"
         tools:targetApi="31">
-        <activity
-            android:name=".activities.StudentList"
-            android:exported="false" />
-        <activity
-            android:name=".activities.AddOrEditStudent"
-            android:exported="false" />
-        <activity
-            android:name=".activities.DisciplineList"
-            android:exported="false" />
-        <activity
-            android:name=".activities.DisciplineDetail"
-            android:exported="false" />
-        <activity
-            android:name=".activities.ClassGroupList"
-            android:exported="false" />
-        <activity
-            android:name=".activities.GoalList"
-            android:exported="false" />
-        <activity
-            android:name=".activities.LeaderboardList"
-            android:exported="false" />
-        <activity
-            android:name=".activities.StudentProgress"
-            android:exported="false" />
-        <activity
-            android:name=".activities.BackupList"
-            android:exported="false" />
-        <activity
-            android:name=".activities.WebServerActivity"
-            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

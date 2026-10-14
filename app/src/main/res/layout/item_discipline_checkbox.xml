@@ -10,7 +10,7 @@
         android:id="@+id/chkDiscipline"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textAppearance="@style/TextAppearance.Material3.BodyLarge" />
+        android:textAppearance="@style/TextAppearance.QrGrades.BodyLarge" />
 
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/classGroupInputLayout"

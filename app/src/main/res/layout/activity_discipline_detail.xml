@@ -13,7 +13,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:navigationIcon="@drawable/ic_arrow_back"
-        app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge" />
+        app:titleTextAppearance="@style/TextAppearance.QrGrades.TitleLarge" />
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardGroups"
@@ -38,9 +38,9 @@
             android:padding="@dimen/spacing_lg"
             android:drawablePadding="@dimen/spacing_md"
             android:text="@string/manage_groups"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
             android:textColor="?attr/colorOnSurface"
-            app:drawableStartCompat="@drawable/ic_list"
+            app:drawableStartCompat="@drawable/ic_groups"
             app:drawableTint="?attr/colorPrimary" />
 
     </com.google.android.material.card.MaterialCardView>
@@ -68,7 +68,7 @@
             android:padding="@dimen/spacing_lg"
             android:drawablePadding="@dimen/spacing_md"
             android:text="@string/manage_goals"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
             android:textColor="?attr/colorOnSurface"
             app:drawableStartCompat="@drawable/ic_check"
             app:drawableTint="?attr/colorTertiary" />
@@ -98,10 +98,40 @@
             android:padding="@dimen/spacing_lg"
             android:drawablePadding="@dimen/spacing_md"
             android:text="@string/view_leaderboard"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
             android:textColor="?attr/colorOnSurface"
             app:drawableStartCompat="@drawable/ic_trophy"
             app:drawableTint="?attr/colorSecondary" />
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardPeriods"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="@dimen/spacing_md"
+        android:layout_marginTop="@dimen/spacing_md"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground"
+        app:cardBackgroundColor="?attr/colorSurfaceVariant"
+        app:cardCornerRadius="@dimen/corner_radius_lg"
+        app:cardElevation="@dimen/elevation_card"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/cardLeaderboard">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:padding="@dimen/spacing_lg"
+            android:drawablePadding="@dimen/spacing_md"
+            android:text="@string/manage_periods"
+            android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
+            android:textColor="?attr/colorOnSurface"
+            app:drawableStartCompat="@drawable/ic_history"
+            app:drawableTint="?attr/colorPrimary" />
 
     </com.google.android.material.card.MaterialCardView>
 

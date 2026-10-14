@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Item ids match the top-level destination ids in nav_graph.xml exactly (the convention
+     NavigationUI.setupWithNavController relies on to wire tab taps to navigation). -->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/scanFragment"
+        android:icon="@drawable/ic_qr_code_scanner"
+        android:title="@string/nav_scan_title" />
+
+    <item
+        android:id="@+id/studentListFragment"
+        android:icon="@drawable/ic_list"
+        android:title="@string/nav_students_title" />
+
+    <item
+        android:id="@+id/disciplineListFragment"
+        android:icon="@drawable/ic_school"
+        android:title="@string/nav_disciplines_title" />
+
+    <item
+        android:id="@+id/moreFragment"
+        android:icon="@drawable/ic_more_horiz"
+        android:title="@string/nav_more_title" />
+
+</menu>

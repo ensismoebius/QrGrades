@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- M3's default unselected-item tint (colorOnSurfaceVariant) reads as flat, washed-out grey
+     against this app's surfaceContainerHigh nav pill. colorOnSurface gives unselected icons the
+     same crisp contrast as everything else on the screen; the selected item still stands out via
+     its own tonal indicator pill (colorOnSecondaryContainer), not via tint alone. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="?attr/colorOnSecondaryContainer" android:state_checked="true" />
+    <item android:color="?attr/colorOnSurface" />
+</selector>

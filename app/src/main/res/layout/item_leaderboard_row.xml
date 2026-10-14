@@ -22,7 +22,7 @@
             android:layout_width="32dp"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
             android:textColor="?attr/colorPrimary"
             tools:ignore="HardcodedText"
             tools:text="1" />
@@ -47,7 +47,7 @@
             android:layout_weight="1"
             android:ellipsize="end"
             android:maxLines="2"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
             android:textColor="?attr/colorOnSurface" />
 
         <TextView
@@ -55,7 +55,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/spacing_sm"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
             android:textColor="?attr/colorTertiary"
             tools:ignore="HardcodedText"
             tools:text="30" />

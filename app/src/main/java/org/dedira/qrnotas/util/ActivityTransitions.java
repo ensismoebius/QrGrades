@@ -21,6 +21,8 @@ package org.dedira.qrnotas.util;
 
 import android.app.Activity;
 
+import androidx.fragment.app.Fragment;
+
 // MaterialSharedAxis is a Material Design "shared axis" transition: the outgoing screen slides
 // out along one axis (here the Z axis, i.e. it looks like it moves away from the viewer) while
 // the incoming screen slides in, giving a sense of forward/backward navigation depth.
@@ -53,5 +55,19 @@ public class ActivityTransitions {
     public static void enter(Activity activity) {
         activity.getWindow().setEnterTransition(new MaterialSharedAxis(MaterialSharedAxis.Z, true));
         activity.getWindow().setReturnTransition(new MaterialSharedAxis(MaterialSharedAxis.Z, false));
+    }
+
+    /**
+     * Fragment equivalent of {@link #enter(Activity)}/{@link #forward(Activity)} combined: in the
+     * single-Activity Navigation Component architecture, every destination is both something
+     * navigated to (needs an enter/return transition) and something navigated away from (needs an
+     * exit/reenter transition), unlike two separate Activities which only ever play one half each.
+     * Call once per Fragment, before the view is created (e.g. in {@code onCreate}).
+     */
+    public static void setupSharedAxisTransitions(Fragment fragment) {
+        fragment.setEnterTransition(new MaterialSharedAxis(MaterialSharedAxis.Z, true));
+        fragment.setReturnTransition(new MaterialSharedAxis(MaterialSharedAxis.Z, false));
+        fragment.setExitTransition(new MaterialSharedAxis(MaterialSharedAxis.Z, true));
+        fragment.setReenterTransition(new MaterialSharedAxis(MaterialSharedAxis.Z, false));
     }
 }

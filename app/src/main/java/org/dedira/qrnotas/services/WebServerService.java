@@ -33,7 +33,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import org.dedira.qrnotas.R;
-import org.dedira.qrnotas.activities.WebServerActivity;
+import org.dedira.qrnotas.activities.Main;
 import org.dedira.qrnotas.util.Database;
 
 import java.io.IOException;
@@ -170,7 +170,9 @@ public class WebServerService extends Service {
                 // creating duplicates; FLAG_IMMUTABLE prevents other apps from altering it (required on modern Android).
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        Intent openIntent = new Intent(this, WebServerActivity.class);
+        // There's no WebServerActivity anymore (the app is single-Activity now) — this just
+        // reopens the host; the teacher taps the "More" tab to get back to the server screen.
+        Intent openIntent = new Intent(this, Main.class);
         PendingIntent contentPendingIntent = PendingIntent.getActivity(this, 0, openIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 

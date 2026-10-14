@@ -23,6 +23,9 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Unit tests for {@link CsvImportPlan}, the object that summarizes the result of matching a
  * parsed roster CSV against the database before anything is actually imported. A plan holds
@@ -87,5 +90,24 @@ public class CsvImportPlanTest {
 
         assertEquals(1, plan.newDisciplineCount());
         assertEquals(2, plan.newClassGroupCount());
+    }
+
+    // Verifies newDisciplineNames()/newClassGroupLabels()/newStudentNames() return the actual
+    // distinct names (not just counts) in first-seen order, deduplicated, and labeled with their
+    // discipline for class groups — this is what lets the import confirmation dialog show a
+    // teacher exactly what's about to be created, so a name that should have matched an existing
+    // one can be caught before import instead of only ever showing an opaque count.
+    @Test
+    public void newNameListsAreDistinctAndInFirstSeenOrder() {
+        CsvImportPlan plan = new CsvImportPlan();
+        plan.resolved.add(new ResolvedCsvRow("s1", "André", true, "d1", "DS", true, "c1", "GRUPO A", true));
+        plan.resolved.add(new ResolvedCsvRow("s2", "Beatriz", true, "d1", "DS", true, "c1", "GRUPO A", true));
+        plan.resolved.add(new ResolvedCsvRow("s3", "Caio", true, "d1", "DS", true, "c2", "GRUPO B", true));
+        plan.resolved.add(new ResolvedCsvRow("s4", "Duda", false, "d2", "BDI", false, "c3", "A", false));
+
+        assertEquals(Arrays.asList("DS"), plan.newDisciplineNames());
+        assertEquals(Arrays.asList("DS: GRUPO A", "DS: GRUPO B"), plan.newClassGroupLabels());
+        List<String> expectedStudents = Arrays.asList("André", "Beatriz", "Caio");
+        assertEquals(expectedStudents, plan.newStudentNames());
     }
 }

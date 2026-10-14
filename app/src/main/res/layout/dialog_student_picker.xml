@@ -18,7 +18,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/manual_points_dialog_title"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
             android:textColor="?attr/colorOnSurface" />
 
         <com.google.android.material.textfield.TextInputLayout
@@ -50,7 +50,7 @@
             android:layout_marginTop="@dimen/spacing_md"
             android:gravity="center"
             android:text="@string/no_students_match"
-            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.BodyMedium"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:visibility="gone" />
 

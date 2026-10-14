@@ -18,7 +18,7 @@
             android:id="@+id/txtDisciplineClass"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
             android:textColor="?attr/colorOnSurface" />
 
         <TextView
@@ -26,14 +26,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_sm"
-            android:textAppearance="@style/TextAppearance.Material3.HeadlineMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.HeadlineMedium"
             android:textColor="?attr/colorTertiary" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/current_points_label"
-            android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+            android:textAppearance="@style/TextAppearance.QrGrades.LabelLarge"
             android:textColor="?attr/colorOnSurfaceVariant" />
 
         <TextView
@@ -42,7 +42,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_sm"
             android:text="@string/no_goals_for_discipline"
-            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.BodyMedium"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:visibility="gone" />
 

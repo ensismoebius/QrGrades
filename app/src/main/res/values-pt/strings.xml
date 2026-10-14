@@ -15,6 +15,17 @@
     <string name="show_all_students">Mostrar todos os alunos</string>
     <string name="delete_student">Excluir aluno</string>
 
+    <!-- Bottom navigation bar -->
+    <string name="nav_scan_title">Scanear</string>
+    <string name="nav_students_title">Alunos</string>
+    <string name="nav_disciplines_title">Disciplinas</string>
+    <string name="nav_more_title">Mais</string>
+    <string name="more_title">Mais</string>
+    <string name="manage_backups">Backups</string>
+    <string name="manage_backups_subtitle">Crie, compartilhe e restaure cópias locais</string>
+    <string name="manage_web_server">Servidor web</string>
+    <string name="manage_web_server_subtitle">Gerencie as notas pelo navegador na sua rede</string>
+
     <!-- Main / scanning -->
     <string name="scan_hint">Aponte a câmera para o código QR de um aluno para começar</string>
     <string name="camera_permission_rationale">"É necessário acesso à câmera para escanear códigos QR."</string>
@@ -45,28 +56,7 @@
     <string name="enroll_failed">Falha ao matricular o aluno.</string>
     <string name="repeat_scan_warning">"Atenção: este código QR já foi escaneado %1$d vezes hoje."</string>
 
-    <!-- Banheiro / indisciplina -->
-    <string name="go_to_bathroom_button">Ir ao banheiro</string>
-    <string name="came_back_bathroom_button">Voltou</string>
-    <string name="indiscipline_button">Indisciplina</string>
-    <string name="bathroom_left">"%1$s foi ao banheiro."</string>
-    <string name="bathroom_already_out">"%1$s já está fora — registre o retorno primeiro."</string>
-    <string name="bathroom_not_out">"%1$s não está marcado(a) como fora."</string>
-    <string name="bathroom_return_title">Bem-vindo(a) de volta</string>
-    <string name="bathroom_return_summary">"%1$s ficou fora por %2$s."</string>
-    <string name="bathroom_evaded_warning">"Isso passou do limite de 2 horas — esta saída foi marcada como evasão."</string>
-    <string name="indiscipline_dialog_title">"Registro de indisciplina de %1$s"</string>
-    <string name="indiscipline_note_hint">O que aconteceu? (opcional)</string>
-    <string name="indiscipline_saved">"Indisciplina registrada para %1$s."</string>
-    <string name="indiscipline_save_failed">Falha ao salvar o registro de indisciplina.</string>
     <string name="pick_manually">Selecionar manualmente</string>
-    <string name="long_press_manual_hint">Toque e segure um botão acima para selecionar um aluno manualmente em vez de escanear.</string>
-    <string name="bathroom_leave_hint">Escaneie um QR code para enviar um aluno ao banheiro.</string>
-    <string name="indiscipline_hint">Escaneie um QR code para registrar uma indisciplina.</string>
-    <string name="bathroom_status_out">"%1$s está fora no momento (banheiro)."</string>
-    <string name="indiscipline_recent_title">Indisciplinas recentes</string>
-    <string name="indiscipline_row_with_note">"%1$s • %2$s — %3$s"</string>
-    <string name="indiscipline_row_no_note">"%1$s • %2$s"</string>
 
     <!-- Add/edit student -->
     <string name="name_hint">Nome do aluno</string>
@@ -115,6 +105,42 @@
     <string name="view_leaderboard">Ranking</string>
     <string name="leaderboard_title">Ranking — %1$s</string>
     <string name="no_leaderboard_data">"Nenhum aluno matriculado nesta disciplina ainda."</string>
+    <string name="manage_periods">Períodos</string>
+
+    <!-- Períodos ("Fechar período" / "Fechar período e turma") -->
+    <string name="periods_title">Períodos — %1$s</string>
+    <string name="no_periods_yet">"Nenhum período encerrado ainda. Toque no botão abaixo para encerrar um."</string>
+    <string name="close_period">Fechar período</string>
+    <string name="close_period_label_hint">Nome (opcional, ex: \"Bimestre 1\")</string>
+    <string name="close_period_confirm_message">"Isso zera a contagem de pontos de todas as turmas desta disciplina para recomeçar. Os totais anteriores continuam salvos e podem ser vistos, ou desfeitos, depois."</string>
+    <string name="close_period_succeeded">Período encerrado.</string>
+    <string name="close_period_failed">Falha ao encerrar o período.</string>
+    <string name="period_title_reopened">"%1$s (reaberto)"</string>
+    <string name="period_scope_whole_discipline">Disciplina inteira</string>
+    <string name="period_scope_class_archived">"Turma \"%1$s\" encerrada"</string>
+    <string name="period_scope_class_reassigned">"Turma \"%1$s\" → \"%2$s\""</string>
+    <string name="period_detail_title">Detalhe do período</string>
+    <string name="no_period_snapshots">Nenhum aluno foi afetado por este fechamento.</string>
+    <string name="reopen_period">Reabrir</string>
+    <string name="reopen_period_confirm_title">Reabrir este período?</string>
+    <string name="reopen_period_confirm_message">"Isso restaura o total de pontos anterior de cada aluno e desfaz o fechamento/movimentação de turma deste período. Se pontos novos já foram dados depois, eles serão sobrescritos. Esta ação não pode ser desfeita."</string>
+    <string name="reopen_period_succeeded">Período reaberto.</string>
+    <string name="reopen_period_failed">Falha ao reabrir o período.</string>
+    <string name="change_reassignment_target">Trocar turma de destino</string>
+    <string name="change_reassignment_target_hint">Nome da nova turma</string>
+    <string name="change_reassignment_target_succeeded">Destino atualizado.</string>
+    <string name="change_reassignment_target_failed">Falha ao trocar o destino.</string>
+    <string name="close_class_period">Fechar período desta turma</string>
+    <string name="close_class_period_title">"Fechar período da turma \"%1$s\"?"</string>
+    <string name="close_class_period_label_hint">Nome (opcional, ex: \"Bimestre 1\")</string>
+    <string name="close_class_period_archive_option">Arquivar esta turma (sem turma nova)</string>
+    <string name="close_class_period_reassign_option">Mover alunos para uma turma nova</string>
+    <string name="close_class_period_new_name_hint">Nome da nova turma</string>
+    <string name="close_class_period_new_name_required">"Digite um nome para a nova turma."</string>
+    <string name="close_class_period_succeeded">Período encerrado para esta turma.</string>
+    <string name="close_class_period_failed">Falha ao encerrar o período desta turma.</string>
+    <string name="class_group_closed_suffix">" (encerrada)"</string>
+    <string name="enrollment_in_closed_class_warning">"A turma deste aluno foi encerrada para um novo período. Reabra-a, ou mova o aluno para uma turma ativa, antes de dar pontos."</string>
     <string name="groups_title">Turmas — %1$s</string>
     <string name="no_groups">"Nenhuma turma ainda. Toque em + para cadastrar uma."</string>
     <string name="add_group">Adicionar turma</string>
@@ -162,6 +188,10 @@
     <string name="csv_import_confirm_title">Importar turma?</string>
     <string name="csv_import_summary">"%1$d aluno(s) novo(s), %2$d correspondente(s) a alunos existentes, %3$d linha(s) ignorada(s)."</string>
     <string name="csv_import_new_structure">"%1$d disciplina(s) nova(s) e %2$d turma(s) nova(s) serão criadas."</string>
+    <string name="csv_import_new_disciplines_list">"Disciplinas novas: %1$s"</string>
+    <string name="csv_import_new_class_groups_list">"Turmas novas: %1$s"</string>
+    <string name="csv_import_new_students_list">"Alunos novos: %1$s"</string>
+    <string name="csv_import_list_more">" (+%1$d a mais)"</string>
     <string name="csv_import_error_line">"Linha %1$d: %2$s"</string>
     <string name="csv_import_no_valid_rows">Nenhuma linha válida para importar.</string>
     <string name="csv_import_invalid_file">"Arquivo CSV inválido: %1$s"</string>

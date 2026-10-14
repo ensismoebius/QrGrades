@@ -14,7 +14,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:navigationIcon="@drawable/ic_arrow_back"
         app:title="@string/progress_title"
-        app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge" />
+        app:titleTextAppearance="@style/TextAppearance.QrGrades.TitleLarge" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="0dp"
@@ -59,7 +59,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/spacing_sm"
-                        android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+                        android:textAppearance="@style/TextAppearance.QrGrades.TitleLarge"
                         android:textColor="?attr/colorOnSurface" />
 
                 </LinearLayout>
@@ -73,7 +73,7 @@
                 android:gravity="center"
                 android:padding="@dimen/spacing_lg"
                 android:text="@string/no_enrollments_yet"
-                android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+                android:textAppearance="@style/TextAppearance.QrGrades.BodyLarge"
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:visibility="gone" />
 
@@ -91,7 +91,7 @@
                 android:layout_marginStart="@dimen/spacing_md"
                 android:layout_marginTop="@dimen/spacing_sm"
                 android:text="@string/history_title"
-                android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+                android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
                 android:textColor="?attr/colorOnSurface" />
 
             <TextView
@@ -101,7 +101,7 @@
                 android:gravity="center"
                 android:padding="@dimen/spacing_lg"
                 android:text="@string/no_history_yet"
-                android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+                android:textAppearance="@style/TextAppearance.QrGrades.BodyLarge"
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:visibility="gone" />
 

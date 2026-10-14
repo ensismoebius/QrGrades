@@ -41,9 +41,12 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Builds shareable/downloadable files from a list of {@link StudentExportData} (one entry per
@@ -81,6 +84,35 @@ public class Exporter {
         return "qrgrades_export";
     }
 
+    // One entry per distinct student, each export format's "one row per enrollment" layout never
+    // shows these — a student enrolled in several disciplines/classes otherwise only ever appears
+    // as several separate partial totals, which reads as "this student barely has any points"
+    // even when their combined total is much higher.
+    private static class StudentTotal {
+        final String studentId;
+        final String studentName;
+        int points;
+
+        StudentTotal(String studentId, String studentName) {
+            this.studentId = studentId;
+            this.studentName = studentName;
+        }
+    }
+
+    /** Sums each student's points across every enrollment row in {@code data}, in first-seen order (which, since {@code data} is sorted by student name, means name order). */
+    private static List<StudentTotal> computeTotals(List<StudentExportData> data) {
+        Map<String, StudentTotal> totals = new LinkedHashMap<>();
+        for (StudentExportData s : data) {
+            StudentTotal total = totals.get(s.studentId);
+            if (total == null) {
+                total = new StudentTotal(s.studentId, s.studentName);
+                totals.put(s.studentId, total);
+            }
+            total.points += s.points;
+        }
+        return new ArrayList<>(totals.values());
+    }
+
     /** Builds a one-line, comma-separated summary of a student's goal progress, e.g. "R ✓, MB (5 to go)". */
     private static String goalsSummary(StudentExportData s) {
         if (s.goals == null || s.goals.isEmpty()) return "";
@@ -111,6 +143,13 @@ public class Exporter {
                         + " | " + s.points
                         + " | " + escapeMd(goalsSummary(s))
                         + " |\n");
+            }
+
+            writer.write("\n## Totals by Student\n\n");
+            writer.write("| Name | Total Points |\n");
+            writer.write("|---|---|\n");
+            for (StudentTotal total : computeTotals(data)) {
+                writer.write("| " + escapeMd(total.studentName) + " | " + total.points + " |\n");
             }
 
             writer.write("\n## Points History\n\n");
@@ -148,6 +187,9 @@ public class Exporter {
 
     /** Same JSON shape as {@link #exportJson}, without writing it to a file — reused by the web server's live "/api/overview" endpoint. */
     public static JSONArray buildJsonArray(List<StudentExportData> data) throws JSONException {
+        Map<String, Integer> totalsByStudent = new LinkedHashMap<>();
+        for (StudentTotal total : computeTotals(data)) totalsByStudent.put(total.studentId, total.points);
+
         JSONArray array = new JSONArray();
         for (StudentExportData s : data) {
             JSONObject obj = new JSONObject();
@@ -161,6 +203,9 @@ public class Exporter {
             obj.put("classGroupId", s.classGroupId);
             obj.put("classGroup", s.classGroupName);
             obj.put("points", s.points);
+            // Combined total across every one of this student's enrollments in this export, not
+            // just this one discipline/class — see the "points" field above for the per-row value.
+            obj.put("totalPoints", totalsByStudent.get(s.studentId));
 
             JSONArray goals = new JSONArray();
             if (s.goals != null) {
@@ -253,6 +298,38 @@ public class Exporter {
             for (int i = 0; i < values.length; i++) {
                 String text = truncateToWidth(values[i], rowPaint, colWidth[i]);
                 canvas.drawText(text, colX[i], y, rowPaint);
+            }
+            y += ROW_HEIGHT;
+        }
+
+        // Totals-by-student table uses its own column layout and starts on a fresh page.
+        int[] totalsColX = {MARGIN, MARGIN + 300};
+        int[] totalsColWidth = {290, PAGE_WIDTH - MARGIN - (MARGIN + 300)};
+        String[] totalsHeaders = {"Name", "Total Points"};
+
+        document.finishPage(page);
+        PdfDocument.PageInfo totalsPageInfo = new PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, document.getPages().size() + 1).create();
+        page = document.startPage(totalsPageInfo);
+        canvas = page.getCanvas();
+        y = MARGIN;
+        canvas.drawText("Totals by Student", MARGIN, y, titlePaint);
+        y += ROW_HEIGHT;
+        y = drawTableHeader(canvas, headerPaint, totalsColX, totalsHeaders, y);
+
+        for (StudentTotal total : computeTotals(data)) {
+            if (y > PAGE_HEIGHT - MARGIN - ROW_HEIGHT) {
+                document.finishPage(page);
+                PdfDocument.PageInfo nextInfo = new PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, document.getPages().size() + 1).create();
+                page = document.startPage(nextInfo);
+                canvas = page.getCanvas();
+                y = MARGIN;
+                y = drawTableHeader(canvas, headerPaint, totalsColX, totalsHeaders, y);
+            }
+
+            String[] totalsValues = {total.studentName == null ? "" : total.studentName, String.valueOf(total.points)};
+            for (int i = 0; i < totalsValues.length; i++) {
+                String text = truncateToWidth(totalsValues[i], rowPaint, totalsColWidth[i]);
+                canvas.drawText(text, totalsColX[i], y, rowPaint);
             }
             y += ROW_HEIGHT;
         }

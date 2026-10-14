@@ -21,6 +21,7 @@ package org.dedira.qrnotas.model;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -62,5 +63,33 @@ public class CsvImportPlan {
         Set<String> ids = new HashSet<>();
         for (ResolvedCsvRow row : resolved) if (row.isNewClassGroup) ids.add(row.classGroupId);
         return ids.size();
+    }
+
+    /**
+     * The actual names of the disciplines/class-groups/students that will be created on import,
+     * in first-seen order — shown to the teacher alongside the counts above so a name that should
+     * have matched an existing one (e.g. a typo, accent, or stray space the matching missed) is
+     * visible and can be caught by canceling, instead of only ever showing an opaque count.
+     */
+    public List<String> newDisciplineNames() {
+        Set<String> names = new LinkedHashSet<>();
+        for (ResolvedCsvRow row : resolved) if (row.isNewDiscipline) names.add(row.disciplineName);
+        return new ArrayList<>(names);
+    }
+
+    /** Same as {@link #newDisciplineNames()}, but for class groups — labeled with their discipline since the same class-group name can exist under several disciplines. */
+    public List<String> newClassGroupLabels() {
+        Set<String> labels = new LinkedHashSet<>();
+        for (ResolvedCsvRow row : resolved) {
+            if (row.isNewClassGroup) labels.add(row.disciplineName + ": " + row.classGroupName);
+        }
+        return new ArrayList<>(labels);
+    }
+
+    /** Same as {@link #newDisciplineNames()}, but for students. */
+    public List<String> newStudentNames() {
+        Set<String> names = new LinkedHashSet<>();
+        for (ResolvedCsvRow row : resolved) if (row.isNewStudent) names.add(row.name);
+        return new ArrayList<>(names);
     }
 }

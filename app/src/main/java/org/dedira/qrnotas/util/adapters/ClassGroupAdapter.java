@@ -21,7 +21,7 @@ package org.dedira.qrnotas.util.adapters;
 
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.Intent;
+import android.os.Bundle;
 import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -29,15 +29,19 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
+
 import org.dedira.qrnotas.R;
-import org.dedira.qrnotas.activities.StudentList;
 import org.dedira.qrnotas.model.ClassGroup;
 import org.dedira.qrnotas.util.Database;
 
@@ -65,12 +69,21 @@ public class ClassGroupAdapter extends RecyclerView.Adapter<ClassGroupAdapter.Vi
     private final Context context;
     private final Database database;
     private final String disciplineId;
+    private final Runnable onPeriodClosed;
     private final List<ClassGroup> groups = new ArrayList<>();
 
-    public ClassGroupAdapter(Context context, Database database, String disciplineId) {
+    /**
+     * @param onPeriodClosed called after "Fechar período e turma" successfully closes a group,
+     *                       since that can both change this row (closedAt) and create a brand
+     *                       new one elsewhere in the list — simplest for the owning screen to
+     *                       just reload everything from the database rather than patch the list
+     *                       in place.
+     */
+    public ClassGroupAdapter(Context context, Database database, String disciplineId, Runnable onPeriodClosed) {
         this.context = context;
         this.database = database;
         this.disciplineId = disciplineId;
+        this.onPeriodClosed = onPeriodClosed;
     }
 
     /**
@@ -170,6 +183,45 @@ public class ClassGroupAdapter extends RecyclerView.Adapter<ClassGroupAdapter.Vi
                 .show();
     }
 
+    /**
+     * "Fechar período e turma": shows a dialog letting the teacher pick whether this class
+     * group's students are archived in place or moved into a brand-new class group, then calls
+     * {@link Database#closeClassGroupPeriod}. Triggered by long-pressing an active row — a plain
+     * icon button wasn't used here (unlike Edit/Delete) since this is a bigger, less frequent,
+     * more consequential action than a rename/delete, and this row layout is shared with
+     * Discipline/Goal rows that have no use for it.
+     */
+    private void showClosePeriodDialog(ClassGroup g) {
+        View view = LayoutInflater.from(context).inflate(R.layout.dialog_close_class_period, null);
+        TextInputEditText txtLabel = view.findViewById(R.id.txtClosePeriodLabel);
+        RadioGroup radioGroup = view.findViewById(R.id.radioClosePeriodOption);
+        TextInputLayout layoutNewName = view.findViewById(R.id.layoutClosePeriodNewName);
+        TextInputEditText txtNewName = view.findViewById(R.id.txtClosePeriodNewName);
+
+        radioGroup.setOnCheckedChangeListener((group, checkedId) ->
+                layoutNewName.setVisibility(checkedId == R.id.radioReassign ? View.VISIBLE : View.GONE));
+
+        new AlertDialog.Builder(context)
+                .setTitle(context.getString(R.string.close_class_period_title, g.name))
+                .setView(view)
+                .setPositiveButton(R.string.close_period, (dialog, which) -> {
+                    String label = txtLabel.getText() == null ? "" : txtLabel.getText().toString().trim();
+                    boolean reassign = radioGroup.getCheckedRadioButtonId() == R.id.radioReassign;
+                    String newName = txtNewName.getText() == null ? "" : txtNewName.getText().toString().trim();
+                    if (reassign && newName.isEmpty()) {
+                        Toast.makeText(context, R.string.close_class_period_new_name_required, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    database.closeClassGroupPeriod(g.id, label.isEmpty() ? null : label, reassign ? newName : null,
+                            (success, period) -> {
+                                Toast.makeText(context, success ? R.string.close_class_period_succeeded : R.string.close_class_period_failed, Toast.LENGTH_SHORT).show();
+                                if (success) onPeriodClosed.run();
+                            });
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
     /** Inflates (builds from XML) one empty row layout and wraps it in a reusable {@link ViewHolder}. */
     @NonNull
     @Override
@@ -183,17 +235,30 @@ public class ClassGroupAdapter extends RecyclerView.Adapter<ClassGroupAdapter.Vi
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         ClassGroup g = groups.get(position);
         holder.txtName.setText(g.name);
-        // This shared row layout has an optional subtitle line; class groups don't use it.
-        holder.subtitle.setVisibility(View.GONE);
-        // Tapping the row (outside the edit/delete buttons) opens the student list for
-        // this class group, passing its id/name via Intent extras.
+        if (g.isClosed()) {
+            // Reuses this shared row layout's otherwise-unused subtitle line to flag a closed
+            // class group, rather than adding a dedicated view that Discipline/Goal rows would
+            // never use.
+            holder.subtitle.setText(R.string.class_group_closed_suffix);
+            holder.subtitle.setVisibility(View.VISIBLE);
+        } else {
+            holder.subtitle.setVisibility(View.GONE);
+        }
+        // Tapping the row (outside the edit/delete buttons) opens the student list for this
+        // class group (including a closed one, so its historical roster stays viewable).
         holder.itemView.setOnClickListener(v -> {
-            Intent intent = new Intent(context, StudentList.class);
-            intent.putExtra("classGroupId", g.id);
-            intent.putExtra("groupName", g.name);
-            context.startActivity(intent);
+            Bundle bundle = new Bundle();
+            bundle.putString("classGroupId", g.id);
+            bundle.putString("groupName", g.name);
+            Navigation.findNavController(v).navigate(R.id.action_classGroupList_to_studentList, bundle);
         });
         holder.itemView.setClickable(true);
+        // Long-press is "Fechar período e turma" — only offered for an active class group;
+        // an already-closed one is corrected/undone instead via PeriodDetail (Reabrir/Trocar destino).
+        holder.itemView.setOnLongClickListener(g.isClosed() ? null : v -> {
+            showClosePeriodDialog(g);
+            return true;
+        });
 
         holder.btnEdit.setOnClickListener(v -> showEditDialog(g));
         // getBindingAdapterPosition() is used instead of the "position" parameter because by
@@ -254,10 +319,14 @@ public class ClassGroupAdapter extends RecyclerView.Adapter<ClassGroupAdapter.Vi
         }
 
         // Only called when areItemsTheSame() is true: "did the displayed content change?"
-        // Here only the name is shown, so that's all that needs comparing.
+        // closedAt matters here too (not just name) — otherwise a group that just got closed by
+        // "Fechar período e turma" wouldn't be rebound, and its "(encerrada)" tag wouldn't appear
+        // until some unrelated row changed forced a redraw.
         @Override
         public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
-            return Objects.equals(oldList.get(oldItemPosition).name, newList.get(newItemPosition).name);
+            ClassGroup oldGroup = oldList.get(oldItemPosition);
+            ClassGroup newGroup = newList.get(newItemPosition);
+            return Objects.equals(oldGroup.name, newGroup.name) && Objects.equals(oldGroup.closedAt, newGroup.closedAt);
         }
     }
 }

@@ -17,69 +17,55 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package org.dedira.qrnotas.activities;
+package org.dedira.qrnotas.fragments;
 
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
-import androidx.activity.OnBackPressedCallback;
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import org.dedira.qrnotas.R;
-import org.dedira.qrnotas.util.ActivityTransitions;
-import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.adapters.DisciplineAdapter;
-import org.dedira.qrnotas.util.EdgeToEdge;
 
 /**
- * Top-level list of every discipline (subject) the teacher manages, reached from the navigation
- * drawer. Lets the teacher add a new discipline via the floating "+" button; tapping a row (via
- * {@link DisciplineAdapter}) opens {@link DisciplineDetail} for that discipline.
+ * Bottom-nav "Disciplines" tab: top-level list of every discipline (subject) the teacher
+ * manages. Lets the teacher add a new discipline via the floating "+" button; tapping a row
+ * (via {@link DisciplineAdapter}) opens {@link DisciplineDetailFragment} for that discipline.
  */
-public class DisciplineList extends AppCompatActivity {
+public class DisciplineListFragment extends BaseFragment {
     private DisciplineAdapter adapter;
     private RecyclerView recyclerView;
     private TextView txtEmpty;
-    private Database database;
 
-    /**
-     * Called once by Android when this screen is created. Sets up the toolbar/back button, wires
-     * the RecyclerView to its adapter, and starts the first data load.
-     */
+    public DisciplineListFragment() {
+        super(R.layout.activity_entity_list);
+    }
+
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        ActivityTransitions.enter(this);
-        // Shared "list of X with an add button" layout, reused by DisciplineList/ClassGroupList/GoalList.
-        setContentView(R.layout.activity_entity_list);
-        EdgeToEdge.apply(this);
+    protected boolean showsBackArrow() {
+        return false;
+    }
 
-        this.database = new Database(this);
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
 
-        MaterialToolbar toolbar = this.findViewById(R.id.toolbar);
+        MaterialToolbar toolbar = view.findViewById(R.id.toolbar);
         toolbar.setTitle(R.string.disciplines_title);
-        toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                finishAfterTransition();
-            }
-        });
 
-        this.txtEmpty = this.findViewById(R.id.txtEmpty);
+        this.txtEmpty = view.findViewById(R.id.txtEmpty);
         this.txtEmpty.setText(R.string.no_disciplines);
 
-        this.adapter = new DisciplineAdapter(this, database);
-        this.recyclerView = this.findViewById(R.id.lstEntities);
+        this.adapter = new DisciplineAdapter(requireContext(), database);
+        this.recyclerView = view.findViewById(R.id.lstEntities);
         this.recyclerView.setAdapter(adapter);
 
-        // Watches the adapter's list for any change so the "empty state" text shows/hides itself
-        // automatically instead of needing a manual check after every add/delete.
         adapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
             @Override
             public void onChanged() {
@@ -97,31 +83,25 @@ public class DisciplineList extends AppCompatActivity {
             }
         });
 
-        FloatingActionButton btnAdd = this.findViewById(R.id.btnAddEntity);
+        FloatingActionButton btnAdd = view.findViewById(R.id.btnAddEntity);
         btnAdd.setOnClickListener(v -> adapter.showAddDialog());
 
         loadDisciplines();
     }
 
-    /**
-     * Called by Android every time this screen becomes visible again. Reloading here keeps the
-     * list current if a discipline was added/renamed/deleted elsewhere while this screen was in
-     * the background.
-     */
     @Override
-    protected void onResume() {
+    public void onResume() {
         super.onResume();
         loadDisciplines();
     }
 
-    /** Asks the database for every discipline and hands the result to the adapter. */
     private void loadDisciplines() {
         database.loadAllDisciplines((success, disciplines) -> {
+            if (getView() == null) return;
             if (success) adapter.submitList(disciplines);
         });
     }
 
-    /** Shows the "no disciplines yet" placeholder text and hides the list, or vice versa. */
     private void updateEmptyState() {
         boolean isEmpty = adapter.getItemCount() == 0;
         txtEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);

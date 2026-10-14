@@ -21,7 +21,7 @@ package org.dedira.qrnotas.util.adapters;
 
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.Intent;
+import android.os.Bundle;
 import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -33,11 +33,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.dedira.qrnotas.R;
-import org.dedira.qrnotas.activities.DisciplineDetail;
 import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.util.Database;
 
@@ -185,12 +185,12 @@ public class DisciplineAdapter extends RecyclerView.Adapter<DisciplineAdapter.Vi
         holder.subtitle.setVisibility(View.GONE);
 
         // Tapping the row (outside the edit/delete buttons) opens the discipline's detail
-        // screen, passing its id/name via Intent extras.
+        // screen, passing its id/name as nav-graph arguments.
         holder.itemView.setOnClickListener(v -> {
-            Intent intent = new Intent(context, DisciplineDetail.class);
-            intent.putExtra("disciplineId", d.id);
-            intent.putExtra("disciplineName", d.name);
-            context.startActivity(intent);
+            Bundle bundle = new Bundle();
+            bundle.putString("disciplineId", d.id);
+            bundle.putString("disciplineName", d.name);
+            Navigation.findNavController(v).navigate(R.id.action_disciplineList_to_disciplineDetail, bundle);
         });
 
         holder.btnEdit.setOnClickListener(v -> showEditDialog(d));

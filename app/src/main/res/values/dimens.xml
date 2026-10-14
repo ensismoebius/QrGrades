@@ -5,14 +5,27 @@
     <dimen name="spacing_lg">24dp</dimen>
     <dimen name="spacing_xl">32dp</dimen>
 
-    <dimen name="corner_radius_md">20dp</dimen>
-    <dimen name="corner_radius_lg">28dp</dimen>
+    <dimen name="spacing_xxl">48dp</dimen>
 
-    <dimen name="elevation_card">1dp</dimen>
-    <dimen name="elevation_raised">6dp</dimen>
+    <dimen name="corner_radius_sm">10dp</dimen>
+    <dimen name="corner_radius_md">16dp</dimen>
+    <dimen name="corner_radius_lg">22dp</dimen>
+
+    <dimen name="elevation_card">3dp</dimen>
+    <dimen name="elevation_raised">12dp</dimen>
 
     <dimen name="avatar_size">96dp</dimen>
     <dimen name="photo_width">130dp</dimen>
     <dimen name="photo_height">170dp</dimen>
     <dimen name="list_photo_size">64dp</dimen>
+
+    <!-- Android's minimum recommended touch target for any tappable icon/button. -->
+    <dimen name="icon_button_size">48dp</dimen>
+    <!-- Height of the primary call-to-action button (e.g. "Continuar" on the add-points overlay). -->
+    <dimen name="cta_height">56dp</dimen>
+
+    <!-- Floor for the bottom nav pill's content row (icon + label), set via code in Main.java —
+         see the comment on Widget.QrGrades.BottomNavigationView in styles.xml for why this can't
+         just be android:minHeight in the layout. -->
+    <dimen name="bottom_nav_min_height">52dp</dimen>
 </resources>

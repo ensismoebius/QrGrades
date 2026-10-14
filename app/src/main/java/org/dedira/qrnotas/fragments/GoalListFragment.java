@@ -17,75 +17,57 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package org.dedira.qrnotas.activities;
+package org.dedira.qrnotas.fragments;
 
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
-import androidx.activity.OnBackPressedCallback;
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import org.dedira.qrnotas.R;
-import org.dedira.qrnotas.util.ActivityTransitions;
-import org.dedira.qrnotas.util.Database;
-import org.dedira.qrnotas.util.EdgeToEdge;
 import org.dedira.qrnotas.util.adapters.GoalAdapter;
 
 /**
  * Lists the point-total goals (e.g. "R: 10 points", "MB: 30 points") defined for one discipline,
- * reached by tapping the "goals" card on {@link DisciplineDetail}. Lets the teacher add a new
- * goal via the floating "+" button; each row (via {@link GoalAdapter}) supports editing/deleting.
- * These goals are what drives the progress bars shown on {@link StudentProgress} and on the main
- * award-points screen.
+ * reached by tapping the "goals" card on {@link DisciplineDetailFragment}. Lets the teacher add
+ * a new goal via the floating "+" button; each row (via {@link GoalAdapter}) supports
+ * editing/deleting. These goals are what drives the progress bars shown on
+ * {@link StudentProgressFragment} and on the scan screen.
  */
-public class GoalList extends AppCompatActivity {
+public class GoalListFragment extends BaseFragment {
     private GoalAdapter adapter;
     private RecyclerView recyclerView;
     private TextView txtEmpty;
-    private Database database;
     private String disciplineId;
 
-    /**
-     * Called once by Android when this screen is created. Reads which discipline's goals to
-     * show, sets up the toolbar/back button, wires the RecyclerView to its adapter, and starts
-     * the first data load.
-     */
+    public GoalListFragment() {
+        super(R.layout.activity_entity_list);
+    }
+
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        ActivityTransitions.enter(this);
-        // Shared "list of X with an add button" layout, reused by DisciplineList/ClassGroupList/GoalList.
-        setContentView(R.layout.activity_entity_list);
-        EdgeToEdge.apply(this);
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
 
-        this.disciplineId = getIntent().getStringExtra("disciplineId");
-        String disciplineName = getIntent().getStringExtra("disciplineName");
-        this.database = new Database(this);
+        Bundle args = getArguments();
+        this.disciplineId = args != null ? args.getString("disciplineId") : null;
+        String disciplineName = args != null ? args.getString("disciplineName") : null;
 
-        MaterialToolbar toolbar = this.findViewById(R.id.toolbar);
+        MaterialToolbar toolbar = view.findViewById(R.id.toolbar);
         toolbar.setTitle(getString(R.string.goals_title, disciplineName));
-        toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                finishAfterTransition();
-            }
-        });
 
-        this.txtEmpty = this.findViewById(R.id.txtEmpty);
+        this.txtEmpty = view.findViewById(R.id.txtEmpty);
         this.txtEmpty.setText(R.string.no_goals);
 
-        this.adapter = new GoalAdapter(this, database, disciplineId);
-        this.recyclerView = this.findViewById(R.id.lstEntities);
+        this.adapter = new GoalAdapter(requireContext(), database, disciplineId);
+        this.recyclerView = view.findViewById(R.id.lstEntities);
         this.recyclerView.setAdapter(adapter);
 
-        // Watches the adapter's list for any change so the "empty state" text shows/hides itself
-        // automatically instead of needing a manual check after every add/delete.
         adapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
             @Override
             public void onChanged() {
@@ -103,31 +85,25 @@ public class GoalList extends AppCompatActivity {
             }
         });
 
-        FloatingActionButton btnAdd = this.findViewById(R.id.btnAddEntity);
+        FloatingActionButton btnAdd = view.findViewById(R.id.btnAddEntity);
         btnAdd.setOnClickListener(v -> adapter.showAddDialog());
 
         loadGoals();
     }
 
-    /**
-     * Called by Android every time this screen becomes visible again. Reloading here keeps the
-     * list current if a goal was added/edited/deleted elsewhere while this screen was in the
-     * background.
-     */
     @Override
-    protected void onResume() {
+    public void onResume() {
         super.onResume();
         loadGoals();
     }
 
-    /** Asks the database for this discipline's goals and hands the result to the adapter. */
     private void loadGoals() {
         database.loadGoalsForDiscipline(disciplineId, (success, goals) -> {
+            if (getView() == null) return;
             if (success) adapter.submitList(goals);
         });
     }
 
-    /** Shows the "no goals yet" placeholder text and hides the list, or vice versa. */
     private void updateEmptyState() {
         boolean isEmpty = adapter.getItemCount() == 0;
         txtEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);

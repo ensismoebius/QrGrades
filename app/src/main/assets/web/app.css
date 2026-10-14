@@ -303,11 +303,6 @@ form.inline-form input:focus, form.inline-form select:focus,
     color: var(--md-error);
 }
 
-.warning-row {
-    background: var(--md-error-container);
-    color: var(--md-error);
-}
-
 .qr-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

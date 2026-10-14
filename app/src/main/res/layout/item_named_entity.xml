@@ -10,7 +10,9 @@
     android:foreground="?attr/selectableItemBackground"
     app:cardBackgroundColor="?attr/colorSurfaceVariant"
     app:cardCornerRadius="@dimen/corner_radius_md"
-    app:cardElevation="@dimen/elevation_card">
+    app:cardElevation="@dimen/elevation_card"
+    app:strokeColor="?attr/colorOutlineVariant"
+    app:strokeWidth="1dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -23,7 +25,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="2"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
             android:textColor="?attr/colorOnSurface"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/txtEntitySubtitle"
@@ -35,7 +37,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="@dimen/spacing_sm"
-            android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+            android:textAppearance="@style/TextAppearance.QrGrades.LabelLarge"
             android:textColor="?attr/colorTertiary"
             android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -44,8 +46,8 @@
 
         <ImageButton
             android:id="@+id/btnEditEntity"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="@dimen/icon_button_size"
+            android:layout_height="@dimen/icon_button_size"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/edit_student"
             android:src="@drawable/ic_edit"
@@ -56,8 +58,8 @@
 
         <ImageButton
             android:id="@+id/btnDeleteEntity"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="@dimen/icon_button_size"
+            android:layout_height="@dimen/icon_button_size"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/delete_student"
             android:src="@drawable/ic_delete"

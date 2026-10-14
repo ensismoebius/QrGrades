@@ -15,6 +15,17 @@
     <string name="show_all_students">Show all students</string>
     <string name="delete_student">Delete student</string>
 
+    <!-- Bottom navigation bar -->
+    <string name="nav_scan_title">Scan</string>
+    <string name="nav_students_title">Students</string>
+    <string name="nav_disciplines_title">Disciplines</string>
+    <string name="nav_more_title">More</string>
+    <string name="more_title">More</string>
+    <string name="manage_backups">Backups</string>
+    <string name="manage_backups_subtitle">Create, share, and restore local snapshots</string>
+    <string name="manage_web_server">Web server</string>
+    <string name="manage_web_server_subtitle">Manage grades from a browser on your network</string>
+
     <!-- Main / scanning -->
     <string name="scan_hint">Point the camera at a student\'s QR code to begin</string>
     <string name="camera_permission_rationale">"Camera access is needed to scan QR codes."</string>
@@ -45,28 +56,7 @@
     <string name="enroll_failed">Failed to enroll student.</string>
     <string name="repeat_scan_warning" tools:ignore="PluralsCandidate">"Heads up: this QR code has already been scanned %1$d times today."</string>
 
-    <!-- Bathroom / indiscipline -->
-    <string name="go_to_bathroom_button">Go to bathroom</string>
-    <string name="came_back_bathroom_button">Came back</string>
-    <string name="indiscipline_button">Indiscipline</string>
-    <string name="bathroom_left">"%1$s went to the bathroom."</string>
-    <string name="bathroom_already_out">"%1$s is already out — mark them back first."</string>
-    <string name="bathroom_not_out">"%1$s isn\'t marked as out."</string>
-    <string name="bathroom_return_title">Welcome back</string>
-    <string name="bathroom_return_summary">"%1$s was away for %2$s."</string>
-    <string name="bathroom_evaded_warning">"That\'s over the 2-hour limit — this trip has been marked as evaded."</string>
-    <string name="indiscipline_dialog_title">"Indiscipline record for %1$s"</string>
-    <string name="indiscipline_note_hint">What happened? (optional)</string>
-    <string name="indiscipline_saved">"Indiscipline recorded for %1$s."</string>
-    <string name="indiscipline_save_failed">Failed to save the indiscipline record.</string>
     <string name="pick_manually">Select manually</string>
-    <string name="long_press_manual_hint">Press and hold a button above to pick a student manually instead of scanning.</string>
-    <string name="bathroom_leave_hint">Scan a QR code to send a student to the bathroom.</string>
-    <string name="indiscipline_hint">Scan a QR code to register an indiscipline record.</string>
-    <string name="bathroom_status_out">"%1$s is currently out (bathroom)."</string>
-    <string name="indiscipline_recent_title">Recent indiscipline</string>
-    <string name="indiscipline_row_with_note">"%1$s • %2$s — %3$s"</string>
-    <string name="indiscipline_row_no_note">"%1$s • %2$s"</string>
 
     <!-- Add/edit student -->
     <string name="name_hint">Student name</string>
@@ -115,6 +105,42 @@
     <string name="view_leaderboard">Leaderboard</string>
     <string name="leaderboard_title">Leaderboard — %1$s</string>
     <string name="no_leaderboard_data">"No students enrolled in this discipline yet."</string>
+    <string name="manage_periods">Periods</string>
+
+    <!-- Periods ("Fechar período" / "Fechar período e turma") -->
+    <string name="periods_title">Periods — %1$s</string>
+    <string name="no_periods_yet">"No periods closed yet. Tap the button below to close one."</string>
+    <string name="close_period">Close period</string>
+    <string name="close_period_label_hint">Label (optional, e.g. \"Term 1\")</string>
+    <string name="close_period_confirm_message">"This resets every class\'s point count in this discipline back to 0 for a fresh start. Past totals stay saved and can be viewed, or undone, later."</string>
+    <string name="close_period_succeeded">Period closed.</string>
+    <string name="close_period_failed">Failed to close the period.</string>
+    <string name="period_title_reopened">"%1$s (reopened)"</string>
+    <string name="period_scope_whole_discipline">Whole discipline</string>
+    <string name="period_scope_class_archived">"Class \"%1$s\" closed"</string>
+    <string name="period_scope_class_reassigned">"Class \"%1$s\" → \"%2$s\""</string>
+    <string name="period_detail_title">Period detail</string>
+    <string name="no_period_snapshots">No students were affected by this close.</string>
+    <string name="reopen_period">Reopen</string>
+    <string name="reopen_period_confirm_title">Reopen this period?</string>
+    <string name="reopen_period_confirm_message">"This restores each student\'s previous point total and reverts any class close/move from this period. If new points were already awarded since, they\'ll be overwritten. This cannot be undone."</string>
+    <string name="reopen_period_succeeded">Period reopened.</string>
+    <string name="reopen_period_failed">Failed to reopen the period.</string>
+    <string name="change_reassignment_target">Change destination class</string>
+    <string name="change_reassignment_target_hint">New class name</string>
+    <string name="change_reassignment_target_succeeded">Destination updated.</string>
+    <string name="change_reassignment_target_failed">Failed to change the destination.</string>
+    <string name="close_class_period">Close period for this class</string>
+    <string name="close_class_period_title">"Close period for \"%1$s\"?"</string>
+    <string name="close_class_period_label_hint">Label (optional, e.g. \"Term 1\")</string>
+    <string name="close_class_period_archive_option">Archive this class (no new class)</string>
+    <string name="close_class_period_reassign_option">Move students to a new class</string>
+    <string name="close_class_period_new_name_hint">New class name</string>
+    <string name="close_class_period_new_name_required">"Enter a name for the new class."</string>
+    <string name="close_class_period_succeeded">Period closed for this class.</string>
+    <string name="close_class_period_failed">Failed to close the period for this class.</string>
+    <string name="class_group_closed_suffix">" (closed)"</string>
+    <string name="enrollment_in_closed_class_warning">"This student\'s class was closed for a new period. Reopen it, or move them to an active class, before awarding points."</string>
     <string name="groups_title">Groups — %1$s</string>
     <string name="no_groups">"No groups yet. Tap + to register one."</string>
     <string name="add_group">Add group</string>
@@ -162,6 +188,10 @@
     <string name="csv_import_confirm_title">Import roster?</string>
     <string name="csv_import_summary" tools:ignore="PluralsCandidate">"%1$d new student(s), %2$d matched to existing students, %3$d row(s) skipped."</string>
     <string name="csv_import_new_structure" tools:ignore="PluralsCandidate">"%1$d new discipline(s) and %2$d new class group(s) will be created."</string>
+    <string name="csv_import_new_disciplines_list">"New disciplines: %1$s"</string>
+    <string name="csv_import_new_class_groups_list">"New class groups: %1$s"</string>
+    <string name="csv_import_new_students_list">"New students: %1$s"</string>
+    <string name="csv_import_list_more" tools:ignore="PluralsCandidate">" (+%1$d more)"</string>
     <string name="csv_import_error_line">"Line %1$d: %2$s"</string>
     <string name="csv_import_no_valid_rows">No valid rows to import.</string>
     <string name="csv_import_invalid_file">"Invalid CSV file: %1$s"</string>

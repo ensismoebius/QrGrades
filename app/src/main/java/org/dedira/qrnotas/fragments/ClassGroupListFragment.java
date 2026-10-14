@@ -17,76 +17,56 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package org.dedira.qrnotas.activities;
+package org.dedira.qrnotas.fragments;
 
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
-import androidx.activity.OnBackPressedCallback;
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import org.dedira.qrnotas.R;
-import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.adapters.ClassGroupAdapter;
-import org.dedira.qrnotas.util.Database;
-import org.dedira.qrnotas.util.EdgeToEdge;
 
 /**
  * Lists the class groups (e.g. "Morning A", "Evening B") that belong to one discipline, reached
- * by tapping the "class groups" card on {@link DisciplineDetail}. Lets the teacher add a new
- * group via the floating "+" button, and each row (via {@link ClassGroupAdapter}) supports
+ * by tapping the "class groups" card on {@link DisciplineDetailFragment}. Lets the teacher add a
+ * new group via the floating "+" button, and each row (via {@link ClassGroupAdapter}) supports
  * editing/deleting and opening that group's student list.
  */
-public class ClassGroupList extends AppCompatActivity {
+public class ClassGroupListFragment extends BaseFragment {
     private ClassGroupAdapter adapter;
     private RecyclerView recyclerView;
     private TextView txtEmpty;
-    private Database database;
     private String disciplineId;
 
-    /**
-     * Called once by Android when this screen is created. Reads which discipline's groups to
-     * show, sets up the toolbar/back button, wires the RecyclerView to its adapter, and starts
-     * the first data load.
-     */
+    public ClassGroupListFragment() {
+        super(R.layout.activity_entity_list);
+    }
+
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        ActivityTransitions.enter(this);
-        // This layout (activity_entity_list.xml) is shared by every simple "list of X with an
-        // add button" screen in the app (disciplines, class groups, goals) — only the adapter
-        // and data source differ per screen.
-        setContentView(R.layout.activity_entity_list);
-        EdgeToEdge.apply(this);
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
 
-        this.disciplineId = getIntent().getStringExtra("disciplineId");
-        String disciplineName = getIntent().getStringExtra("disciplineName");
-        this.database = new Database(this);
+        Bundle args = getArguments();
+        this.disciplineId = args != null ? args.getString("disciplineId") : null;
+        String disciplineName = args != null ? args.getString("disciplineName") : null;
 
-        MaterialToolbar toolbar = this.findViewById(R.id.toolbar);
+        MaterialToolbar toolbar = view.findViewById(R.id.toolbar);
         toolbar.setTitle(getString(R.string.groups_title, disciplineName));
-        toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                finishAfterTransition();
-            }
-        });
 
-        this.txtEmpty = this.findViewById(R.id.txtEmpty);
+        this.txtEmpty = view.findViewById(R.id.txtEmpty);
         this.txtEmpty.setText(R.string.no_groups);
 
-        this.adapter = new ClassGroupAdapter(this, database, disciplineId);
-        this.recyclerView = this.findViewById(R.id.lstEntities);
+        this.adapter = new ClassGroupAdapter(requireContext(), database, disciplineId, this::loadGroups);
+        this.recyclerView = view.findViewById(R.id.lstEntities);
         this.recyclerView.setAdapter(adapter);
 
-        // Watches the adapter's list for any change (items added/removed/reset) so the "empty
-        // state" text can be shown/hidden automatically instead of manually after every edit.
         adapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
             @Override
             public void onChanged() {
@@ -104,31 +84,25 @@ public class ClassGroupList extends AppCompatActivity {
             }
         });
 
-        FloatingActionButton btnAdd = this.findViewById(R.id.btnAddEntity);
+        FloatingActionButton btnAdd = view.findViewById(R.id.btnAddEntity);
         btnAdd.setOnClickListener(v -> adapter.showAddDialog());
 
         loadGroups();
     }
 
-    /**
-     * Called by Android every time this screen becomes visible again. Reloading here (not just
-     * in onCreate) keeps the list in sync if a group was added/renamed/deleted elsewhere while
-     * this screen was in the background.
-     */
     @Override
-    protected void onResume() {
+    public void onResume() {
         super.onResume();
         loadGroups();
     }
 
-    /** Asks the database for this discipline's class groups and hands the result to the adapter. */
     private void loadGroups() {
         database.loadClassGroupsForDiscipline(disciplineId, (success, groups) -> {
+            if (getView() == null) return;
             if (success) adapter.submitList(groups);
         });
     }
 
-    /** Shows the "no groups yet" placeholder text and hides the list, or vice versa, based on whether the list has any rows. */
     private void updateEmptyState() {
         boolean isEmpty = adapter.getItemCount() == 0;
         txtEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);

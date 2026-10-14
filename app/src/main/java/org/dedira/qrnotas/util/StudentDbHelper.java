@@ -20,6 +20,7 @@
 package org.dedira.qrnotas.util;
 
 import android.content.Context;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
@@ -36,7 +37,7 @@ public class StudentDbHelper extends SQLiteOpenHelper {
     static final String DB_NAME = "qrgrades.db";
     // Bump this whenever the schema changes (new table/column/etc.) — SQLiteOpenHelper compares
     // this against the version stored in the existing DB file and calls onUpgrade() if it's higher.
-    private static final int DB_VERSION = 6;
+    private static final int DB_VERSION = 8;
 
     public static final String TABLE_STUDENTS = "students";
     public static final String COL_ID = "id";
@@ -51,6 +52,9 @@ public class StudentDbHelper extends SQLiteOpenHelper {
     public static final String COL_CLASS_GROUP_ID_PK = "id";
     public static final String COL_CLASS_GROUP_DISCIPLINE_ID = "discipline_id";
     public static final String COL_CLASS_GROUP_NAME = "name";
+    // NULL while the class group is active; set to the close timestamp by "Fechar período e
+    // turma" (see TABLE_PERIODS) once its students have been archived or moved to a new class.
+    public static final String COL_CLASS_GROUP_CLOSED_AT = "closed_at";
 
     public static final String TABLE_GOALS = "goals";
     public static final String COL_GOAL_ID = "id";
@@ -73,31 +77,45 @@ public class StudentDbHelper extends SQLiteOpenHelper {
     public static final String COL_HISTORY_NOTE = "note";
     public static final String COL_HISTORY_CREATED_AT = "created_at";
 
-    // One row per bathroom trip. "returned_at" stays NULL while the student is out; "evaded"
-    // is set once a trip goes unreturned for longer than Database.BATHROOM_EVASION_MS.
-    public static final String TABLE_BATHROOM_VISITS = "bathroom_visits";
-    public static final String COL_BATHROOM_ID = "id";
-    public static final String COL_BATHROOM_STUDENT_ID = "student_id";
-    public static final String COL_BATHROOM_WENT_AT = "went_at";
-    public static final String COL_BATHROOM_RETURNED_AT = "returned_at";
-    public static final String COL_BATHROOM_EVADED = "evaded";
-
-    // One row per indiscipline record a teacher registers against a student.
-    public static final String TABLE_INDISCIPLINE_EVENTS = "indiscipline_events";
-    public static final String COL_INDISCIPLINE_ID = "id";
-    public static final String COL_INDISCIPLINE_STUDENT_ID = "student_id";
-    public static final String COL_INDISCIPLINE_DISCIPLINE_ID = "discipline_id";
-    public static final String COL_INDISCIPLINE_NOTE = "note";
-    public static final String COL_INDISCIPLINE_CREATED_AT = "created_at";
-
-    // One row per QR-code scan/identification, regardless of what it was used for (points,
-    // bathroom, indiscipline) — lets the app flag when the same student's code is scanned
-    // more than once in a day, e.g. to catch a student re-scanning to exploit a busy teacher's
-    // memory.
+    // One row per QR-code scan/identification, regardless of what it was used for — lets the app
+    // flag when the same student's code is scanned more than once in a day, e.g. to catch a
+    // student re-scanning to exploit a busy teacher's memory.
     public static final String TABLE_QR_SCANS = "qr_scans";
     public static final String COL_QR_SCAN_ID = "id";
     public static final String COL_QR_SCAN_STUDENT_ID = "student_id";
     public static final String COL_QR_SCAN_AT = "scanned_at";
+
+    // One row per "Fechar período" (whole discipline) or "Fechar período e turma" (one class
+    // group) action. Consolidating a period never deletes anything — it snapshots every
+    // affected enrollment's final total into TABLE_PERIOD_SNAPSHOTS (so past totals stay
+    // reportable) and resets those enrollments' running total back to 0 to start the new count.
+    public static final String TABLE_PERIODS = "periods";
+    public static final String COL_PERIOD_ID = "id";
+    public static final String COL_PERIOD_DISCIPLINE_ID = "discipline_id";
+    // Optional teacher-given name (e.g. "Bimestre 1"); falls back to showing the close date when blank.
+    public static final String COL_PERIOD_LABEL = "label";
+    public static final String COL_PERIOD_CLOSED_AT = "closed_at";
+    // NULL for a discipline-wide "Fechar período" close; set to the class group's id for a
+    // "Fechar período e turma" close (that class group's COL_CLASS_GROUP_CLOSED_AT is set to match).
+    public static final String COL_PERIOD_CLOSED_CLASS_GROUP_ID = "closed_class_group_id";
+    // NULL unless the closed class group's students were moved into a brand-new class group
+    // ("Fechar período e turma" with reassignment, as opposed to just archiving it in place).
+    // Editable afterward via Database#changePeriodReassignmentTarget without undoing the close.
+    public static final String COL_PERIOD_REASSIGNED_TO_CLASS_GROUP_ID = "reassigned_to_class_group_id";
+    // NULL while the closure stands; set to the undo timestamp once Database#reopenPeriod has
+    // restored the snapshotted totals and reverted any class-group archive/reassignment.
+    public static final String COL_PERIOD_REOPENED_AT = "reopened_at";
+
+    // One row per enrollment affected by a period close, capturing its final point total at
+    // that moment (student/class-group names are denormalized so a report or undo still works
+    // even if the student, class group, or enrollment itself is later deleted).
+    public static final String TABLE_PERIOD_SNAPSHOTS = "period_snapshots";
+    public static final String COL_PERIOD_SNAPSHOT_ID = "id";
+    public static final String COL_PERIOD_SNAPSHOT_PERIOD_ID = "period_id";
+    public static final String COL_PERIOD_SNAPSHOT_ENROLLMENT_ID = "enrollment_id";
+    public static final String COL_PERIOD_SNAPSHOT_STUDENT_ID = "student_id";
+    public static final String COL_PERIOD_SNAPSHOT_CLASS_GROUP_ID = "class_group_id";
+    public static final String COL_PERIOD_SNAPSHOT_POINTS = "points";
 
     /** Creates the helper. The actual DB file isn't touched yet — SQLiteOpenHelper opens it lazily on first use. */
     public StudentDbHelper(Context context) {
@@ -120,7 +138,8 @@ public class StudentDbHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE " + TABLE_CLASS_GROUPS + " (" +
                 COL_CLASS_GROUP_ID_PK + " TEXT PRIMARY KEY, " +
                 COL_CLASS_GROUP_DISCIPLINE_ID + " TEXT NOT NULL, " +
-                COL_CLASS_GROUP_NAME + " TEXT NOT NULL)");
+                COL_CLASS_GROUP_NAME + " TEXT NOT NULL, " +
+                COL_CLASS_GROUP_CLOSED_AT + " INTEGER)");
 
         db.execSQL("CREATE TABLE " + TABLE_GOALS + " (" +
                 COL_GOAL_ID + " TEXT PRIMARY KEY, " +
@@ -151,24 +170,38 @@ public class StudentDbHelper extends SQLiteOpenHelper {
                 COL_HISTORY_NOTE + " TEXT, " +
                 COL_HISTORY_CREATED_AT + " INTEGER NOT NULL)");
 
-        db.execSQL("CREATE TABLE " + TABLE_BATHROOM_VISITS + " (" +
-                COL_BATHROOM_ID + " TEXT PRIMARY KEY, " +
-                COL_BATHROOM_STUDENT_ID + " TEXT NOT NULL, " +
-                COL_BATHROOM_WENT_AT + " INTEGER NOT NULL, " +
-                COL_BATHROOM_RETURNED_AT + " INTEGER, " +
-                COL_BATHROOM_EVADED + " INTEGER NOT NULL DEFAULT 0)");
-
-        db.execSQL("CREATE TABLE " + TABLE_INDISCIPLINE_EVENTS + " (" +
-                COL_INDISCIPLINE_ID + " TEXT PRIMARY KEY, " +
-                COL_INDISCIPLINE_STUDENT_ID + " TEXT NOT NULL, " +
-                COL_INDISCIPLINE_DISCIPLINE_ID + " TEXT, " +
-                COL_INDISCIPLINE_NOTE + " TEXT, " +
-                COL_INDISCIPLINE_CREATED_AT + " INTEGER NOT NULL)");
-
         db.execSQL("CREATE TABLE " + TABLE_QR_SCANS + " (" +
                 COL_QR_SCAN_ID + " TEXT PRIMARY KEY, " +
                 COL_QR_SCAN_STUDENT_ID + " TEXT NOT NULL, " +
                 COL_QR_SCAN_AT + " INTEGER NOT NULL)");
+
+        db.execSQL("CREATE TABLE " + TABLE_PERIODS + " (" +
+                COL_PERIOD_ID + " TEXT PRIMARY KEY, " +
+                COL_PERIOD_DISCIPLINE_ID + " TEXT NOT NULL, " +
+                COL_PERIOD_LABEL + " TEXT, " +
+                COL_PERIOD_CLOSED_AT + " INTEGER NOT NULL, " +
+                COL_PERIOD_CLOSED_CLASS_GROUP_ID + " TEXT, " +
+                COL_PERIOD_REASSIGNED_TO_CLASS_GROUP_ID + " TEXT, " +
+                COL_PERIOD_REOPENED_AT + " INTEGER)");
+
+        db.execSQL("CREATE TABLE " + TABLE_PERIOD_SNAPSHOTS + " (" +
+                COL_PERIOD_SNAPSHOT_ID + " TEXT PRIMARY KEY, " +
+                COL_PERIOD_SNAPSHOT_PERIOD_ID + " TEXT NOT NULL, " +
+                COL_PERIOD_SNAPSHOT_ENROLLMENT_ID + " TEXT NOT NULL, " +
+                COL_PERIOD_SNAPSHOT_STUDENT_ID + " TEXT NOT NULL, " +
+                COL_PERIOD_SNAPSHOT_CLASS_GROUP_ID + " TEXT NOT NULL, " +
+                COL_PERIOD_SNAPSHOT_POINTS + " INTEGER NOT NULL)");
+    }
+
+    /** True if {@code column} already exists on {@code table} — lets an additive migration add a column exactly once without erroring on re-run. */
+    private static boolean columnExists(SQLiteDatabase db, String table, String column) {
+        try (Cursor cursor = db.rawQuery("PRAGMA table_info(" + table + ")", null)) {
+            int nameIndex = cursor.getColumnIndexOrThrow("name");
+            while (cursor.moveToNext()) {
+                if (column.equalsIgnoreCase(cursor.getString(nameIndex))) return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -188,5 +221,38 @@ public class StudentDbHelper extends SQLiteOpenHelper {
                 COL_QR_SCAN_ID + " TEXT PRIMARY KEY, " +
                 COL_QR_SCAN_STUDENT_ID + " TEXT NOT NULL, " +
                 COL_QR_SCAN_AT + " INTEGER NOT NULL)");
+
+        // Version 7 adds "Fechar período"/"Fechar período e turma": two new tables, plus a
+        // closed_at column on the pre-existing class_groups table. Every other table is
+        // untouched, so — same reasoning as the version 6 step above — this stays additive
+        // rather than dropping and recreating anything.
+        if (!columnExists(db, TABLE_CLASS_GROUPS, COL_CLASS_GROUP_CLOSED_AT)) {
+            db.execSQL("ALTER TABLE " + TABLE_CLASS_GROUPS + " ADD COLUMN " + COL_CLASS_GROUP_CLOSED_AT + " INTEGER");
+        }
+
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_PERIODS + " (" +
+                COL_PERIOD_ID + " TEXT PRIMARY KEY, " +
+                COL_PERIOD_DISCIPLINE_ID + " TEXT NOT NULL, " +
+                COL_PERIOD_LABEL + " TEXT, " +
+                COL_PERIOD_CLOSED_AT + " INTEGER NOT NULL, " +
+                COL_PERIOD_CLOSED_CLASS_GROUP_ID + " TEXT, " +
+                COL_PERIOD_REASSIGNED_TO_CLASS_GROUP_ID + " TEXT, " +
+                COL_PERIOD_REOPENED_AT + " INTEGER)");
+
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_PERIOD_SNAPSHOTS + " (" +
+                COL_PERIOD_SNAPSHOT_ID + " TEXT PRIMARY KEY, " +
+                COL_PERIOD_SNAPSHOT_PERIOD_ID + " TEXT NOT NULL, " +
+                COL_PERIOD_SNAPSHOT_ENROLLMENT_ID + " TEXT NOT NULL, " +
+                COL_PERIOD_SNAPSHOT_STUDENT_ID + " TEXT NOT NULL, " +
+                COL_PERIOD_SNAPSHOT_CLASS_GROUP_ID + " TEXT NOT NULL, " +
+                COL_PERIOD_SNAPSHOT_POINTS + " INTEGER NOT NULL)");
+
+        // Version 8 removes the bathroom-visit and indiscipline-tracking features entirely, so
+        // unlike every step above, this one is intentionally destructive: the two tables that
+        // backed them are no longer read or written anywhere, and the app's other export/backup
+        // features were never how that particular data was meant to be preserved. IF EXISTS makes
+        // this safe to run more than once.
+        db.execSQL("DROP TABLE IF EXISTS bathroom_visits");
+        db.execSQL("DROP TABLE IF EXISTS indiscipline_events");
     }
 }

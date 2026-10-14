@@ -28,6 +28,14 @@ public class ClassGroup {
     public String id;
     public String disciplineId; // Foreign key: id of the Discipline this class group belongs to.
     public String name;
+    // Null while active. Set by a "Fechar período e turma" close (see Period) to when that
+    // happened; a closed class group is excluded from "pick an active class" flows (scanning,
+    // new enrollments) but stays visible in management/history screens and exports.
+    public Long closedAt;
+
+    public boolean isClosed() {
+        return closedAt != null;
+    }
 
     @Override
     public String toString() {

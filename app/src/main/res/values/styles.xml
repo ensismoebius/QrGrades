@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+    QrGrades' own type-scale layer. Every style here extends the matching stock
+    TextAppearance.Material3.* style (so M3's size/line-height/letter-spacing baseline is kept),
+    giving the app one place to adjust its typographic identity without touching every layout
+    that references a text appearance. Layouts reference TextAppearance.QrGrades.* instead of
+    TextAppearance.Material3.* directly.
+
+    Display/Headline/Title steps use the "sans-serif-medium" system font family (a heavier static
+    weight bundled with every Android version since 4.1 — no download, no font resource, no
+    certificate boilerplate) instead of the default "sans-serif", giving headings real visual
+    weight against body text rather than relying on size alone. Body/Label steps are left on the
+    system default.
+    -->
+    <style name="TextAppearance.QrGrades.DisplaySmall" parent="TextAppearance.Material3.DisplaySmall">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+    <style name="TextAppearance.QrGrades.HeadlineMedium" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+    <style name="TextAppearance.QrGrades.HeadlineSmall" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+    <style name="TextAppearance.QrGrades.TitleLarge" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+    <style name="TextAppearance.QrGrades.TitleMedium" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+    <style name="TextAppearance.QrGrades.TitleSmall" parent="TextAppearance.Material3.TitleSmall">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+    <style name="TextAppearance.QrGrades.BodyLarge" parent="TextAppearance.Material3.BodyLarge" />
+    <style name="TextAppearance.QrGrades.BodyMedium" parent="TextAppearance.Material3.BodyMedium" />
+    <style name="TextAppearance.QrGrades.BodySmall" parent="TextAppearance.Material3.BodySmall" />
+    <style name="TextAppearance.QrGrades.LabelLarge" parent="TextAppearance.Material3.LabelLarge">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+    <style name="TextAppearance.QrGrades.LabelMedium" parent="TextAppearance.Material3.LabelMedium" />
+    <style name="TextAppearance.QrGrades.LabelSmall" parent="TextAppearance.Material3.LabelSmall" />
+
+    <!-- App-wide default so stock widgets without an explicit TextAppearance.QrGrades.* still
+         pick up a consistent baseline rather than silently falling back to the platform default
+         ("Roboto"'s regular weight — fine as the body default, so only set here, not overridden). -->
+
+    <!-- M3's default bottom nav reserves ~80dp (12dp top padding + 32dp active-indicator pill +
+         4dp label gap + label line + 16dp bottom padding) regardless of an instance-level
+         android:minHeight override — BottomNavigationView's defStyleRes always wins that specific
+         attribute. Overriding it here, at the style level, is the only way that's actually honored:
+         shrinking the active indicator to match the icon (24dp, down from 32dp) removes the single
+         biggest driver of that reserved height. -->
+    <style name="Widget.QrGrades.BottomNavigationView.ActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:height">24dp</item>
+    </style>
+
+    <!-- android:minHeight is intentionally NOT set here: BottomNavigationMenuView (the internal
+         child that actually measures item height) copies its minimumHeight from the outer view's
+         getSuggestedMinimumHeight() inside NavigationBarView's own constructor, which runs before
+         BottomNavigationView's constructor resolves android:minHeight from style/instance — so
+         that copy is always stale regardless of what's declared here. Main.java sets
+         minimumHeight on both views directly, in code, after construction. -->
+    <style name="Widget.QrGrades.BottomNavigationView" parent="Widget.Material3.BottomNavigationView">
+        <item name="itemActiveIndicatorStyle">@style/Widget.QrGrades.BottomNavigationView.ActiveIndicator</item>
+    </style>
+</resources>

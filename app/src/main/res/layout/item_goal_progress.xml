@@ -25,14 +25,25 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+                android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
                 android:textColor="?attr/colorOnSurface" />
+
+            <ImageView
+                android:id="@+id/imgGoalAchieved"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center_vertical"
+                android:layout_marginEnd="@dimen/spacing_xs"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_done_all"
+                android:visibility="gone"
+                app:tint="?attr/colorSuccess" />
 
             <TextView
                 android:id="@+id/txtGoalStatus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAppearance="@style/TextAppearance.Material3.LabelLarge" />
+                android:textAppearance="@style/TextAppearance.QrGrades.LabelLarge" />
 
         </LinearLayout>
 

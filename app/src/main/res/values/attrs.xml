@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material 3 doesn't ship a built-in "success" role, so it's declared here following the
+         same primary/on/container/on-container shape as the roles M3 does provide (colorError
+         etc.), wired into Theme.QrGrades in themes.xml / values-night/themes.xml. -->
+    <attr name="colorSuccess" format="color" />
+    <attr name="colorOnSuccess" format="color" />
+    <attr name="colorSuccessContainer" format="color" />
+    <attr name="colorOnSuccessContainer" format="color" />
+</resources>

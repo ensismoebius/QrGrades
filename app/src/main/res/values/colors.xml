@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="md_primary">#3A5CE0</color>
+    <color name="md_primary">#5347D6</color>
     <color name="md_on_primary">#FFFFFF</color>
-    <color name="md_primary_container">#DCE1FF</color>
-    <color name="md_on_primary_container">#001453</color>
+    <color name="md_primary_container">#E3DFFF</color>
+    <color name="md_on_primary_container">#130060</color>
 
-    <color name="md_secondary">#5B5F76</color>
+    <color name="md_secondary">#39665F</color>
     <color name="md_on_secondary">#FFFFFF</color>
-    <color name="md_secondary_container">#DFE1F9</color>
-    <color name="md_on_secondary_container">#181C2E</color>
+    <color name="md_secondary_container">#BCECE3</color>
+    <color name="md_on_secondary_container">#00201C</color>
 
-    <color name="md_tertiary">#8B5A00</color>
+    <color name="md_tertiary">#8F5B00</color>
     <color name="md_on_tertiary">#FFFFFF</color>
-    <color name="md_tertiary_container">#FFDDA6</color>
+    <color name="md_tertiary_container">#FFDEA1</color>
     <color name="md_on_tertiary_container">#2B1800</color>
 
     <color name="md_error">#BA1A1A</color>
@@ -20,17 +20,22 @@
     <color name="md_error_container">#FFDAD6</color>
     <color name="md_on_error_container">#410002</color>
 
-    <color name="md_background">#FAF8FF</color>
-    <color name="md_on_background">#1A1B23</color>
-    <color name="md_surface">#FAF8FF</color>
-    <color name="md_on_surface">#1A1B23</color>
-    <color name="md_surface_variant">#E2E1EC</color>
-    <color name="md_on_surface_variant">#45464F</color>
-    <color name="md_outline">#767680</color>
+    <color name="md_background">#FBF8FF</color>
+    <color name="md_on_background">#1B1B23</color>
+    <color name="md_surface">#FBF8FF</color>
+    <color name="md_on_surface">#1B1B23</color>
+    <color name="md_surface_variant">#E4E0EC</color>
+    <color name="md_on_surface_variant">#46464F</color>
+    <color name="md_outline">#777680</color>
+    <color name="md_outline_variant">#C7C5D0</color>
 
-    <color name="md_surface_container">#EFEDF6</color>
-    <color name="md_surface_container_high">#E9E7F1</color>
+    <color name="md_surface_container">#F0EDF7</color>
+    <color name="md_surface_container_high">#EAE7F2</color>
 
-    <color name="scan_success">#2E7D32</color>
+    <color name="md_success">#1E8E5B</color>
+    <color name="md_on_success">#FFFFFF</color>
+    <color name="md_success_container">#B6F2D1</color>
+    <color name="md_on_success_container">#00210F</color>
+
     <color name="swipe_delete_bg">#BA1A1A</color>
 </resources>

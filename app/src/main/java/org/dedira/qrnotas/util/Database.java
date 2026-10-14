@@ -26,7 +26,6 @@ import android.database.sqlite.SQLiteDatabase;
 import android.os.Handler;
 import android.os.Looper;
 
-import org.dedira.qrnotas.model.BathroomVisit;
 import org.dedira.qrnotas.model.ClassGroup;
 import org.dedira.qrnotas.model.CsvImportPlan;
 import org.dedira.qrnotas.model.CsvRowError;
@@ -35,7 +34,8 @@ import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.Goal;
 import org.dedira.qrnotas.model.GoalProgress;
-import org.dedira.qrnotas.model.IndisciplineEvent;
+import org.dedira.qrnotas.model.Period;
+import org.dedira.qrnotas.model.PeriodSnapshot;
 import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.ResolvedCsvRow;
 import org.dedira.qrnotas.model.Student;
@@ -50,6 +50,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -73,10 +74,6 @@ import java.util.concurrent.Executors;
  * bridge on top of this for use from non-UI threads (e.g. the LAN web server).
  */
 public class Database {
-    // A bathroom trip that hasn't been checked back in after this long is auto-marked "evaded"
-    // (see markExpiredBathroomVisitsEvaded), rather than staying "active" forever.
-    public static final long BATHROOM_EVASION_MS = 2 * 60 * 60 * 1000L;
-
     private final Context appContext;
     private final StudentDbHelper dbHelper;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -125,6 +122,8 @@ public class Database {
         g.id = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_CLASS_GROUP_ID_PK));
         g.disciplineId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_CLASS_GROUP_DISCIPLINE_ID));
         g.name = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_CLASS_GROUP_NAME));
+        int closedAtIndex = cursor.getColumnIndexOrThrow(StudentDbHelper.COL_CLASS_GROUP_CLOSED_AT);
+        g.closedAt = cursor.isNull(closedAtIndex) ? null : cursor.getLong(closedAtIndex);
         return g;
     }
 
@@ -145,27 +144,6 @@ public class Database {
         h.note = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_HISTORY_NOTE));
         h.createdAt = cursor.getLong(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_HISTORY_CREATED_AT));
         return h;
-    }
-
-    private static BathroomVisit bathroomVisitFromCursor(Cursor cursor) {
-        BathroomVisit v = new BathroomVisit();
-        v.id = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_BATHROOM_ID));
-        v.studentId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_BATHROOM_STUDENT_ID));
-        v.wentAt = cursor.getLong(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_BATHROOM_WENT_AT));
-        int returnedIdx = cursor.getColumnIndexOrThrow(StudentDbHelper.COL_BATHROOM_RETURNED_AT);
-        v.returnedAt = cursor.isNull(returnedIdx) ? null : cursor.getLong(returnedIdx);
-        v.evaded = cursor.getInt(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_BATHROOM_EVADED)) != 0;
-        return v;
-    }
-
-    private static IndisciplineEvent indisciplineEventFromCursor(Cursor cursor) {
-        IndisciplineEvent e = new IndisciplineEvent();
-        e.id = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_INDISCIPLINE_ID));
-        e.studentId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_INDISCIPLINE_STUDENT_ID));
-        e.disciplineId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_INDISCIPLINE_DISCIPLINE_ID));
-        e.note = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_INDISCIPLINE_NOTE));
-        e.createdAt = cursor.getLong(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_INDISCIPLINE_CREATED_AT));
-        return e;
     }
 
     private static Student queryStudentById(SQLiteDatabase db, String id) {
@@ -211,12 +189,10 @@ public class Database {
             }
             db.delete(StudentDbHelper.TABLE_ENROLLMENTS,
                     StudentDbHelper.COL_ENROLLMENT_STUDENT_ID + "=?", new String[]{studentId});
-            db.delete(StudentDbHelper.TABLE_BATHROOM_VISITS,
-                    StudentDbHelper.COL_BATHROOM_STUDENT_ID + "=?", new String[]{studentId});
-            db.delete(StudentDbHelper.TABLE_INDISCIPLINE_EVENTS,
-                    StudentDbHelper.COL_INDISCIPLINE_STUDENT_ID + "=?", new String[]{studentId});
             db.delete(StudentDbHelper.TABLE_QR_SCANS,
                     StudentDbHelper.COL_QR_SCAN_STUDENT_ID + "=?", new String[]{studentId});
+            db.delete(StudentDbHelper.TABLE_PERIOD_SNAPSHOTS,
+                    StudentDbHelper.COL_PERIOD_SNAPSHOT_STUDENT_ID + "=?", new String[]{studentId});
 
             int rows = db.delete(StudentDbHelper.TABLE_STUDENTS, StudentDbHelper.COL_ID + "=?", new String[]{studentId});
             boolean success = rows > 0;
@@ -460,242 +436,14 @@ public class Database {
         });
     }
 
-    /** Distinct note texts across all indiscipline records, most-recently-used first, for the indiscipline dialog's suggestion list. */
-    public void loadRecentIndisciplineNotes(int limit, final IDatabaseOnLoad<ArrayList<String>> listener) {
-        executor.execute(() -> {
-            ArrayList<String> notes = new ArrayList<>();
-            SQLiteDatabase db = dbHelper.getReadableDatabase();
-            String sql = "SELECT " + StudentDbHelper.COL_INDISCIPLINE_NOTE + ", MAX(" + StudentDbHelper.COL_INDISCIPLINE_CREATED_AT + ") AS latest "
-                    + "FROM " + StudentDbHelper.TABLE_INDISCIPLINE_EVENTS + " "
-                    + "WHERE " + StudentDbHelper.COL_INDISCIPLINE_NOTE + " IS NOT NULL AND TRIM(" + StudentDbHelper.COL_INDISCIPLINE_NOTE + ") != '' "
-                    + "GROUP BY " + StudentDbHelper.COL_INDISCIPLINE_NOTE + " "
-                    + "ORDER BY latest DESC LIMIT ?";
-            try (Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(limit)})) {
-                while (cursor.moveToNext()) {
-                    notes.add(cursor.getString(0));
-                }
-            }
-            postResult(() -> listener.onLoadComplete(true, notes));
-        });
-    }
-
-    /* --------------------------- Bathroom visits ----------------------------- */
-
-    /**
-     * Flips any visit that's still "active" (no return time yet) but has been out longer than
-     * {@link #BATHROOM_EVASION_MS} into a closed, evaded state. Called at the start of every
-     * bathroom read/write below instead of via a background job/timer, since a teacher only ever
-     * needs an up-to-date answer at the moment they look or act — there's no UI that needs to
-     * visibly flip live while on screen.
-     */
-    private static void markExpiredBathroomVisitsEvaded(SQLiteDatabase db) {
-        long cutoff = System.currentTimeMillis() - BATHROOM_EVASION_MS;
-        ContentValues values = new ContentValues();
-        values.put(StudentDbHelper.COL_BATHROOM_EVADED, 1);
-        db.update(StudentDbHelper.TABLE_BATHROOM_VISITS, values,
-                StudentDbHelper.COL_BATHROOM_RETURNED_AT + " IS NULL AND " + StudentDbHelper.COL_BATHROOM_EVADED + "=0 AND "
-                        + StudentDbHelper.COL_BATHROOM_WENT_AT + "<?",
-                new String[]{String.valueOf(cutoff)});
-    }
-
-    /** The still-open visit for a student, if any (not returned yet and not evaded). At most one should ever exist per student. */
-    private static BathroomVisit queryActiveBathroomVisit(SQLiteDatabase db, String studentId) {
-        try (Cursor cursor = db.query(StudentDbHelper.TABLE_BATHROOM_VISITS, null,
-                StudentDbHelper.COL_BATHROOM_STUDENT_ID + "=? AND " + StudentDbHelper.COL_BATHROOM_RETURNED_AT + " IS NULL AND "
-                        + StudentDbHelper.COL_BATHROOM_EVADED + "=0",
-                new String[]{studentId}, null, null, null)) {
-            if (cursor.moveToFirst()) return bathroomVisitFromCursor(cursor);
-        }
-        return null;
-    }
-
-    /** Loads the student's currently-open bathroom visit, if any — used to enable/disable the "go"/"came back" actions. */
-    public void loadActiveBathroomVisit(String studentId, final IDatabaseOnLoad<BathroomVisit> listener) {
-        executor.execute(() -> {
-            SQLiteDatabase db = dbHelper.getWritableDatabase();
-            markExpiredBathroomVisitsEvaded(db);
-            BathroomVisit visit = queryActiveBathroomVisit(db, studentId);
-            postResult(() -> listener.onLoadComplete(visit != null, visit));
-        });
-    }
-
-    /**
-     * Loads whichever bathroom visit is currently open, regardless of which student it belongs
-     * to (a single "hall pass": only one student is meant to be out at a time). Used on the
-     * app's start screen, before any student has been identified yet, to decide whether "go to
-     * bathroom" or "came back" should be the enabled action.
-     */
-    public void loadAnyActiveBathroomVisit(final IDatabaseOnLoad<BathroomVisit> listener) {
-        executor.execute(() -> {
-            SQLiteDatabase db = dbHelper.getWritableDatabase();
-            markExpiredBathroomVisitsEvaded(db);
-
-            BathroomVisit visit = null;
-            try (Cursor cursor = db.query(StudentDbHelper.TABLE_BATHROOM_VISITS, null,
-                    StudentDbHelper.COL_BATHROOM_RETURNED_AT + " IS NULL AND " + StudentDbHelper.COL_BATHROOM_EVADED + "=0",
-                    null, null, null, StudentDbHelper.COL_BATHROOM_WENT_AT + " ASC", "1")) {
-                if (cursor.moveToFirst()) visit = bathroomVisitFromCursor(cursor);
-            }
-            BathroomVisit finalVisit = visit;
-            postResult(() -> listener.onLoadComplete(finalVisit != null, finalVisit));
-        });
-    }
-
-    /** Starts a bathroom visit for a student. Fails (success=false) if that student already has one open. */
-    public void startBathroomVisit(String studentId, final IDatabaseOnSave<BathroomVisit> listener) {
-        executor.execute(() -> {
-            SQLiteDatabase db = dbHelper.getWritableDatabase();
-            markExpiredBathroomVisitsEvaded(db);
-
-            if (queryActiveBathroomVisit(db, studentId) != null) {
-                postResult(() -> listener.onSaveComplete(false, null));
-                return;
-            }
-
-            BathroomVisit visit = new BathroomVisit();
-            visit.id = UUID.randomUUID().toString();
-            visit.studentId = studentId;
-            visit.wentAt = System.currentTimeMillis();
-            visit.returnedAt = null;
-            visit.evaded = false;
-
-            ContentValues values = new ContentValues();
-            values.put(StudentDbHelper.COL_BATHROOM_ID, visit.id);
-            values.put(StudentDbHelper.COL_BATHROOM_STUDENT_ID, visit.studentId);
-            values.put(StudentDbHelper.COL_BATHROOM_WENT_AT, visit.wentAt);
-            values.putNull(StudentDbHelper.COL_BATHROOM_RETURNED_AT);
-            values.put(StudentDbHelper.COL_BATHROOM_EVADED, 0);
-
-            long result = db.insert(StudentDbHelper.TABLE_BATHROOM_VISITS, null, values);
-            boolean success = result != -1;
-            postResult(() -> listener.onSaveComplete(success, success ? visit : null));
-        });
-    }
-
-    /**
-     * Closes a student's open bathroom visit, stamping {@code returnedAt} and computing whether
-     * the trip exceeded {@link #BATHROOM_EVASION_MS} (marked evaded even though they did come
-     * back, since the whole point of the limit is to flag trips that took too long). Fails
-     * (success=false) if the student has no open visit.
-     */
-    public void endBathroomVisit(String studentId, final IDatabaseOnUpdate<BathroomVisit> listener) {
-        executor.execute(() -> {
-            SQLiteDatabase db = dbHelper.getWritableDatabase();
-            markExpiredBathroomVisitsEvaded(db);
-
-            BathroomVisit visit = queryActiveBathroomVisit(db, studentId);
-            if (visit == null) {
-                postResult(() -> listener.onUpdateComplete(false, null));
-                return;
-            }
-
-            long now = System.currentTimeMillis();
-            boolean evaded = (now - visit.wentAt) > BATHROOM_EVASION_MS;
-
-            ContentValues values = new ContentValues();
-            values.put(StudentDbHelper.COL_BATHROOM_RETURNED_AT, now);
-            values.put(StudentDbHelper.COL_BATHROOM_EVADED, evaded ? 1 : 0);
-            db.update(StudentDbHelper.TABLE_BATHROOM_VISITS, values,
-                    StudentDbHelper.COL_BATHROOM_ID + "=?", new String[]{visit.id});
-
-            visit.returnedAt = now;
-            visit.evaded = evaded;
-            postResult(() -> listener.onUpdateComplete(true, visit));
-        });
-    }
-
-    /** Every bathroom visit ever recorded, most recent first — used by the web admin view. */
-    public void loadAllBathroomVisits(final IDatabaseOnLoad<ArrayList<BathroomVisit>> listener) {
-        executor.execute(() -> {
-            SQLiteDatabase db = dbHelper.getWritableDatabase();
-            markExpiredBathroomVisitsEvaded(db);
-
-            ArrayList<BathroomVisit> list = new ArrayList<>();
-            try (Cursor cursor = db.query(StudentDbHelper.TABLE_BATHROOM_VISITS, null, null, null, null, null,
-                    StudentDbHelper.COL_BATHROOM_WENT_AT + " DESC")) {
-                while (cursor.moveToNext()) list.add(bathroomVisitFromCursor(cursor));
-            }
-            postResult(() -> listener.onLoadComplete(true, list));
-        });
-    }
-
-    /* -------------------------- Indiscipline events --------------------------- */
-
-    public void saveIndisciplineEvent(IndisciplineEvent e, final IDatabaseOnSave<IndisciplineEvent> listener) {
-        executor.execute(() -> {
-            if (e.id == null) e.id = UUID.randomUUID().toString();
-            if (e.createdAt == 0) e.createdAt = System.currentTimeMillis();
-
-            ContentValues values = new ContentValues();
-            values.put(StudentDbHelper.COL_INDISCIPLINE_ID, e.id);
-            values.put(StudentDbHelper.COL_INDISCIPLINE_STUDENT_ID, e.studentId);
-            values.put(StudentDbHelper.COL_INDISCIPLINE_DISCIPLINE_ID, e.disciplineId);
-            values.put(StudentDbHelper.COL_INDISCIPLINE_NOTE, e.note);
-            values.put(StudentDbHelper.COL_INDISCIPLINE_CREATED_AT, e.createdAt);
-
-            SQLiteDatabase db = dbHelper.getWritableDatabase();
-            long result = db.insertWithOnConflict(StudentDbHelper.TABLE_INDISCIPLINE_EVENTS, null, values,
-                    SQLiteDatabase.CONFLICT_REPLACE);
-            boolean success = result != -1;
-
-            postResult(() -> listener.onSaveComplete(success, e));
-        });
-    }
-
-    /** Every indiscipline record ever registered, most recent first — used by the web admin view. */
-    public void loadAllIndisciplineEvents(final IDatabaseOnLoad<ArrayList<IndisciplineEvent>> listener) {
-        executor.execute(() -> {
-            ArrayList<IndisciplineEvent> list = new ArrayList<>();
-            SQLiteDatabase db = dbHelper.getReadableDatabase();
-            try (Cursor cursor = db.query(StudentDbHelper.TABLE_INDISCIPLINE_EVENTS, null, null, null, null, null,
-                    StudentDbHelper.COL_INDISCIPLINE_CREATED_AT + " DESC")) {
-                while (cursor.moveToNext()) list.add(indisciplineEventFromCursor(cursor));
-            }
-            postResult(() -> listener.onLoadComplete(true, list));
-        });
-    }
-
-    /**
-     * The most recently registered indiscipline records, up to {@code limit}, each with its
-     * student's current name resolved via a join — used for the start screen's "recent
-     * indiscipline" list, which needs a name to display, not just a student id. A LEFT JOIN is
-     * used (rather than an inner join) so a record would still show up even if its student was
-     * somehow removed without cascading (normally {@link #deleteStudent} does cascade this).
-     */
-    public void loadRecentIndisciplineEvents(int limit, final IDatabaseOnLoad<ArrayList<IndisciplineEvent>> listener) {
-        executor.execute(() -> {
-            ArrayList<IndisciplineEvent> list = new ArrayList<>();
-            SQLiteDatabase db = dbHelper.getReadableDatabase();
-            String sql = "SELECT ie." + StudentDbHelper.COL_INDISCIPLINE_ID
-                    + ", ie." + StudentDbHelper.COL_INDISCIPLINE_STUDENT_ID
-                    + ", ie." + StudentDbHelper.COL_INDISCIPLINE_DISCIPLINE_ID
-                    + ", ie." + StudentDbHelper.COL_INDISCIPLINE_NOTE
-                    + ", ie." + StudentDbHelper.COL_INDISCIPLINE_CREATED_AT
-                    + ", s." + StudentDbHelper.COL_NAME + " AS student_name"
-                    + " FROM " + StudentDbHelper.TABLE_INDISCIPLINE_EVENTS + " ie"
-                    + " LEFT JOIN " + StudentDbHelper.TABLE_STUDENTS + " s ON s." + StudentDbHelper.COL_ID
-                    + " = ie." + StudentDbHelper.COL_INDISCIPLINE_STUDENT_ID
-                    + " ORDER BY ie." + StudentDbHelper.COL_INDISCIPLINE_CREATED_AT + " DESC LIMIT ?";
-            try (Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(limit)})) {
-                while (cursor.moveToNext()) {
-                    IndisciplineEvent e = indisciplineEventFromCursor(cursor);
-                    e.studentName = cursor.getString(cursor.getColumnIndexOrThrow("student_name"));
-                    list.add(e);
-                }
-            }
-            postResult(() -> listener.onLoadComplete(true, list));
-        });
-    }
-
     /* ------------------------------ QR scan log ------------------------------- */
 
     /**
      * Records that this student's QR code was just identified (scanned, or picked manually —
      * either way the teacher is looking at them right now), then reports back how many times
      * that's happened today, this scan included. A teacher juggling a full class can easily
-     * forget having already sent someone to the bathroom or logged an indiscipline for them
-     * earlier the same day; surfacing the count lets the app flag a repeat before the student
-     * benefits from that lapse.
+     * forget having already awarded points to a student earlier the same day; surfacing the
+     * count lets the app flag a repeat before the student benefits from that lapse.
      */
     public void logScanAndCountToday(String studentId, final IDatabaseOnLoad<Integer> listener) {
         executor.execute(() -> {
@@ -791,6 +539,9 @@ public class Database {
             values.put(StudentDbHelper.COL_CLASS_GROUP_ID_PK, g.id);
             values.put(StudentDbHelper.COL_CLASS_GROUP_DISCIPLINE_ID, g.disciplineId);
             values.put(StudentDbHelper.COL_CLASS_GROUP_NAME, g.name);
+            // CONFLICT_REPLACE re-inserts the whole row on an existing id (e.g. a rename), so
+            // closedAt must be carried through explicitly or it would silently reset to active.
+            values.put(StudentDbHelper.COL_CLASS_GROUP_CLOSED_AT, g.closedAt);
 
             SQLiteDatabase db = dbHelper.getWritableDatabase();
             long result = db.insertWithOnConflict(StudentDbHelper.TABLE_CLASS_GROUPS, null, values,
@@ -827,6 +578,20 @@ public class Database {
                 }
             }
             postResult(() -> listener.onLoadComplete(true, list));
+        });
+    }
+
+    /** Loads a single class group by id, e.g. to check {@link ClassGroup#isClosed()} before letting a scan award points into it. */
+    public void loadClassGroup(String id, final IDatabaseOnLoad<ClassGroup> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            ClassGroup group = null;
+            try (Cursor cursor = db.query(StudentDbHelper.TABLE_CLASS_GROUPS, null,
+                    StudentDbHelper.COL_CLASS_GROUP_ID_PK + "=?", new String[]{id}, null, null, null)) {
+                if (cursor.moveToFirst()) group = classGroupFromCursor(cursor);
+            }
+            final ClassGroup finalGroup = group;
+            postResult(() -> listener.onLoadComplete(finalGroup != null, finalGroup));
         });
     }
 
@@ -890,6 +655,414 @@ public class Database {
             int rows = db.delete(StudentDbHelper.TABLE_GOALS, StudentDbHelper.COL_GOAL_ID + "=?", new String[]{id});
             boolean success = rows > 0;
             postResult(() -> listener.onLoadComplete(success, null));
+        });
+    }
+
+    /* ------------------------------- Periods ---------------------------------- */
+
+    private static Period periodFromCursor(Cursor cursor) {
+        Period p = new Period();
+        p.id = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_ID));
+        p.disciplineId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_DISCIPLINE_ID));
+        p.label = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_LABEL));
+        p.closedAt = cursor.getLong(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_CLOSED_AT));
+        int closedGroupIdx = cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_CLOSED_CLASS_GROUP_ID);
+        p.closedClassGroupId = cursor.isNull(closedGroupIdx) ? null : cursor.getString(closedGroupIdx);
+        int reassignedIdx = cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_REASSIGNED_TO_CLASS_GROUP_ID);
+        p.reassignedToClassGroupId = cursor.isNull(reassignedIdx) ? null : cursor.getString(reassignedIdx);
+        int reopenedIdx = cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_REOPENED_AT);
+        p.reopenedAt = cursor.isNull(reopenedIdx) ? null : cursor.getLong(reopenedIdx);
+        return p;
+    }
+
+    private static PeriodSnapshot periodSnapshotFromCursor(Cursor cursor) {
+        PeriodSnapshot s = new PeriodSnapshot();
+        s.id = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_SNAPSHOT_ID));
+        s.periodId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_SNAPSHOT_PERIOD_ID));
+        s.enrollmentId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_SNAPSHOT_ENROLLMENT_ID));
+        s.studentId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_SNAPSHOT_STUDENT_ID));
+        s.classGroupId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_SNAPSHOT_CLASS_GROUP_ID));
+        s.points = cursor.getInt(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PERIOD_SNAPSHOT_POINTS));
+        return s;
+    }
+
+    /** Every enrollment whose class_group_id is one of {@code classGroupIds} — the common "which rows does a period close affect" lookup shared by both close actions below. */
+    private List<Enrollment> loadEnrollmentsForClassGroups(SQLiteDatabase db, List<String> classGroupIds) {
+        List<Enrollment> enrollments = new ArrayList<>();
+        if (classGroupIds.isEmpty()) return enrollments;
+
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < classGroupIds.size(); i++) {
+            if (i > 0) placeholders.append(",");
+            placeholders.append("?");
+        }
+        try (Cursor cursor = db.query(StudentDbHelper.TABLE_ENROLLMENTS, null,
+                StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID + " IN (" + placeholders + ")",
+                classGroupIds.toArray(new String[0]), null, null, null)) {
+            while (cursor.moveToNext()) enrollments.add(enrollmentFromCursor(cursor));
+        }
+        return enrollments;
+    }
+
+    /**
+     * Core of both "Fechar período" and "Fechar período e turma": snapshots every given
+     * enrollment's current total into {@code periodId} (so it stays reportable later), then
+     * resets each one back to 0 to start that period's fresh count. Must run inside a
+     * transaction the caller already began.
+     */
+    private void consolidateEnrollments(SQLiteDatabase db, String periodId, List<Enrollment> enrollments) {
+        for (Enrollment e : enrollments) {
+            ContentValues snapshotValues = new ContentValues();
+            snapshotValues.put(StudentDbHelper.COL_PERIOD_SNAPSHOT_ID, UUID.randomUUID().toString());
+            snapshotValues.put(StudentDbHelper.COL_PERIOD_SNAPSHOT_PERIOD_ID, periodId);
+            snapshotValues.put(StudentDbHelper.COL_PERIOD_SNAPSHOT_ENROLLMENT_ID, e.id);
+            snapshotValues.put(StudentDbHelper.COL_PERIOD_SNAPSHOT_STUDENT_ID, e.studentId);
+            snapshotValues.put(StudentDbHelper.COL_PERIOD_SNAPSHOT_CLASS_GROUP_ID, e.classGroupId);
+            snapshotValues.put(StudentDbHelper.COL_PERIOD_SNAPSHOT_POINTS, e.grades);
+            db.insert(StudentDbHelper.TABLE_PERIOD_SNAPSHOTS, null, snapshotValues);
+
+            ContentValues resetValues = new ContentValues();
+            resetValues.put(StudentDbHelper.COL_ENROLLMENT_GRADES, 0);
+            db.update(StudentDbHelper.TABLE_ENROLLMENTS, resetValues,
+                    StudentDbHelper.COL_ENROLLMENT_ID + "=?", new String[]{e.id});
+        }
+    }
+
+    /**
+     * "Fechar período": snapshots and resets every enrollment across every class group under
+     * this discipline, starting a fresh point count discipline-wide. Doesn't touch any class
+     * group's active/closed state — see {@link #closeClassGroupPeriod} for closing one specific
+     * class too.
+     */
+    public void closeDisciplinePeriod(String disciplineId, String label, final IDatabaseOnSave<Period> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            Period period = new Period();
+            db.beginTransaction();
+            try {
+                List<String> classGroupIds = new ArrayList<>();
+                try (Cursor cursor = db.query(StudentDbHelper.TABLE_CLASS_GROUPS,
+                        new String[]{StudentDbHelper.COL_CLASS_GROUP_ID_PK},
+                        StudentDbHelper.COL_CLASS_GROUP_DISCIPLINE_ID + "=?", new String[]{disciplineId}, null, null, null)) {
+                    while (cursor.moveToNext()) classGroupIds.add(cursor.getString(0));
+                }
+                List<Enrollment> enrollments = loadEnrollmentsForClassGroups(db, classGroupIds);
+
+                period.id = UUID.randomUUID().toString();
+                period.disciplineId = disciplineId;
+                period.label = label;
+                period.closedAt = System.currentTimeMillis();
+
+                ContentValues periodValues = new ContentValues();
+                periodValues.put(StudentDbHelper.COL_PERIOD_ID, period.id);
+                periodValues.put(StudentDbHelper.COL_PERIOD_DISCIPLINE_ID, period.disciplineId);
+                periodValues.put(StudentDbHelper.COL_PERIOD_LABEL, period.label);
+                periodValues.put(StudentDbHelper.COL_PERIOD_CLOSED_AT, period.closedAt);
+                db.insert(StudentDbHelper.TABLE_PERIODS, null, periodValues);
+
+                consolidateEnrollments(db, period.id, enrollments);
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+            postResult(() -> listener.onSaveComplete(true, period));
+        });
+    }
+
+    /**
+     * "Fechar período e turma": snapshots and resets every enrollment in this one class group,
+     * then marks it closed. If {@code newClassGroupName} is non-blank, a brand-new class group
+     * is created under the same discipline and every affected enrollment is moved into it (so
+     * those students keep participating, just starting the new period in a fresh class); if
+     * blank/null, the class group is simply archived with its (now zeroed) enrollments left in
+     * place — e.g. end of year, no continuation.
+     */
+    public void closeClassGroupPeriod(String classGroupId, String label, String newClassGroupName, final IDatabaseOnSave<Period> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            Period period = new Period();
+            db.beginTransaction();
+            try {
+                ClassGroup closedGroup;
+                try (Cursor cursor = db.query(StudentDbHelper.TABLE_CLASS_GROUPS, null,
+                        StudentDbHelper.COL_CLASS_GROUP_ID_PK + "=?", new String[]{classGroupId}, null, null, null)) {
+                    cursor.moveToFirst();
+                    closedGroup = classGroupFromCursor(cursor);
+                }
+                List<Enrollment> enrollments = loadEnrollmentsForClassGroups(db, Collections.singletonList(classGroupId));
+
+                period.id = UUID.randomUUID().toString();
+                period.disciplineId = closedGroup.disciplineId;
+                period.label = label;
+                period.closedAt = System.currentTimeMillis();
+                period.closedClassGroupId = classGroupId;
+
+                String newClassGroupId = null;
+                if (newClassGroupName != null && !newClassGroupName.trim().isEmpty()) {
+                    newClassGroupId = UUID.randomUUID().toString();
+                    ContentValues newGroupValues = new ContentValues();
+                    newGroupValues.put(StudentDbHelper.COL_CLASS_GROUP_ID_PK, newClassGroupId);
+                    newGroupValues.put(StudentDbHelper.COL_CLASS_GROUP_DISCIPLINE_ID, closedGroup.disciplineId);
+                    newGroupValues.put(StudentDbHelper.COL_CLASS_GROUP_NAME, newClassGroupName.trim());
+                    db.insert(StudentDbHelper.TABLE_CLASS_GROUPS, null, newGroupValues);
+                    period.reassignedToClassGroupId = newClassGroupId;
+                }
+
+                ContentValues periodValues = new ContentValues();
+                periodValues.put(StudentDbHelper.COL_PERIOD_ID, period.id);
+                periodValues.put(StudentDbHelper.COL_PERIOD_DISCIPLINE_ID, period.disciplineId);
+                periodValues.put(StudentDbHelper.COL_PERIOD_LABEL, period.label);
+                periodValues.put(StudentDbHelper.COL_PERIOD_CLOSED_AT, period.closedAt);
+                periodValues.put(StudentDbHelper.COL_PERIOD_CLOSED_CLASS_GROUP_ID, period.closedClassGroupId);
+                periodValues.put(StudentDbHelper.COL_PERIOD_REASSIGNED_TO_CLASS_GROUP_ID, period.reassignedToClassGroupId);
+                db.insert(StudentDbHelper.TABLE_PERIODS, null, periodValues);
+
+                // Snapshot/reset while the enrollments still point at the closed group, so the
+                // snapshot records where they actually were at close time — then, only once that's
+                // done, move them to the new group if there is one.
+                consolidateEnrollments(db, period.id, enrollments);
+
+                if (newClassGroupId != null) {
+                    ContentValues moveValues = new ContentValues();
+                    moveValues.put(StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID, newClassGroupId);
+                    db.update(StudentDbHelper.TABLE_ENROLLMENTS, moveValues,
+                            StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID + "=?", new String[]{classGroupId});
+                }
+
+                ContentValues closeValues = new ContentValues();
+                closeValues.put(StudentDbHelper.COL_CLASS_GROUP_CLOSED_AT, period.closedAt);
+                db.update(StudentDbHelper.TABLE_CLASS_GROUPS, closeValues,
+                        StudentDbHelper.COL_CLASS_GROUP_ID_PK + "=?", new String[]{classGroupId});
+
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+            postResult(() -> listener.onSaveComplete(true, period));
+        });
+    }
+
+    /**
+     * Lets a "Fechar período e turma" close that reassigned students to a new class group be
+     * corrected afterward: moves every enrollment this period actually reassigned into a fresh
+     * {@code newClassGroupName} class group instead, deletes the old destination if that leaves
+     * it empty, and updates the period record to point at the new one. Does not touch point
+     * totals or undo the original close — only where the students ended up.
+     */
+    public void changePeriodReassignmentTarget(String periodId, String newClassGroupName, final IDatabaseOnResult listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+            Period period = loadPeriodById(db, periodId);
+            if (period == null) {
+                postResult(() -> listener.onResult(false, "NOT_FOUND"));
+                return;
+            }
+            if (!period.isReassignment()) {
+                postResult(() -> listener.onResult(false, "NOT_A_REASSIGNMENT"));
+                return;
+            }
+            if (period.isReopened()) {
+                postResult(() -> listener.onResult(false, "ALREADY_REOPENED"));
+                return;
+            }
+
+            db.beginTransaction();
+            try {
+                String oldTargetId = period.reassignedToClassGroupId;
+                String newTargetId = UUID.randomUUID().toString();
+
+                ContentValues newGroupValues = new ContentValues();
+                newGroupValues.put(StudentDbHelper.COL_CLASS_GROUP_ID_PK, newTargetId);
+                newGroupValues.put(StudentDbHelper.COL_CLASS_GROUP_DISCIPLINE_ID, period.disciplineId);
+                newGroupValues.put(StudentDbHelper.COL_CLASS_GROUP_NAME, newClassGroupName.trim());
+                db.insert(StudentDbHelper.TABLE_CLASS_GROUPS, null, newGroupValues);
+
+                // Only the enrollments THIS period moved there get re-pointed — anyone else who
+                // was separately, directly enrolled into the old target since the close is left
+                // alone, since this period never touched them.
+                for (PeriodSnapshot snapshot : loadPeriodSnapshotRows(db, periodId)) {
+                    ContentValues moveValues = new ContentValues();
+                    moveValues.put(StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID, newTargetId);
+                    db.update(StudentDbHelper.TABLE_ENROLLMENTS, moveValues,
+                            StudentDbHelper.COL_ENROLLMENT_ID + "=? AND " + StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID + "=?",
+                            new String[]{snapshot.enrollmentId, oldTargetId});
+                }
+
+                deleteClassGroupIfEmpty(db, oldTargetId);
+
+                ContentValues periodValues = new ContentValues();
+                periodValues.put(StudentDbHelper.COL_PERIOD_REASSIGNED_TO_CLASS_GROUP_ID, newTargetId);
+                db.update(StudentDbHelper.TABLE_PERIODS, periodValues,
+                        StudentDbHelper.COL_PERIOD_ID + "=?", new String[]{periodId});
+
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+            postResult(() -> listener.onResult(true, null));
+        });
+    }
+
+    /**
+     * Undoes a period close: restores every snapshotted enrollment's point total and, for a
+     * class-level close, un-archives the class group — deleting the brand-new class group it
+     * was reassigned to if undoing this leaves it empty, or just clearing the closed mark if it
+     * was only archived. Can only be called once per period; the caller is expected to warn the
+     * teacher first if any affected enrollment already has new, non-zero points from the period
+     * that's about to be discarded, since those would be overwritten by the restored snapshot.
+     */
+    public void reopenPeriod(String periodId, final IDatabaseOnResult listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+            Period period = loadPeriodById(db, periodId);
+            if (period == null) {
+                postResult(() -> listener.onResult(false, "NOT_FOUND"));
+                return;
+            }
+            if (period.isReopened()) {
+                postResult(() -> listener.onResult(false, "ALREADY_REOPENED"));
+                return;
+            }
+
+            db.beginTransaction();
+            try {
+                for (PeriodSnapshot snapshot : loadPeriodSnapshotRows(db, periodId)) {
+                    ContentValues restoreValues = new ContentValues();
+                    restoreValues.put(StudentDbHelper.COL_ENROLLMENT_GRADES, snapshot.points);
+                    db.update(StudentDbHelper.TABLE_ENROLLMENTS, restoreValues,
+                            StudentDbHelper.COL_ENROLLMENT_ID + "=?", new String[]{snapshot.enrollmentId});
+
+                    if (period.isReassignment()) {
+                        ContentValues moveBackValues = new ContentValues();
+                        moveBackValues.put(StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID, period.closedClassGroupId);
+                        db.update(StudentDbHelper.TABLE_ENROLLMENTS, moveBackValues,
+                                StudentDbHelper.COL_ENROLLMENT_ID + "=? AND " + StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID + "=?",
+                                new String[]{snapshot.enrollmentId, period.reassignedToClassGroupId});
+                    }
+                }
+
+                if (period.isClassClose()) {
+                    ContentValues reopenGroupValues = new ContentValues();
+                    reopenGroupValues.putNull(StudentDbHelper.COL_CLASS_GROUP_CLOSED_AT);
+                    db.update(StudentDbHelper.TABLE_CLASS_GROUPS, reopenGroupValues,
+                            StudentDbHelper.COL_CLASS_GROUP_ID_PK + "=?", new String[]{period.closedClassGroupId});
+
+                    if (period.isReassignment()) {
+                        deleteClassGroupIfEmpty(db, period.reassignedToClassGroupId);
+                    }
+                }
+
+                ContentValues periodValues = new ContentValues();
+                periodValues.put(StudentDbHelper.COL_PERIOD_REOPENED_AT, System.currentTimeMillis());
+                db.update(StudentDbHelper.TABLE_PERIODS, periodValues,
+                        StudentDbHelper.COL_PERIOD_ID + "=?", new String[]{periodId});
+
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+            postResult(() -> listener.onResult(true, null));
+        });
+    }
+
+    /** Deletes the class group if it now has zero enrollments — used after undoing/correcting a reassignment to clean up a destination group that was created solely for it. */
+    private void deleteClassGroupIfEmpty(SQLiteDatabase db, String classGroupId) {
+        long remaining = android.database.DatabaseUtils.queryNumEntries(db, StudentDbHelper.TABLE_ENROLLMENTS,
+                StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID + "=?", new String[]{classGroupId});
+        if (remaining == 0) {
+            db.delete(StudentDbHelper.TABLE_CLASS_GROUPS, StudentDbHelper.COL_CLASS_GROUP_ID_PK + "=?", new String[]{classGroupId});
+        }
+    }
+
+    private Period loadPeriodById(SQLiteDatabase db, String periodId) {
+        try (Cursor cursor = db.query(StudentDbHelper.TABLE_PERIODS, null,
+                StudentDbHelper.COL_PERIOD_ID + "=?", new String[]{periodId}, null, null, null)) {
+            if (cursor.moveToFirst()) return periodFromCursor(cursor);
+        }
+        return null;
+    }
+
+    private List<PeriodSnapshot> loadPeriodSnapshotRows(SQLiteDatabase db, String periodId) {
+        List<PeriodSnapshot> snapshots = new ArrayList<>();
+        try (Cursor cursor = db.query(StudentDbHelper.TABLE_PERIOD_SNAPSHOTS, null,
+                StudentDbHelper.COL_PERIOD_SNAPSHOT_PERIOD_ID + "=?", new String[]{periodId}, null, null, null)) {
+            while (cursor.moveToNext()) snapshots.add(periodSnapshotFromCursor(cursor));
+        }
+        return snapshots;
+    }
+
+    // Shared by loadPeriodsForDiscipline/loadPeriod: joins in discipline/class-group names so
+    // callers never need a second round-trip just to render a period's scope.
+    private static final String PERIODS_WITH_NAMES_SQL =
+            "SELECT p.*, d." + StudentDbHelper.COL_DISCIPLINE_NAME + " AS discipline_name"
+                    + ", cg." + StudentDbHelper.COL_CLASS_GROUP_NAME + " AS closed_class_group_name"
+                    + ", ng." + StudentDbHelper.COL_CLASS_GROUP_NAME + " AS reassigned_class_group_name"
+                    + " FROM " + StudentDbHelper.TABLE_PERIODS + " p"
+                    + " LEFT JOIN " + StudentDbHelper.TABLE_DISCIPLINES + " d ON d." + StudentDbHelper.COL_DISCIPLINE_ID
+                    + " = p." + StudentDbHelper.COL_PERIOD_DISCIPLINE_ID
+                    + " LEFT JOIN " + StudentDbHelper.TABLE_CLASS_GROUPS + " cg ON cg." + StudentDbHelper.COL_CLASS_GROUP_ID_PK
+                    + " = p." + StudentDbHelper.COL_PERIOD_CLOSED_CLASS_GROUP_ID
+                    + " LEFT JOIN " + StudentDbHelper.TABLE_CLASS_GROUPS + " ng ON ng." + StudentDbHelper.COL_CLASS_GROUP_ID_PK
+                    + " = p." + StudentDbHelper.COL_PERIOD_REASSIGNED_TO_CLASS_GROUP_ID;
+
+    private static Period periodWithNamesFromCursor(Cursor cursor) {
+        Period p = periodFromCursor(cursor);
+        p.disciplineName = cursor.getString(cursor.getColumnIndexOrThrow("discipline_name"));
+        p.closedClassGroupName = cursor.getString(cursor.getColumnIndexOrThrow("closed_class_group_name"));
+        p.reassignedToClassGroupName = cursor.getString(cursor.getColumnIndexOrThrow("reassigned_class_group_name"));
+        return p;
+    }
+
+    /** Every period closed for this discipline, newest first — joined with discipline/class-group names so a list screen can render without a second round-trip. */
+    public void loadPeriodsForDiscipline(String disciplineId, final IDatabaseOnLoad<ArrayList<Period>> listener) {
+        executor.execute(() -> {
+            ArrayList<Period> list = new ArrayList<>();
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            String sql = PERIODS_WITH_NAMES_SQL
+                    + " WHERE p." + StudentDbHelper.COL_PERIOD_DISCIPLINE_ID + " = ?"
+                    + " ORDER BY p." + StudentDbHelper.COL_PERIOD_CLOSED_AT + " DESC";
+            try (Cursor cursor = db.rawQuery(sql, new String[]{disciplineId})) {
+                while (cursor.moveToNext()) list.add(periodWithNamesFromCursor(cursor));
+            }
+            postResult(() -> listener.onLoadComplete(true, list));
+        });
+    }
+
+    /** Loads one period by id, with discipline/class-group names joined in — same row shape as {@link #loadPeriodsForDiscipline}. */
+    public void loadPeriod(String periodId, final IDatabaseOnLoad<Period> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            String sql = PERIODS_WITH_NAMES_SQL + " WHERE p." + StudentDbHelper.COL_PERIOD_ID + " = ?";
+            Period period = null;
+            try (Cursor cursor = db.rawQuery(sql, new String[]{periodId})) {
+                if (cursor.moveToFirst()) period = periodWithNamesFromCursor(cursor);
+            }
+            final Period finalPeriod = period;
+            postResult(() -> listener.onLoadComplete(finalPeriod != null, finalPeriod));
+        });
+    }
+
+    /** Every enrollment's final point total for one period, with the student's current name joined in, sorted alphabetically for a readable report. */
+    public void loadPeriodSnapshots(String periodId, final IDatabaseOnLoad<ArrayList<PeriodSnapshot>> listener) {
+        executor.execute(() -> {
+            ArrayList<PeriodSnapshot> list = new ArrayList<>();
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            String sql = "SELECT ps.*, s." + StudentDbHelper.COL_NAME + " AS student_name"
+                    + " FROM " + StudentDbHelper.TABLE_PERIOD_SNAPSHOTS + " ps"
+                    + " LEFT JOIN " + StudentDbHelper.TABLE_STUDENTS + " s ON s." + StudentDbHelper.COL_ID
+                    + " = ps." + StudentDbHelper.COL_PERIOD_SNAPSHOT_STUDENT_ID
+                    + " WHERE ps." + StudentDbHelper.COL_PERIOD_SNAPSHOT_PERIOD_ID + " = ?"
+                    + " ORDER BY s." + StudentDbHelper.COL_NAME + " COLLATE NOCASE ASC";
+            try (Cursor cursor = db.rawQuery(sql, new String[]{periodId})) {
+                while (cursor.moveToNext()) {
+                    PeriodSnapshot s = periodSnapshotFromCursor(cursor);
+                    s.studentName = cursor.getString(cursor.getColumnIndexOrThrow("student_name"));
+                    list.add(s);
+                }
+            }
+            postResult(() -> listener.onLoadComplete(true, list));
         });
     }
 
@@ -1130,8 +1303,19 @@ public class Database {
 
     /* ------------------------------ CSV import ------------------------------- */
 
+    /**
+     * Folds a name down to a key that's stable across the kind of cosmetic differences a CSV
+     * re-export commonly introduces: accents/diacritics (NFKD-decompose, then drop the combining
+     * marks — "José" and "Jose" fold to the same key), case, and whitespace (collapses any run of
+     * spaces/tabs/non-breaking-space — common when pasted from Excel/Sheets — into one, and trims
+     * the ends). Without this, two spellings of the same real discipline/class/student that a
+     * human reads as identical would fail to match, silently creating a duplicate with a fresh,
+     * zeroed enrollment instead of reusing the existing one (see {@link #resolveCsvRows}).
+     */
     private static String normalize(String s) {
-        return s == null ? "" : s.trim().toLowerCase(Locale.ROOT);
+        if (s == null) return "";
+        String withoutAccents = Normalizer.normalize(s, Normalizer.Form.NFKD).replaceAll("\\p{M}+", "");
+        return withoutAccents.replaceAll("[\\s\\p{Zs}]+", " ").trim().toLowerCase(Locale.ROOT);
     }
 
     /**

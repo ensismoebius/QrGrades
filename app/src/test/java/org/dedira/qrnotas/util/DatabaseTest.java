@@ -21,6 +21,7 @@ package org.dedira.qrnotas.util;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.robolectric.Shadows.shadowOf;
@@ -35,6 +36,8 @@ import org.dedira.qrnotas.model.CsvStudentRow;
 import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.Goal;
+import org.dedira.qrnotas.model.Period;
+import org.dedira.qrnotas.model.PeriodSnapshot;
 import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.ResolvedCsvRow;
 import org.dedira.qrnotas.model.Student;
@@ -777,6 +780,54 @@ public class DatabaseTest {
     }
 
     @Test
+    public void resolveCsvRows_matchesExistingStudentDespiteAccentDifference() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+        saveClassGroup(discipline.id, "A");
+        newStudent("José");
+
+        // Same real person, but this CSV spells the name without the accent — a common mismatch
+        // between two exports of what a human considers the identical roster. Before normalize()
+        // folded accents, this silently created a duplicate Student with a fresh, zeroed
+        // enrollment instead of matching the existing one.
+        List<CsvStudentRow> rows = Collections.singletonList(new CsvStudentRow(2, "Jose", "BDI", "A"));
+        Result<CsvImportPlan> r = new Result<>();
+        database.resolveCsvRows(rows, (success, value) -> {
+            r.value = value;
+            r.done = true;
+        });
+        idle(r);
+
+        assertEquals(1, r.value.resolved.size());
+        assertFalse(r.value.resolved.get(0).isNewStudent);
+    }
+
+    @Test
+    public void resolveCsvRows_matchesExistingDisciplineAndClassGroupDespiteWhitespaceDifference() throws InterruptedException {
+        Discipline discipline = saveDiscipline("Programação Web");
+        saveClassGroup(discipline.id, "GRUPO A");
+        newStudent("André");
+
+        // A non-breaking space where a regular one should be, and a doubled internal space — both
+        // common artifacts of pasting a roster from Excel/Sheets into a CSV. Before normalize()
+        // collapsed all whitespace (not just ASCII), either would silently create a duplicate
+        // discipline/class-group with a fresh, zeroed enrollment instead of matching the existing one.
+        String disciplineWithNbsp = "Programação Web";
+        List<CsvStudentRow> rows = Collections.singletonList(new CsvStudentRow(2, "André", disciplineWithNbsp, "GRUPO  A"));
+        Result<CsvImportPlan> r = new Result<>();
+        database.resolveCsvRows(rows, (success, value) -> {
+            r.value = value;
+            r.done = true;
+        });
+        idle(r);
+
+        assertEquals(1, r.value.resolved.size());
+        ResolvedCsvRow row = r.value.resolved.get(0);
+        assertFalse(row.isNewDiscipline);
+        assertEquals(discipline.id, row.disciplineId);
+        assertFalse(row.isNewClassGroup);
+    }
+
+    @Test
     public void resolveCsvRows_newStudentNameGetsFreshId() throws InterruptedException {
         Discipline discipline = saveDiscipline("BDI");
         saveClassGroup(discipline.id, "A");
@@ -967,5 +1018,264 @@ public class DatabaseTest {
         s.name = name;
         s.photoPath = photoPath;
         return s;
+    }
+
+    /* -------------------------------- Periods --------------------------------- */
+
+    private Result<Period> closeDisciplinePeriod(String disciplineId, String label) throws InterruptedException {
+        Result<Period> r = new Result<>();
+        database.closeDisciplinePeriod(disciplineId, label, (success, value) -> {
+            r.success = success;
+            r.value = value;
+            r.done = true;
+        });
+        idle(r);
+        return r;
+    }
+
+    private Result<Period> closeClassGroupPeriod(String classGroupId, String label, String newClassGroupName) throws InterruptedException {
+        Result<Period> r = new Result<>();
+        database.closeClassGroupPeriod(classGroupId, label, newClassGroupName, (success, value) -> {
+            r.success = success;
+            r.value = value;
+            r.done = true;
+        });
+        idle(r);
+        return r;
+    }
+
+    private Result<Void> reopenPeriod(String periodId) throws InterruptedException {
+        Result<Void> r = new Result<>();
+        String[] error = {null};
+        database.reopenPeriod(periodId, (success, err) -> {
+            r.success = success;
+            error[0] = err;
+            r.done = true;
+        });
+        idle(r);
+        this.lastError = error[0];
+        return r;
+    }
+
+    // Scratch field so reopenPeriod()/changePeriodReassignmentTarget() helpers above/below can
+    // hand back the IDatabaseOnResult error string without needing a second Result subtype.
+    private String lastError;
+
+    private Result<Void> changePeriodReassignmentTarget(String periodId, String newClassGroupName) throws InterruptedException {
+        Result<Void> r = new Result<>();
+        String[] error = {null};
+        database.changePeriodReassignmentTarget(periodId, newClassGroupName, (success, err) -> {
+            r.success = success;
+            error[0] = err;
+            r.done = true;
+        });
+        idle(r);
+        this.lastError = error[0];
+        return r;
+    }
+
+    private int loadGrades(String studentId, String classGroupId) throws InterruptedException {
+        Result<Enrollment> r = new Result<>();
+        database.loadEnrollment(studentId, classGroupId, (success, value) -> {
+            r.value = value;
+            r.done = true;
+        });
+        idle(r);
+        return r.value.grades;
+    }
+
+    private ClassGroup loadClassGroup(String disciplineId, String classGroupId) throws InterruptedException {
+        Result<ArrayList<ClassGroup>> r = new Result<>();
+        database.loadClassGroupsForDiscipline(disciplineId, (success, value) -> {
+            r.value = value;
+            r.done = true;
+        });
+        idle(r);
+        for (ClassGroup g : r.value) if (g.id.equals(classGroupId)) return g;
+        return null;
+    }
+
+    private ArrayList<PeriodSnapshot> loadPeriodSnapshots(String periodId) throws InterruptedException {
+        Result<ArrayList<PeriodSnapshot>> r = new Result<>();
+        database.loadPeriodSnapshots(periodId, (success, value) -> {
+            r.value = value;
+            r.done = true;
+        });
+        idle(r);
+        return r.value;
+    }
+
+    @Test
+    public void closeDisciplinePeriod_snapshotsAndResetsEnrollmentsAcrossAllClassGroups() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+        ClassGroup groupA = saveClassGroup(discipline.id, "A");
+        ClassGroup groupB = saveClassGroup(discipline.id, "B");
+        Student andre = newStudent("André");
+        Student beatriz = newStudent("Beatriz");
+        Enrollment enrollmentA = saveEnrollment(andre.id, groupA.id).value;
+        Enrollment enrollmentB = saveEnrollment(beatriz.id, groupB.id).value;
+        database.updateEnrollmentGrades(enrollmentA.id, 10, (s, v) -> {
+        });
+        database.updateEnrollmentGrades(enrollmentB.id, 7, (s, v) -> {
+        });
+
+        Result<Period> r = closeDisciplinePeriod(discipline.id, "Bimestre 1");
+
+        assertTrue(r.success);
+        assertEquals(discipline.id, r.value.disciplineId);
+        assertEquals("Bimestre 1", r.value.label);
+        assertNull(r.value.closedClassGroupId);
+        assertEquals(0, loadGrades(andre.id, groupA.id));
+        assertEquals(0, loadGrades(beatriz.id, groupB.id));
+
+        ArrayList<PeriodSnapshot> snapshots = loadPeriodSnapshots(r.value.id);
+        assertEquals(2, snapshots.size());
+        assertEquals(17, snapshots.get(0).points + snapshots.get(1).points);
+        // The whole-discipline close never touches any class group's active/closed state.
+        assertFalse(loadClassGroup(discipline.id, groupA.id).isClosed());
+        assertFalse(loadClassGroup(discipline.id, groupB.id).isClosed());
+    }
+
+    @Test
+    public void closeClassGroupPeriod_archiveOnly_marksClassGroupClosedAndResetsPoints() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+        ClassGroup group = saveClassGroup(discipline.id, "A");
+        Student andre = newStudent("André");
+        Enrollment enrollment = saveEnrollment(andre.id, group.id).value;
+        database.updateEnrollmentGrades(enrollment.id, 10, (s, v) -> {
+        });
+
+        Result<Period> r = closeClassGroupPeriod(group.id, null, null);
+
+        assertTrue(r.success);
+        assertEquals(group.id, r.value.closedClassGroupId);
+        assertNull(r.value.reassignedToClassGroupId);
+        assertEquals(0, loadGrades(andre.id, group.id));
+        assertTrue(loadClassGroup(discipline.id, group.id).isClosed());
+    }
+
+    @Test
+    public void closeClassGroupPeriod_withReassignment_movesEnrollmentsToNewClassGroup() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+        ClassGroup oldGroup = saveClassGroup(discipline.id, "A - 2026");
+        Student andre = newStudent("André");
+        Enrollment enrollment = saveEnrollment(andre.id, oldGroup.id).value;
+        database.updateEnrollmentGrades(enrollment.id, 10, (s, v) -> {
+        });
+
+        Result<Period> r = closeClassGroupPeriod(oldGroup.id, "Bimestre 1", "A - 2027");
+
+        assertTrue(r.success);
+        String newGroupId = r.value.reassignedToClassGroupId;
+        assertNotNull(newGroupId);
+        assertTrue(loadClassGroup(discipline.id, oldGroup.id).isClosed());
+        assertFalse(loadClassGroup(discipline.id, newGroupId).isClosed());
+        assertEquals("A - 2027", loadClassGroup(discipline.id, newGroupId).name);
+        // The student's enrollment followed them into the new class group, reset to 0.
+        assertEquals(0, loadGrades(andre.id, newGroupId));
+    }
+
+    @Test
+    public void reopenPeriod_archiveOnly_restoresPointsAndUnarchivesClassGroup() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+        ClassGroup group = saveClassGroup(discipline.id, "A");
+        Student andre = newStudent("André");
+        Enrollment enrollment = saveEnrollment(andre.id, group.id).value;
+        database.updateEnrollmentGrades(enrollment.id, 10, (s, v) -> {
+        });
+        Period period = closeClassGroupPeriod(group.id, null, null).value;
+
+        Result<Void> r = reopenPeriod(period.id);
+
+        assertTrue(r.success);
+        assertEquals(10, loadGrades(andre.id, group.id));
+        assertFalse(loadClassGroup(discipline.id, group.id).isClosed());
+    }
+
+    @Test
+    public void reopenPeriod_withReassignment_movesStudentsBackAndDeletesEmptyNewGroup() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+        ClassGroup oldGroup = saveClassGroup(discipline.id, "A - 2026");
+        Student andre = newStudent("André");
+        Enrollment enrollment = saveEnrollment(andre.id, oldGroup.id).value;
+        database.updateEnrollmentGrades(enrollment.id, 10, (s, v) -> {
+        });
+        Period period = closeClassGroupPeriod(oldGroup.id, null, "A - 2027").value;
+        String newGroupId = period.reassignedToClassGroupId;
+
+        Result<Void> r = reopenPeriod(period.id);
+
+        assertTrue(r.success);
+        assertEquals(10, loadGrades(andre.id, oldGroup.id));
+        assertFalse(loadClassGroup(discipline.id, oldGroup.id).isClosed());
+        // The new class group only ever existed for this reassignment, so undoing it removes it.
+        assertNull(loadClassGroup(discipline.id, newGroupId));
+    }
+
+    @Test
+    public void reopenPeriod_failsWhenAlreadyReopened() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+        ClassGroup group = saveClassGroup(discipline.id, "A");
+        Student andre = newStudent("André");
+        saveEnrollment(andre.id, group.id);
+        Period period = closeClassGroupPeriod(group.id, null, null).value;
+        reopenPeriod(period.id);
+
+        Result<Void> r = reopenPeriod(period.id);
+
+        assertFalse(r.success);
+        assertEquals("ALREADY_REOPENED", this.lastError);
+    }
+
+    @Test
+    public void changePeriodReassignmentTarget_movesToNewDestinationAndDeletesOldEmptyGroup() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+        ClassGroup oldGroup = saveClassGroup(discipline.id, "A - 2026");
+        Student andre = newStudent("André");
+        Enrollment enrollment = saveEnrollment(andre.id, oldGroup.id).value;
+        database.updateEnrollmentGrades(enrollment.id, 10, (s, v) -> {
+        });
+        Period period = closeClassGroupPeriod(oldGroup.id, null, "A - 2027 (errado)").value;
+        String wrongGroupId = period.reassignedToClassGroupId;
+
+        Result<Void> r = changePeriodReassignmentTarget(period.id, "A - 2027 (certo)");
+
+        assertTrue(r.success);
+        assertNull(loadClassGroup(discipline.id, wrongGroupId));
+
+        Result<ArrayList<ClassGroup>> groups = new Result<>();
+        database.loadClassGroupsForDiscipline(discipline.id, (success, value) -> {
+            groups.value = value;
+            groups.done = true;
+        });
+        idle(groups);
+        ClassGroup correctedGroup = null;
+        for (ClassGroup g : groups.value) if ("A - 2027 (certo)".equals(g.name)) correctedGroup = g;
+        assertNotNull(correctedGroup);
+        // Correcting the destination only moves where the (already-reset) fresh count
+        // continues — it doesn't rehydrate the pre-close total, since the close itself wasn't undone.
+        assertEquals(0, loadGrades(andre.id, correctedGroup.id));
+    }
+
+    @Test
+    public void loadPeriodsForDiscipline_returnsClosedPeriodsNewestFirstWithJoinedNames() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+        ClassGroup group = saveClassGroup(discipline.id, "A");
+        closeDisciplinePeriod(discipline.id, "Bimestre 1");
+        closeClassGroupPeriod(group.id, "Encerramento da turma A", null);
+
+        Result<ArrayList<Period>> r = new Result<>();
+        database.loadPeriodsForDiscipline(discipline.id, (success, value) -> {
+            r.value = value;
+            r.done = true;
+        });
+        idle(r);
+
+        assertEquals(2, r.value.size());
+        // Newest first: the class-group close happened after the discipline-wide one.
+        assertEquals("Encerramento da turma A", r.value.get(0).label);
+        assertEquals("BDI", r.value.get(0).disciplineName);
+        assertEquals("A", r.value.get(0).closedClassGroupName);
+        assertEquals("Bimestre 1", r.value.get(1).label);
     }
 }

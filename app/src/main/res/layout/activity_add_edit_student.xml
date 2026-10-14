@@ -14,7 +14,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:navigationIcon="@drawable/ic_arrow_back"
         app:title="@string/add_student_title"
-        app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge" />
+        app:titleTextAppearance="@style/TextAppearance.QrGrades.TitleLarge" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="0dp"
@@ -94,7 +94,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/spacing_lg"
                 android:text="@string/disciplines_hint"
-                android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+                android:textAppearance="@style/TextAppearance.QrGrades.LabelLarge"
                 android:textColor="?attr/colorOnSurfaceVariant" />
 
             <LinearLayout
@@ -110,7 +110,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/spacing_xs"
                 android:text="@string/no_disciplines_registered"
-                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                android:textAppearance="@style/TextAppearance.QrGrades.BodyMedium"
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:visibility="gone" />
 
@@ -148,7 +148,7 @@
                         android:drawablePadding="@dimen/spacing_xs"
                         android:gravity="center_vertical"
                         android:text="@string/tap_to_share"
-                        android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+                        android:textAppearance="@style/TextAppearance.QrGrades.LabelLarge"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         app:drawableStartCompat="@drawable/ic_share"
                         app:drawableTint="?attr/colorOnSurfaceVariant"

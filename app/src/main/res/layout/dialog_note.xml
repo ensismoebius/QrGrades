@@ -18,7 +18,7 @@
             android:id="@+id/txtNoteDialogTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
             android:textColor="?attr/colorOnSurface" />
 
         <com.google.android.material.textfield.TextInputLayout

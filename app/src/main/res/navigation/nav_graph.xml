@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/scanFragment">
+
+    <!-- The 4 bottom-navigation-bar destinations. No back-stack between them; the host toggles
+         the bar's own visibility based on whether the current destination is one of these four. -->
+
+    <fragment
+        android:id="@+id/scanFragment"
+        android:name="org.dedira.qrnotas.fragments.ScanFragment"
+        android:label="Scan"
+        tools:layout="@layout/fragment_scan" />
+
+    <fragment
+        android:id="@+id/studentListFragment"
+        android:name="org.dedira.qrnotas.fragments.StudentListFragment"
+        android:label="Students"
+        tools:layout="@layout/activity_list_student">
+        <action
+            android:id="@+id/action_studentList_to_studentProgress"
+            app:destination="@id/studentProgressFragment" />
+        <action
+            android:id="@+id/action_studentList_to_addOrEditStudent"
+            app:destination="@id/addOrEditStudentFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/disciplineListFragment"
+        android:name="org.dedira.qrnotas.fragments.DisciplineListFragment"
+        android:label="Disciplines"
+        tools:layout="@layout/activity_entity_list">
+        <action
+            android:id="@+id/action_disciplineList_to_disciplineDetail"
+            app:destination="@id/disciplineDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/moreFragment"
+        android:name="org.dedira.qrnotas.fragments.MoreFragment"
+        android:label="More"
+        tools:layout="@layout/fragment_more">
+        <action
+            android:id="@+id/action_more_to_backupList"
+            app:destination="@id/backupListFragment" />
+        <action
+            android:id="@+id/action_more_to_webServer"
+            app:destination="@id/webServerFragment" />
+    </fragment>
+
+    <!-- Nested (pushed) destinations: reached via navigate(), not on the bottom bar. -->
+
+    <fragment
+        android:id="@+id/disciplineDetailFragment"
+        android:name="org.dedira.qrnotas.fragments.DisciplineDetailFragment"
+        android:label="DisciplineDetail"
+        tools:layout="@layout/activity_discipline_detail">
+        <action
+            android:id="@+id/action_disciplineDetail_to_classGroupList"
+            app:destination="@id/classGroupListFragment" />
+        <action
+            android:id="@+id/action_disciplineDetail_to_goalList"
+            app:destination="@id/goalListFragment" />
+        <action
+            android:id="@+id/action_disciplineDetail_to_leaderboard"
+            app:destination="@id/leaderboardFragment" />
+        <action
+            android:id="@+id/action_disciplineDetail_to_periodList"
+            app:destination="@id/periodListFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/classGroupListFragment"
+        android:name="org.dedira.qrnotas.fragments.ClassGroupListFragment"
+        android:label="ClassGroups"
+        tools:layout="@layout/activity_entity_list">
+        <action
+            android:id="@+id/action_classGroupList_to_studentList"
+            app:destination="@id/studentListFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/goalListFragment"
+        android:name="org.dedira.qrnotas.fragments.GoalListFragment"
+        android:label="Goals"
+        tools:layout="@layout/activity_entity_list" />
+
+    <fragment
+        android:id="@+id/leaderboardFragment"
+        android:name="org.dedira.qrnotas.fragments.LeaderboardFragment"
+        android:label="Leaderboard"
+        tools:layout="@layout/activity_leaderboard" />
+
+    <fragment
+        android:id="@+id/periodListFragment"
+        android:name="org.dedira.qrnotas.fragments.PeriodListFragment"
+        android:label="Periods"
+        tools:layout="@layout/activity_entity_list">
+        <action
+            android:id="@+id/action_periodList_to_periodDetail"
+            app:destination="@id/periodDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/periodDetailFragment"
+        android:name="org.dedira.qrnotas.fragments.PeriodDetailFragment"
+        android:label="PeriodDetail"
+        tools:layout="@layout/activity_period_detail" />
+
+    <fragment
+        android:id="@+id/studentProgressFragment"
+        android:name="org.dedira.qrnotas.fragments.StudentProgressFragment"
+        android:label="StudentProgress"
+        tools:layout="@layout/activity_student_progress" />
+
+    <fragment
+        android:id="@+id/addOrEditStudentFragment"
+        android:name="org.dedira.qrnotas.fragments.AddOrEditStudentFragment"
+        android:label="AddOrEditStudent"
+        tools:layout="@layout/activity_add_edit_student" />
+
+    <fragment
+        android:id="@+id/backupListFragment"
+        android:name="org.dedira.qrnotas.fragments.BackupListFragment"
+        android:label="Backups"
+        tools:layout="@layout/activity_entity_list" />
+
+    <fragment
+        android:id="@+id/webServerFragment"
+        android:name="org.dedira.qrnotas.fragments.WebServerFragment"
+        android:label="WebServer"
+        tools:layout="@layout/activity_web_server" />
+
+</navigation>

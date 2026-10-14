@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package org.dedira.qrnotas.activities;
+package org.dedira.qrnotas.fragments;
 
 import android.app.AlertDialog;
 import android.graphics.Canvas;
@@ -37,27 +37,25 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.TextInputEditText;
 
 import org.dedira.qrnotas.R;
-import org.dedira.qrnotas.dialogs.LoadingDialog;
 import org.dedira.qrnotas.model.CsvImportPlan;
 import org.dedira.qrnotas.model.CsvRowError;
 import org.dedira.qrnotas.model.CsvStudentRow;
 import org.dedira.qrnotas.model.IDatabaseOnLoad;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.model.StudentExportData;
-import org.dedira.qrnotas.util.ActivityTransitions;
 import org.dedira.qrnotas.util.CsvImporter;
-import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.DbBackup;
-import org.dedira.qrnotas.util.EdgeToEdge;
 import org.dedira.qrnotas.util.Exporter;
 import org.dedira.qrnotas.util.Importer;
 import org.dedira.qrnotas.util.KeyboardUtils;
@@ -73,81 +71,78 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Lists students — either every student in the app (opened from the nav drawer) or just the
- * students of one class group (opened from a class group row, with {@code classGroupId}/
- * {@code groupName} passed in via the Intent). Supports live text search, swipe-to-delete,
- * multi-select for bulk export, and JSON/CSV import with a safety backup snapshot taken first.
+ * Bottom-nav "Students" tab when opened with no arguments (every student in the app); also
+ * reused as a nested destination showing just one class group's students when opened with a
+ * {@code classGroupId}/{@code groupName} argument (from {@link ClassGroupListFragment}'s row
+ * tap) — the toolbar's back arrow only appears in that nested case. Supports live text search,
+ * swipe-to-delete, multi-select for bulk export, and JSON/CSV import with a safety backup
+ * snapshot taken first.
  */
-public class StudentList extends AppCompatActivity {
+public class StudentListFragment extends BaseFragment {
     private StudentAdapter arrStudentsAdapter;
     private RecyclerView lstStudents;
     private TextView txtEmpty;
-    private Database database;
     private MaterialToolbar toolbar;
-    private LoadingDialog loadingDialog;
-    // Runs export/import file work off the main thread; single-threaded so imports/exports
-    // don't race each other against the same database.
     private final ExecutorService exportExecutor = Executors.newSingleThreadExecutor();
     private ActivityResultLauncher<String[]> importFileLauncher;
     private ActivityResultLauncher<String[]> importCsvFileLauncher;
-    // Null when this screen is showing every student in the app rather than one class group's.
     private String classGroupId;
     private String groupName;
 
-    /**
-     * Called once by Android when this screen is created. Reads the optional class-group filter,
-     * registers the file-picker launchers (must happen before STARTED), wires up the toolbar
-     * menu, the RecyclerView + swipe-to-delete, and the live search box.
-     */
+    public StudentListFragment() {
+        super(R.layout.activity_list_student);
+    }
+
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected boolean showsBackArrow() {
+        // Handled manually in onSelectionChanged(), since it depends on both selection mode and
+        // whether this instance is nested (classGroupId != null) or the top-level tab.
+        return false;
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        ActivityTransitions.enter(this);
-        setContentView(R.layout.activity_list_student);
-        EdgeToEdge.apply(this);
-
-        this.database = new Database(this);
-        this.loadingDialog = new LoadingDialog(this);
-        this.classGroupId = getIntent().getStringExtra("classGroupId");
-        this.groupName = getIntent().getStringExtra("groupName");
-
-        // System file picker for "Import JSON" — restricted to application/json.
         this.importFileLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
             if (uri != null) prepareJsonImport(uri);
         });
-
-        // Separate picker (and set of accepted MIME types) for "Import CSV".
         this.importCsvFileLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
             if (uri != null) prepareCsvImport(uri);
         });
+    }
 
-        this.toolbar = this.findViewById(R.id.toolbar);
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        Bundle args = getArguments();
+        this.classGroupId = args != null ? args.getString("classGroupId") : null;
+        this.groupName = args != null ? args.getString("groupName") : null;
+
+        this.toolbar = view.findViewById(R.id.toolbar);
         toolbar.inflateMenu(R.menu.menu_student_list);
         toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
-        if (classGroupId != null) toolbar.setTitle(groupName);
 
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                // First back press while selecting just exits selection mode; only a second
-                // press (with nothing selected) actually leaves the screen.
                 if (arrStudentsAdapter.isSelectionMode()) {
                     arrStudentsAdapter.setSelectionMode(false);
-                } else {
-                    finishAfterTransition();
+                    return;
                 }
+                setEnabled(false);
+                requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                setEnabled(true);
             }
         });
 
-        this.txtEmpty = this.findViewById(R.id.txtEmpty);
-        this.arrStudentsAdapter = new StudentAdapter(this);
+        this.txtEmpty = view.findViewById(R.id.txtEmpty);
+        this.arrStudentsAdapter = new StudentAdapter(requireContext());
         this.arrStudentsAdapter.setSelectionListener(this::onSelectionChanged);
 
-        this.lstStudents = this.findViewById(R.id.lstStudents);
+        this.lstStudents = view.findViewById(R.id.lstStudents);
         this.lstStudents.setAdapter(this.arrStudentsAdapter);
 
-        // Watches the adapter's list for any change so the "empty state" text shows/hides itself
-        // automatically instead of needing a manual check after every add/delete/filter.
         this.arrStudentsAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
             @Override
             public void onChanged() {
@@ -167,8 +162,19 @@ public class StudentList extends AppCompatActivity {
 
         new ItemTouchHelper(new SwipeToDeleteCallback()).attachToRecyclerView(this.lstStudents);
 
-        TextInputEditText txtSearch = this.findViewById(R.id.txtSearch);
-        KeyboardUtils.focusAndShowKeyboard(txtSearch);
+        // Adding a student is only offered from the top-level "all students" tab — a nested,
+        // class-group-scoped roster has no single obvious discipline/class to enroll a new
+        // student into, so the generic Add Student form (which asks explicitly) is reached from
+        // there instead.
+        FloatingActionButton btnAddStudent = view.findViewById(R.id.btnAddStudent);
+        if (classGroupId == null) {
+            btnAddStudent.setOnClickListener(v ->
+                    Navigation.findNavController(v).navigate(R.id.action_studentList_to_addOrEditStudent));
+        } else {
+            btnAddStudent.setVisibility(View.GONE);
+        }
+
+        TextInputEditText txtSearch = view.findViewById(R.id.txtSearch);
         txtSearch.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -183,40 +189,38 @@ public class StudentList extends AppCompatActivity {
             public void afterTextChanged(Editable s) {
             }
         });
+        // Only auto-focuses the search box on the top-level "all students" tab — a nested,
+        // scoped class-group roster is small enough that forcing the keyboard open immediately
+        // would just get in the way.
+        if (classGroupId == null) KeyboardUtils.focusAndShowKeyboard(txtSearch);
 
         onSelectionChanged(false, 0);
         loadStudents();
     }
 
-    /**
-     * Called by Android every time this screen becomes visible again. Reloading here keeps the
-     * list current if a student was added/edited/deleted elsewhere while this screen was in the
-     * background.
-     */
     @Override
-    protected void onResume() {
+    public void onResume() {
         super.onResume();
         loadStudents();
     }
 
-    /** Loads either every student, or (if a class group filter is set) only that group's students. */
     private void loadStudents() {
         IDatabaseOnLoad<ArrayList<Student>> callback = (success, students) -> {
+            if (getView() == null) return;
             if (success) {
                 arrStudentsAdapter.submitFullList(students);
             } else {
-                Toast.makeText(this, R.string.load_students_failed, Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), R.string.load_students_failed, Toast.LENGTH_SHORT).show();
             }
         };
 
         if (classGroupId != null) {
-            this.database.loadStudentsForClassGroup(classGroupId, callback);
+            database.loadStudentsForClassGroup(classGroupId, callback);
         } else {
-            this.database.loadAllStudents(callback);
+            database.loadAllStudents(callback);
         }
     }
 
-    /** Routes toolbar menu taps (select, select-all, export, import JSON/CSV) to their handlers. */
     private boolean onMenuItemClick(MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.action_select) {
@@ -239,11 +243,6 @@ public class StudentList extends AppCompatActivity {
         return false;
     }
 
-    /**
-     * Called by the adapter whenever selection mode is entered/exited or the selected count
-     * changes. Swaps which toolbar menu items are visible and what the toolbar shows/does,
-     * matching a "contextual action bar" feel without using the platform ActionMode API.
-     */
     private void onSelectionChanged(boolean selectionMode, int count) {
         toolbar.getMenu().findItem(R.id.action_select).setVisible(!selectionMode);
         toolbar.getMenu().findItem(R.id.action_select_all).setVisible(selectionMode);
@@ -258,17 +257,23 @@ public class StudentList extends AppCompatActivity {
             toolbar.setNavigationOnClickListener(v -> arrStudentsAdapter.setSelectionMode(false));
         } else {
             toolbar.setTitle(classGroupId != null ? groupName : getString(R.string.show_all_students));
-            toolbar.setNavigationIcon(R.drawable.ic_arrow_back);
             toolbar.setNavigationContentDescription(null);
-            toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
+            if (classGroupId != null) {
+                // Nested entry (from a class group's roster): back arrow pops to it.
+                toolbar.setNavigationIcon(R.drawable.ic_arrow_back);
+                toolbar.setNavigationOnClickListener(v -> requireActivity().getOnBackPressedDispatcher().onBackPressed());
+            } else {
+                // Top-level "Students" tab: nothing to pop back to.
+                toolbar.setNavigationIcon(null);
+                toolbar.setNavigationOnClickListener(null);
+            }
         }
     }
 
-    /** Asks which export format to use for the currently-selected students, then runs it. */
     private void onExportClicked() {
         List<String> selectedIds = arrStudentsAdapter.getSelectedIds();
         if (selectedIds.isEmpty()) {
-            Toast.makeText(this, R.string.select_students_first, Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), R.string.select_students_first, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -278,23 +283,19 @@ public class StudentList extends AppCompatActivity {
                 getString(R.string.export_format_json)
         };
 
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.export_format_title)
                 .setItems(formats, (dialog, which) -> runExport(selectedIds, which))
                 .show();
     }
 
-    /**
-     * Loads the export data for the selected students, then builds the chosen file format on a
-     * background thread (file I/O + PDF/JSON rendering shouldn't block the UI thread) and hands
-     * the finished file off to the system share sheet.
-     */
     private void runExport(List<String> selectedIds, int formatIndex) {
         loadingDialog.show();
         database.loadExportData(selectedIds, (success, data) -> {
+            if (getView() == null) return;
             if (!success || data == null) {
                 loadingDialog.dismiss();
-                Toast.makeText(this, R.string.export_failed, Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), R.string.export_failed, Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -304,30 +305,32 @@ public class StudentList extends AppCompatActivity {
                     String mime;
                     switch (formatIndex) {
                         case 1:
-                            file = Exporter.exportPdf(this, data);
+                            file = Exporter.exportPdf(requireContext(), data);
                             mime = "application/pdf";
                             break;
                         case 2:
-                            file = Exporter.exportJson(this, data);
+                            file = Exporter.exportJson(requireContext(), data);
                             mime = "application/json";
                             break;
                         default:
-                            file = Exporter.exportMarkdown(this, data);
+                            file = Exporter.exportMarkdown(requireContext(), data);
                             mime = "text/markdown";
                             break;
                     }
 
                     File finalFile = file;
                     String finalMime = mime;
-                    runOnUiThread(() -> {
+                    requireActivity().runOnUiThread(() -> {
+                        if (getView() == null) return;
                         loadingDialog.dismiss();
-                        Exporter.share(this, finalFile, finalMime);
+                        Exporter.share(requireContext(), finalFile, finalMime);
                         arrStudentsAdapter.setSelectionMode(false);
                     });
                 } catch (Exception e) {
-                    runOnUiThread(() -> {
+                    requireActivity().runOnUiThread(() -> {
+                        if (getView() == null) return;
                         loadingDialog.dismiss();
-                        Toast.makeText(this, R.string.export_failed, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(requireContext(), R.string.export_failed, Toast.LENGTH_SHORT).show();
                     });
                 }
             });
@@ -336,39 +339,41 @@ public class StudentList extends AppCompatActivity {
 
     /* ------------------------------ JSON import ------------------------------ */
 
-    /** Reads and parses the chosen JSON file off the main thread, then asks for confirmation before committing. */
     private void prepareJsonImport(Uri uri) {
         loadingDialog.show();
         exportExecutor.execute(() -> {
             List<StudentExportData> data;
             try {
-                data = Importer.importJson(this, uri);
+                data = Importer.importJson(requireContext(), uri);
             } catch (Exception e) {
-                runOnUiThread(() -> {
+                requireActivity().runOnUiThread(() -> {
+                    if (getView() == null) return;
                     loadingDialog.dismiss();
-                    Toast.makeText(this, R.string.import_failed, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), R.string.import_failed, Toast.LENGTH_SHORT).show();
                 });
                 return;
             }
 
             if (data.isEmpty()) {
-                runOnUiThread(() -> {
+                requireActivity().runOnUiThread(() -> {
+                    if (getView() == null) return;
                     loadingDialog.dismiss();
-                    Toast.makeText(this, R.string.import_empty, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), R.string.import_empty, Toast.LENGTH_SHORT).show();
                 });
                 return;
             }
 
-            runOnUiThread(() -> {
+            requireActivity().runOnUiThread(() -> {
+                if (getView() == null) return;
                 loadingDialog.dismiss();
                 confirmJsonImport(data);
             });
         });
     }
 
-    /** Shows a summary of how many students are new vs. already existing, before actually importing. */
     private void confirmJsonImport(List<StudentExportData> data) {
         database.loadAllStudents((success, existingStudents) -> {
+            if (getView() == null) return;
             Set<String> existingIds = new HashSet<>();
             if (success && existingStudents != null) {
                 for (Student s : existingStudents) existingIds.add(s.id);
@@ -381,7 +386,7 @@ public class StudentList extends AppCompatActivity {
             for (String id : incomingIds) if (existingIds.contains(id)) existingCount++;
             int newCount = incomingIds.size() - existingCount;
 
-            new AlertDialog.Builder(this)
+            new AlertDialog.Builder(requireContext())
                     .setTitle(R.string.import_confirm_title)
                     .setMessage(getString(R.string.json_import_summary, newCount, existingCount))
                     .setPositiveButton(R.string.import_action, (dialog, which) -> runJsonImport(data))
@@ -390,56 +395,57 @@ public class StudentList extends AppCompatActivity {
         });
     }
 
-    /** Actually commits the JSON import, after first taking a safety snapshot of the current data. */
     private void runJsonImport(List<StudentExportData> data) {
         loadingDialog.show();
         snapshotThenRun(() -> database.importExportData(data, (success, errorMessage) -> {
+            if (getView() == null) return;
             loadingDialog.dismiss();
             if (success) {
-                Toast.makeText(this, R.string.import_succeeded, Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), R.string.import_succeeded, Toast.LENGTH_SHORT).show();
                 loadStudents();
             } else {
-                Toast.makeText(this, R.string.import_failed, Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), R.string.import_failed, Toast.LENGTH_SHORT).show();
             }
         }));
     }
 
     /* ------------------------------- CSV import -------------------------------- */
 
-    /** Reads and parses the chosen CSV file off the main thread, then asks the database to resolve each row against existing students. */
     private void prepareCsvImport(Uri uri) {
         loadingDialog.show();
         exportExecutor.execute(() -> {
             List<CsvStudentRow> rows;
-            try (InputStream in = getContentResolver().openInputStream(uri)) {
+            try (InputStream in = requireContext().getContentResolver().openInputStream(uri)) {
                 if (in == null) throw new java.io.IOException("Unable to open file");
                 rows = CsvImporter.parse(in);
             } catch (Exception e) {
                 String message = e.getMessage();
-                runOnUiThread(() -> {
+                requireActivity().runOnUiThread(() -> {
+                    if (getView() == null) return;
                     loadingDialog.dismiss();
-                    Toast.makeText(this, getString(R.string.csv_import_invalid_file, message), Toast.LENGTH_LONG).show();
+                    Toast.makeText(requireContext(), getString(R.string.csv_import_invalid_file, message), Toast.LENGTH_LONG).show();
                 });
                 return;
             }
 
-            runOnUiThread(() -> {
+            requireActivity().runOnUiThread(() -> {
+                if (getView() == null) return;
                 loadingDialog.dismiss();
                 if (rows.isEmpty()) {
-                    Toast.makeText(this, R.string.csv_import_no_valid_rows, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), R.string.csv_import_no_valid_rows, Toast.LENGTH_SHORT).show();
                     return;
                 }
-                // resolveCsvRows matches each row to an existing student (by name/id) or flags it
-                // as new/invalid, producing a CsvImportPlan the confirmation dialog summarizes.
                 database.resolveCsvRows(rows, (success, plan) -> confirmCsvImport(plan));
             });
         });
     }
 
-    /** Shows counts of new/matched students plus up to 5 row errors, before committing the CSV import. */
+    private static final int MAX_CSV_NAMES_SHOWN = 15;
+
     private void confirmCsvImport(CsvImportPlan plan) {
+        if (getView() == null) return;
         if (plan.resolved.isEmpty()) {
-            Toast.makeText(this, R.string.csv_import_no_valid_rows, Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), R.string.csv_import_no_valid_rows, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -449,6 +455,10 @@ public class StudentList extends AppCompatActivity {
             message.append("\n").append(getString(R.string.csv_import_new_structure,
                     plan.newDisciplineCount(), plan.newClassGroupCount()));
         }
+        appendNameList(message, R.string.csv_import_new_disciplines_list, plan.newDisciplineNames());
+        appendNameList(message, R.string.csv_import_new_class_groups_list, plan.newClassGroupLabels());
+        appendNameList(message, R.string.csv_import_new_students_list, plan.newStudentNames());
+
         int shown = 0;
         for (CsvRowError error : plan.errors) {
             if (shown >= 5) break;
@@ -456,7 +466,7 @@ public class StudentList extends AppCompatActivity {
             shown++;
         }
 
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.csv_import_confirm_title)
                 .setMessage(message.toString())
                 .setPositiveButton(R.string.import_action, (dialog, which) -> runCsvImport(plan))
@@ -464,30 +474,37 @@ public class StudentList extends AppCompatActivity {
                 .show();
     }
 
-    /** Actually commits the CSV import, after first taking a safety snapshot of the current data. */
+    private void appendNameList(StringBuilder message, int labelResId, List<String> names) {
+        if (names.isEmpty()) return;
+        int shownCount = Math.min(names.size(), MAX_CSV_NAMES_SHOWN);
+        String joined = String.join(", ", names.subList(0, shownCount));
+        if (names.size() > shownCount) {
+            joined += getString(R.string.csv_import_list_more, names.size() - shownCount);
+        }
+        message.append("\n").append(getString(labelResId, joined));
+    }
+
     private void runCsvImport(CsvImportPlan plan) {
         loadingDialog.show();
         snapshotThenRun(() -> database.importCsvRows(plan.resolved, (success, errorMessage) -> {
+            if (getView() == null) return;
             loadingDialog.dismiss();
             if (success) {
-                Toast.makeText(this, R.string.csv_import_succeeded, Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), R.string.csv_import_succeeded, Toast.LENGTH_SHORT).show();
                 loadStudents();
             } else {
-                Toast.makeText(this, R.string.import_failed, Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), R.string.import_failed, Toast.LENGTH_SHORT).show();
             }
         }));
     }
 
-    /** Snapshots the DB before a bulk-overwrite import commits, then runs it regardless of the
-     *  snapshot's own success (a failed safety backup shouldn't block the import itself). */
     private void snapshotThenRun(Runnable importAction) {
-        DbBackup.createFullSnapshot(this, database, false, (success, error) -> {
-            if (success) DbBackup.pruneOldSnapshots(this, 15);
+        DbBackup.createFullSnapshot(requireContext(), database, false, (success, error) -> {
+            if (success) DbBackup.pruneOldSnapshots(requireContext(), 15);
             importAction.run();
         });
     }
 
-    /** Shows the "no students yet" placeholder text and hides the list, or vice versa. */
     private void updateEmptyState() {
         boolean isEmpty = arrStudentsAdapter.getItemCount() == 0;
         txtEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
@@ -500,8 +517,8 @@ public class StudentList extends AppCompatActivity {
      * Disabled while in multi-select mode (swiping would conflict with tap-to-select).
      */
     private class SwipeToDeleteCallback extends ItemTouchHelper.SimpleCallback {
-        private final ColorDrawable background = new ColorDrawable(ContextCompat.getColor(StudentList.this, R.color.swipe_delete_bg));
-        private final Drawable deleteIcon = ContextCompat.getDrawable(StudentList.this, R.drawable.ic_delete);
+        private final ColorDrawable background = new ColorDrawable(ContextCompat.getColor(requireContext(), R.color.swipe_delete_bg));
+        private final Drawable deleteIcon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_delete);
 
         SwipeToDeleteCallback() {
             super(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT);
@@ -515,7 +532,6 @@ public class StudentList extends AppCompatActivity {
 
         @Override
         public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
-            // Drag-to-reorder isn't supported, only swipe-to-delete.
             return false;
         }
 
@@ -537,7 +553,6 @@ public class StudentList extends AppCompatActivity {
             int iconTop = itemView.getTop() + (itemView.getHeight() - iconSize) / 2;
 
             if (dX > 0) {
-                // Swiping right: background/icon grow from the row's left edge.
                 background.setBounds(itemView.getLeft(), itemView.getTop(), itemView.getLeft() + (int) dX, itemView.getBottom());
                 background.draw(c);
                 if (deleteIcon != null) {
@@ -547,7 +562,6 @@ public class StudentList extends AppCompatActivity {
                     deleteIcon.draw(c);
                 }
             } else if (dX < 0) {
-                // Swiping left: background/icon grow from the row's right edge.
                 background.setBounds(itemView.getRight() + (int) dX, itemView.getTop(), itemView.getRight(), itemView.getBottom());
                 background.draw(c);
                 if (deleteIcon != null) {
@@ -559,7 +573,6 @@ public class StudentList extends AppCompatActivity {
             }
         }
 
-        /** Converts a dp value to actual pixels for this device's screen density. */
         private float dp(float value) {
             return value * getResources().getDisplayMetrics().density;
         }

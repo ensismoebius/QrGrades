@@ -20,10 +20,9 @@
 package org.dedira.qrnotas.util.adapters;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.Intent;
+import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,15 +32,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.core.app.ActivityOptionsCompat;
+import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.checkbox.MaterialCheckBox;
 
 import org.dedira.qrnotas.R;
-import org.dedira.qrnotas.activities.AddOrEditStudent;
-import org.dedira.qrnotas.activities.StudentProgress;
 import org.dedira.qrnotas.dialogs.QrCodeDialog;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.util.BitmapConverter;
@@ -238,9 +235,9 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
                 toggleSelection(student.id, holder.getBindingAdapterPosition());
                 return;
             }
-            Intent intent = new Intent(context, StudentProgress.class);
-            intent.putExtra("studentId", student.id);
-            context.startActivity(intent);
+            Bundle bundle = new Bundle();
+            bundle.putString("studentId", student.id);
+            Navigation.findNavController(v).navigate(R.id.action_studentList_to_studentProgress, bundle);
         });
 
         holder.itemView.setOnLongClickListener(v -> {
@@ -255,19 +252,9 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
         holder.btnQrCode.setOnClickListener(v -> new QrCodeDialog(context, student).show());
 
         holder.btnEditStudent.setOnClickListener(v -> {
-            Intent intent = new Intent(context, AddOrEditStudent.class);
-            intent.putExtra("selectedStudentId", student.id);
-
-            if (context instanceof Activity) {
-                // Shared-element transition: the tapped row's photo appears to morph into the
-                // edit screen's photo, using the "studentPhoto" transition name set on both views.
-                Activity activity = (Activity) context;
-                ActivityOptionsCompat options = ActivityOptionsCompat.makeSceneTransitionAnimation(
-                        activity, holder.imgPhoto, "studentPhoto");
-                activity.startActivity(intent, options.toBundle());
-            } else {
-                context.startActivity(intent);
-            }
+            Bundle bundle = new Bundle();
+            bundle.putString("selectedStudentId", student.id);
+            Navigation.findNavController(v).navigate(R.id.action_studentList_to_addOrEditStudent, bundle);
         });
 
         holder.btnDeleteStudent.setOnClickListener(v -> requestDelete(holder.getBindingAdapterPosition()));

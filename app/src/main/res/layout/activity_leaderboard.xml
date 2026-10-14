@@ -14,7 +14,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:navigationIcon="@drawable/ic_arrow_back"
-        app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge" />
+        app:titleTextAppearance="@style/TextAppearance.QrGrades.TitleLarge" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/lstLeaderboard"
@@ -37,7 +37,7 @@
         android:gravity="center"
         android:padding="@dimen/spacing_lg"
         android:text="@string/no_leaderboard_data"
-        android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+        android:textAppearance="@style/TextAppearance.QrGrades.BodyLarge"
         android:textColor="?attr/colorOnSurfaceVariant"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="@id/lstLeaderboard"

@@ -134,6 +134,31 @@ public class ExporterTest {
         assertEquals(0, Exporter.buildJsonArray(new ArrayList<>()).length());
     }
 
+    // A student enrolled in two disciplines/classes gets one StudentExportData row per
+    // enrollment, each only holding that one discipline's own point total ("points") — this
+    // verifies "totalPoints" instead carries the sum across every row sharing that studentId, so
+    // a consumer isn't misled into thinking the student only has as many points as whichever
+    // single discipline they're currently looking at.
+    @Test
+    public void buildJsonArray_totalPointsSumsAcrossAllOfThatStudentsEnrollments() throws Exception {
+        StudentExportData firstClass = sampleStudent();
+        firstClass.points = 22;
+        StudentExportData secondClass = sampleStudent();
+        secondClass.enrollmentId = "e2";
+        secondClass.disciplineId = "d2";
+        secondClass.disciplineName = "PWII";
+        secondClass.classGroupId = "c2";
+        secondClass.classGroupName = "B";
+        secondClass.points = 5;
+
+        JSONArray array = Exporter.buildJsonArray(java.util.Arrays.asList(firstClass, secondClass));
+
+        assertEquals(22, array.getJSONObject(0).getInt("points"));
+        assertEquals(27, array.getJSONObject(0).getInt("totalPoints"));
+        assertEquals(5, array.getJSONObject(1).getInt("points"));
+        assertEquals(27, array.getJSONObject(1).getInt("totalPoints"));
+    }
+
     // Verifies the full JSON export round trip: a file written by exportJson can be read back
     // by Importer.parseJsonArray and yields a student with the same name and points as the
     // original, proving the two formats stay in sync with each other.
@@ -172,6 +197,34 @@ public class ExporterTest {
         assertTrue(md.contains("André"));
         assertTrue(md.contains("22"));
         assertTrue(md.contains("helped \\| classmate"));
+    }
+
+    // Verifies the Markdown export's "Totals by Student" section sums a student's points across
+    // every discipline/class row they appear in, rather than only ever showing each row's own
+    // partial total.
+    @Test
+    public void exportMarkdown_totalsByStudentSectionSumsAcrossDisciplines() throws Exception {
+        StudentExportData firstClass = sampleStudent();
+        firstClass.points = 22;
+        StudentExportData secondClass = sampleStudent();
+        secondClass.enrollmentId = "e2";
+        secondClass.disciplineId = "d2";
+        secondClass.disciplineName = "PWII";
+        secondClass.classGroupId = "c2";
+        secondClass.classGroupName = "B";
+        secondClass.points = 5;
+
+        File file = Exporter.exportMarkdown(context, java.util.Arrays.asList(firstClass, secondClass));
+
+        StringBuilder content = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) content.append(line).append('\n');
+        }
+
+        String md = content.toString();
+        assertTrue(md.contains("## Totals by Student"));
+        assertTrue(md.contains("| André | 27 |"));
     }
 
     // Verifies that when exporting more than one student to Markdown, the output file gets a
