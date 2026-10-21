@@ -28,4 +28,6 @@
          see the comment on Widget.QrGrades.BottomNavigationView in styles.xml for why this can't
          just be android:minHeight in the layout. -->
     <dimen name="bottom_nav_min_height">72dp</dimen>
+    <!-- Rounder than corner_radius_lg so the floating nav reads as a single pill. -->
+    <dimen name="bottom_nav_corner_radius">28dp</dimen>
 </resources>

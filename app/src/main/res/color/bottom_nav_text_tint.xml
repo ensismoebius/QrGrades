@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Labels sit directly on the nav pill (not on the indicator), so the selected one takes the
+     brand primary to echo the indicator above it; the rest stay a step quieter than the icons. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="?attr/colorPrimary" android:state_checked="true" />
+    <item android:color="?attr/colorOnSurfaceVariant" />
+</selector>

@@ -51,14 +51,28 @@
          pick up a consistent baseline rather than silently falling back to the platform default
          ("Roboto"'s regular weight — fine as the body default, so only set here, not overridden). -->
 
-    <!-- M3's default bottom nav reserves ~80dp (12dp top padding + 32dp active-indicator pill +
-         4dp label gap + label line + 16dp bottom padding) regardless of an instance-level
-         android:minHeight override — BottomNavigationView's defStyleRes always wins that specific
-         attribute. Overriding it here, at the style level, is the only way that's actually honored:
-         shrinking the active indicator to match the icon (24dp, down from 32dp) removes the single
-         biggest driver of that reserved height. -->
+    <!-- A full pill (M3's 64x32dp) tinted with the brand's primaryContainer rather than M3's
+         default secondaryContainer, which in this palette is a teal that clashes with the purple
+         theme. The height is kept by trimming the item's own top/bottom padding instead (see
+         Widget.QrGrades.BottomNavigationView). -->
     <style name="Widget.QrGrades.BottomNavigationView.ActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
-        <item name="android:height">24dp</item>
+        <item name="android:width">64dp</item>
+        <item name="android:height">32dp</item>
+        <item name="android:color">?attr/colorPrimaryContainer</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.QrGrades.Full</item>
+    </style>
+
+    <style name="ShapeAppearance.QrGrades.Full" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <style name="TextAppearance.QrGrades.BottomNav" parent="TextAppearance.Material3.LabelMedium" />
+
+    <style name="TextAppearance.QrGrades.BottomNav.Active">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="fontFamily">sans-serif-medium</item>
+        <item name="android:textStyle">bold</item>
     </style>
 
     <!-- android:minHeight is intentionally NOT set here: BottomNavigationMenuView (the internal
@@ -69,5 +83,14 @@
          minimumHeight on both views directly, in code, after construction. -->
     <style name="Widget.QrGrades.BottomNavigationView" parent="Widget.Material3.BottomNavigationView">
         <item name="itemActiveIndicatorStyle">@style/Widget.QrGrades.BottomNavigationView.ActiveIndicator</item>
+        <!-- Every tab keeps its label, so the selected one no longer jumps up out of line with the rest. -->
+        <item name="labelVisibilityMode">labeled</item>
+        <item name="itemTextAppearanceInactive">@style/TextAppearance.QrGrades.BottomNav</item>
+        <item name="itemTextAppearanceActive">@style/TextAppearance.QrGrades.BottomNav.Active</item>
+        <item name="itemIconTint">@color/bottom_nav_icon_tint</item>
+        <item name="itemTextColor">@color/bottom_nav_text_tint</item>
+        <item name="itemRippleColor">@android:color/transparent</item>
+        <item name="itemPaddingTop">10dp</item>
+        <item name="itemPaddingBottom">10dp</item>
     </style>
 </resources>
