@@ -28,6 +28,8 @@ import org.dedira.qrnotas.model.CsvStudentRow;
 import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.Goal;
+import org.dedira.qrnotas.model.Period;
+import org.dedira.qrnotas.model.PeriodSnapshot;
 import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.ResolvedCsvRow;
 import org.dedira.qrnotas.model.Student;
@@ -230,6 +232,36 @@ public class DatabaseSync {
         CountDownLatch latch = new CountDownLatch(1);
         Result<ArrayList<PointsHistory>> result = new Result<>();
         database.loadHistoryForEnrollment(enrollmentId, (success, value) -> {
+            result.success = success;
+            result.value = value;
+            latch.countDown();
+        });
+        awaitLatch(latch);
+        return result.value;
+    }
+
+    /* --------------------------------- Periods ---------------------------------- */
+
+    /** Synchronous wrapper around {@link Database#loadPeriod}. */
+    public static Period loadPeriod(Database database, String periodId) {
+        assertNotMainThread();
+        CountDownLatch latch = new CountDownLatch(1);
+        Result<Period> result = new Result<>();
+        database.loadPeriod(periodId, (success, value) -> {
+            result.success = success;
+            result.value = value;
+            latch.countDown();
+        });
+        awaitLatch(latch);
+        return result.success ? result.value : null;
+    }
+
+    /** Synchronous wrapper around {@link Database#loadPeriodSnapshotsForStudent}. */
+    public static ArrayList<PeriodSnapshot> loadPeriodSnapshotsForStudent(Database database, String studentId) {
+        assertNotMainThread();
+        CountDownLatch latch = new CountDownLatch(1);
+        Result<ArrayList<PeriodSnapshot>> result = new Result<>();
+        database.loadPeriodSnapshotsForStudent(studentId, (success, value) -> {
             result.success = success;
             result.value = value;
             latch.countDown();

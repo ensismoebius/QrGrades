@@ -30,6 +30,8 @@ import org.dedira.qrnotas.model.CsvStudentRow;
 import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.Goal;
+import org.dedira.qrnotas.model.Period;
+import org.dedira.qrnotas.model.PeriodSnapshot;
 import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.model.StudentExportData;
@@ -142,7 +144,7 @@ public class WebServer extends NanoHTTPD {
             // Every other API call must present a valid session cookie obtained from /api/login.
             String token = readSessionToken(session);
             if (token == null || !validTokens.contains(token)) {
-                return jsonError(Response.Status.UNAUTHORIZED, "unauthorized");
+                return jsonError(Response.Status.UNAUTHORIZED, "não autorizado");
             }
 
             if (uri.equals("/api/logout") && method == Method.POST) {
@@ -154,7 +156,7 @@ public class WebServer extends NanoHTTPD {
         } catch (Exception e) {
             // Catch-all so an unexpected exception in any handler becomes a proper HTTP 500
             // JSON response instead of crashing the worker thread or leaking a raw stack trace.
-            return jsonError(Response.Status.INTERNAL_ERROR, e.getMessage() == null ? "server error" : e.getMessage());
+            return jsonError(Response.Status.INTERNAL_ERROR, e.getMessage() == null ? "erro no servidor" : e.getMessage());
         }
     }
 
@@ -215,7 +217,7 @@ public class WebServer extends NanoHTTPD {
         Long locked = lockUntil.get(ip);
         if (locked != null && locked > System.currentTimeMillis()) {
             // Still within the lockout window for this IP; reject without even checking the password.
-            return jsonError(Response.Status.FORBIDDEN, "too many attempts, try again later");
+            return jsonError(Response.Status.FORBIDDEN, "muitas tentativas, tente novamente mais tarde");
         }
 
         JSONObject body = readJsonBody(session);
@@ -250,7 +252,7 @@ public class WebServer extends NanoHTTPD {
             lockUntil.put(ip, System.currentTimeMillis() + LOCKOUT_MS);
             failCounts.remove(ip);
         }
-        return jsonError(Response.Status.UNAUTHORIZED, "invalid password");
+        return jsonError(Response.Status.UNAUTHORIZED, "senha incorreta");
     }
 
     /**
@@ -302,6 +304,9 @@ public class WebServer extends NanoHTTPD {
         } else if (parts.length == 3 && parts[2].equals("qrcode")) {
             // "/api/students/{id}/qrcode"
             if (method == Method.GET) return handleGetQrCode(parts[1]);
+        } else if (parts.length == 3 && parts[2].equals("history")) {
+            // "/api/students/{id}/history"
+            if (method == Method.GET) return handleStudentHistory(parts[1]);
         }
         return notFound();
     }
@@ -329,12 +334,12 @@ public class WebServer extends NanoHTTPD {
     private Response handleCreateStudent(IHTTPSession session) throws Exception {
         JSONObject body = readJsonBody(session);
         String name = body.optString("name", "").trim();
-        if (name.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "name is required");
+        if (name.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "o nome é obrigatório");
 
         Student student = new Student();
         student.name = name;
         DatabaseSync.Result<Student> result = DatabaseSync.saveStudent(database, student);
-        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "failed to save student");
+        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao salvar o aluno");
         return jsonResponse(Response.Status.OK, studentJson(result.value));
     }
 
@@ -346,18 +351,18 @@ public class WebServer extends NanoHTTPD {
         JSONObject body = readJsonBody(session);
         // Falls back to the existing name if the field is missing, so a partial update doesn't wipe it out.
         String name = body.optString("name", existing.name).trim();
-        if (name.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "name is required");
+        if (name.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "o nome é obrigatório");
         existing.name = name;
 
         DatabaseSync.Result<Student> result = DatabaseSync.saveStudent(database, existing);
-        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "failed to save student");
+        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao salvar o aluno");
         return jsonResponse(Response.Status.OK, studentJson(result.value));
     }
 
     /** Handles DELETE /api/students/{id}: removes a student. */
     private Response handleDeleteStudent(String id) {
         boolean success = DatabaseSync.deleteStudent(database, id);
-        return success ? jsonOk() : jsonError(Response.Status.NOT_FOUND, "student not found");
+        return success ? jsonOk() : jsonError(Response.Status.NOT_FOUND, "aluno não encontrado");
     }
 
     /** Handles GET /api/students/{id}/photo: streams the student's saved photo file, if any. */
@@ -386,7 +391,7 @@ public class WebServer extends NanoHTTPD {
         if (student == null) return notFound();
 
         Bitmap qrBitmap = QrCode.generateQRCode(student.id);
-        if (qrBitmap == null) return jsonError(Response.Status.INTERNAL_ERROR, "failed to generate QR code");
+        if (qrBitmap == null) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao gerar o código QR");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         qrBitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
@@ -409,17 +414,17 @@ public class WebServer extends NanoHTTPD {
         Map<String, String> files = new HashMap<>();
         session.parseBody(files);
         String tempPath = files.get("photo");
-        if (tempPath == null) return jsonError(Response.Status.BAD_REQUEST, "photo file is required");
+        if (tempPath == null) return jsonError(Response.Status.BAD_REQUEST, "selecione uma foto");
 
         Bitmap bitmap = BitmapFactory.decodeFile(tempPath);
-        if (bitmap == null) return jsonError(Response.Status.BAD_REQUEST, "invalid image file");
+        if (bitmap == null) return jsonError(Response.Status.BAD_REQUEST, "arquivo de imagem inválido");
 
         String savedPath = BitmapConverter.saveStudentPhoto(context, bitmap, id);
-        if (savedPath == null) return jsonError(Response.Status.INTERNAL_ERROR, "failed to save photo");
+        if (savedPath == null) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao salvar a foto");
 
         student.photoPath = savedPath;
         DatabaseSync.Result<Student> result = DatabaseSync.saveStudent(database, student);
-        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "failed to save student");
+        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao salvar o aluno");
         return jsonOk();
     }
 
@@ -461,12 +466,12 @@ public class WebServer extends NanoHTTPD {
     private Response handleCreateDiscipline(IHTTPSession session) throws Exception {
         JSONObject body = readJsonBody(session);
         String name = body.optString("name", "").trim();
-        if (name.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "name is required");
+        if (name.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "o nome é obrigatório");
 
         Discipline discipline = new Discipline();
         discipline.name = name;
         DatabaseSync.Result<Discipline> result = DatabaseSync.saveDiscipline(database, discipline);
-        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "failed to save discipline");
+        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao salvar a disciplina");
         return jsonResponse(Response.Status.OK, disciplineJson(result.value));
     }
 
@@ -474,13 +479,13 @@ public class WebServer extends NanoHTTPD {
     private Response handleUpdateDiscipline(IHTTPSession session, String id) throws Exception {
         JSONObject body = readJsonBody(session);
         String name = body.optString("name", "").trim();
-        if (name.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "name is required");
+        if (name.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "o nome é obrigatório");
 
         Discipline discipline = new Discipline();
         discipline.id = id;
         discipline.name = name;
         DatabaseSync.Result<Discipline> result = DatabaseSync.saveDiscipline(database, discipline);
-        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "failed to save discipline");
+        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao salvar a disciplina");
         return jsonResponse(Response.Status.OK, disciplineJson(result.value));
     }
 
@@ -493,7 +498,7 @@ public class WebServer extends NanoHTTPD {
         DatabaseSync.Result<Void> result = DatabaseSync.deleteDiscipline(database, id);
         if (result.success) return jsonOk();
         if ("HAS_GROUPS".equals(result.error)) return jsonError(Response.Status.CONFLICT, "HAS_GROUPS");
-        return jsonError(Response.Status.NOT_FOUND, "discipline not found");
+        return jsonError(Response.Status.NOT_FOUND, "disciplina não encontrada");
     }
 
     /* ------------------------------- Class groups ----------------------------------- */
@@ -543,14 +548,14 @@ public class WebServer extends NanoHTTPD {
         String disciplineId = body.optString("disciplineId", "");
         String name = body.optString("name", "").trim();
         if (disciplineId.isEmpty() || name.isEmpty()) {
-            return jsonError(Response.Status.BAD_REQUEST, "disciplineId and name are required");
+            return jsonError(Response.Status.BAD_REQUEST, "disciplina e nome são obrigatórios");
         }
 
         ClassGroup group = new ClassGroup();
         group.disciplineId = disciplineId;
         group.name = name;
         DatabaseSync.Result<ClassGroup> result = DatabaseSync.saveClassGroup(database, group);
-        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "failed to save class group");
+        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao salvar a turma");
         return jsonResponse(Response.Status.OK, classGroupJson(result.value));
     }
 
@@ -560,7 +565,7 @@ public class WebServer extends NanoHTTPD {
         String disciplineId = body.optString("disciplineId", "");
         String name = body.optString("name", "").trim();
         if (disciplineId.isEmpty() || name.isEmpty()) {
-            return jsonError(Response.Status.BAD_REQUEST, "disciplineId and name are required");
+            return jsonError(Response.Status.BAD_REQUEST, "disciplina e nome são obrigatórios");
         }
 
         ClassGroup group = new ClassGroup();
@@ -568,7 +573,7 @@ public class WebServer extends NanoHTTPD {
         group.disciplineId = disciplineId;
         group.name = name;
         DatabaseSync.Result<ClassGroup> result = DatabaseSync.saveClassGroup(database, group);
-        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "failed to save class group");
+        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao salvar a turma");
         return jsonResponse(Response.Status.OK, classGroupJson(result.value));
     }
 
@@ -580,7 +585,7 @@ public class WebServer extends NanoHTTPD {
         DatabaseSync.Result<Void> result = DatabaseSync.deleteClassGroup(database, id);
         if (result.success) return jsonOk();
         if ("HAS_STUDENTS".equals(result.error)) return jsonError(Response.Status.CONFLICT, "HAS_STUDENTS");
-        return jsonError(Response.Status.NOT_FOUND, "class group not found");
+        return jsonError(Response.Status.NOT_FOUND, "turma não encontrada");
     }
 
     /* ----------------------------------- Goals -------------------------------------- */
@@ -614,7 +619,7 @@ public class WebServer extends NanoHTTPD {
     /** Handles GET /api/goals: returns the goals for a given discipline (required query parameter). */
     private Response handleListGoals(IHTTPSession session) throws JSONException {
         String disciplineId = queryParam(session, "disciplineId");
-        if (disciplineId == null) return jsonError(Response.Status.BAD_REQUEST, "disciplineId is required");
+        if (disciplineId == null) return jsonError(Response.Status.BAD_REQUEST, "disciplina é obrigatória");
         ArrayList<Goal> list = DatabaseSync.loadGoalsForDiscipline(database, disciplineId);
         JSONArray array = new JSONArray();
         if (list != null) for (Goal g : list) array.put(goalJson(g));
@@ -628,7 +633,7 @@ public class WebServer extends NanoHTTPD {
         String name = body.optString("name", "").trim();
         int targetPoints = body.optInt("targetPoints", 0);
         if (disciplineId.isEmpty() || name.isEmpty()) {
-            return jsonError(Response.Status.BAD_REQUEST, "disciplineId and name are required");
+            return jsonError(Response.Status.BAD_REQUEST, "disciplina e nome são obrigatórios");
         }
 
         Goal goal = new Goal();
@@ -636,7 +641,7 @@ public class WebServer extends NanoHTTPD {
         goal.name = name;
         goal.targetPoints = targetPoints;
         DatabaseSync.Result<Goal> result = DatabaseSync.saveGoal(database, goal);
-        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "failed to save goal");
+        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao salvar a meta");
         return jsonResponse(Response.Status.OK, goalJson(result.value));
     }
 
@@ -647,7 +652,7 @@ public class WebServer extends NanoHTTPD {
         String name = body.optString("name", "").trim();
         int targetPoints = body.optInt("targetPoints", 0);
         if (disciplineId.isEmpty() || name.isEmpty()) {
-            return jsonError(Response.Status.BAD_REQUEST, "disciplineId and name are required");
+            return jsonError(Response.Status.BAD_REQUEST, "disciplina e nome são obrigatórios");
         }
 
         Goal goal = new Goal();
@@ -656,14 +661,14 @@ public class WebServer extends NanoHTTPD {
         goal.name = name;
         goal.targetPoints = targetPoints;
         DatabaseSync.Result<Goal> result = DatabaseSync.saveGoal(database, goal);
-        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "failed to save goal");
+        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao salvar a meta");
         return jsonResponse(Response.Status.OK, goalJson(result.value));
     }
 
     /** Handles DELETE /api/goals/{id}: removes a goal. */
     private Response handleDeleteGoal(String id) {
         boolean success = DatabaseSync.deleteGoal(database, id);
-        return success ? jsonOk() : jsonError(Response.Status.NOT_FOUND, "goal not found");
+        return success ? jsonOk() : jsonError(Response.Status.NOT_FOUND, "meta não encontrada");
     }
 
     /* -------------------------------- Enrollments ------------------------------------ */
@@ -698,7 +703,7 @@ public class WebServer extends NanoHTTPD {
     /** Handles GET /api/enrollments: returns all enrollments for a given student (required query parameter). */
     private Response handleListEnrollments(IHTTPSession session) throws JSONException {
         String studentId = queryParam(session, "studentId");
-        if (studentId == null) return jsonError(Response.Status.BAD_REQUEST, "studentId is required");
+        if (studentId == null) return jsonError(Response.Status.BAD_REQUEST, "aluno é obrigatório");
         ArrayList<Enrollment> list = DatabaseSync.loadEnrollmentsForStudent(database, studentId);
         JSONArray array = new JSONArray();
         if (list != null) for (Enrollment e : list) array.put(enrollmentJson(e));
@@ -711,7 +716,7 @@ public class WebServer extends NanoHTTPD {
         String studentId = body.optString("studentId", "");
         String classGroupId = body.optString("classGroupId", "");
         if (studentId.isEmpty() || classGroupId.isEmpty()) {
-            return jsonError(Response.Status.BAD_REQUEST, "studentId and classGroupId are required");
+            return jsonError(Response.Status.BAD_REQUEST, "aluno e turma são obrigatórios");
         }
 
         Enrollment enrollment = new Enrollment();
@@ -719,14 +724,14 @@ public class WebServer extends NanoHTTPD {
         enrollment.classGroupId = classGroupId;
         enrollment.grades = 0;
         DatabaseSync.Result<Enrollment> result = DatabaseSync.saveEnrollment(database, enrollment);
-        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "failed to enroll student");
+        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao matricular o aluno");
         return jsonResponse(Response.Status.OK, enrollmentJson(result.value));
     }
 
     /** Handles DELETE /api/enrollments/{id}: removes a student's enrollment from a class group. */
     private Response handleDeleteEnrollment(String id) {
         boolean success = DatabaseSync.deleteEnrollment(database, id);
-        return success ? jsonOk() : jsonError(Response.Status.NOT_FOUND, "enrollment not found");
+        return success ? jsonOk() : jsonError(Response.Status.NOT_FOUND, "matrícula não encontrada");
     }
 
     /**
@@ -737,7 +742,7 @@ public class WebServer extends NanoHTTPD {
     private Response handleAwardPoints(IHTTPSession session, String enrollmentId) throws Exception {
         JSONObject body = readJsonBody(session);
         int delta = body.optInt("delta", 0);
-        if (delta == 0) return jsonError(Response.Status.BAD_REQUEST, "delta must be non-zero");
+        if (delta == 0) return jsonError(Response.Status.BAD_REQUEST, "a quantidade de pontos não pode ser zero");
         String note = body.optString("note", "");
 
         Enrollment enrollment = DatabaseSync.loadEnrollmentById(database, enrollmentId);
@@ -747,7 +752,7 @@ public class WebServer extends NanoHTTPD {
         // never overwritten wholesale, so the history log stays an accurate audit trail.
         int newGrades = enrollment.grades + delta;
         DatabaseSync.Result<Enrollment> updateResult = DatabaseSync.updateEnrollmentGrades(database, enrollmentId, newGrades);
-        if (!updateResult.success) return jsonError(Response.Status.INTERNAL_ERROR, "failed to update points");
+        if (!updateResult.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao atualizar os pontos");
 
         // Record this change as a new history entry so it shows up in the enrollment's timeline.
         PointsHistory history = new PointsHistory();
@@ -765,7 +770,7 @@ public class WebServer extends NanoHTTPD {
     /** Handles GET /api/history: returns the points-change log for a given enrollment (required query parameter). */
     private Response handleHistory(IHTTPSession session) throws JSONException {
         String enrollmentId = queryParam(session, "enrollmentId");
-        if (enrollmentId == null) return jsonError(Response.Status.BAD_REQUEST, "enrollmentId is required");
+        if (enrollmentId == null) return jsonError(Response.Status.BAD_REQUEST, "matrícula é obrigatória");
 
         ArrayList<PointsHistory> list = DatabaseSync.loadHistoryForEnrollment(database, enrollmentId);
         JSONArray array = new JSONArray();
@@ -782,6 +787,121 @@ public class WebServer extends NanoHTTPD {
         obj.put("note", h.note == null ? "" : h.note);
         obj.put("createdAt", h.createdAt);
         return obj;
+    }
+
+    /**
+     * Handles GET /api/students/{id}/history: the student's whole points timeline split into the
+     * current (still open) period and every closed period, across all disciplines.
+     * <p>
+     * Closing a period never deletes {@link PointsHistory} rows — it only snapshots each
+     * enrollment's total into a {@link PeriodSnapshot} and resets it to 0 — so each history entry
+     * is assigned to the earliest non-reopened period of its enrollment whose closedAt is at or
+     * after the entry's createdAt; entries newer than the last close belong to the current period.
+     * Reopened periods are skipped entirely: reopening restored their totals, so their entries
+     * fold into whichever period (or the current one) comes next.
+     */
+    private Response handleStudentHistory(String studentId) throws JSONException {
+        Student student = DatabaseSync.loadStudent(database, studentId);
+        if (student == null) return notFound();
+
+        Map<String, ClassGroup> groupsById = new HashMap<>();
+        ArrayList<ClassGroup> groups = DatabaseSync.loadAllClassGroups(database);
+        if (groups != null) for (ClassGroup g : groups) groupsById.put(g.id, g);
+        Map<String, String> disciplineNames = new HashMap<>();
+        ArrayList<Discipline> disciplines = DatabaseSync.loadAllDisciplines(database);
+        if (disciplines != null) for (Discipline d : disciplines) disciplineNames.put(d.id, d.name);
+
+        // Closed-period snapshots grouped per enrollment, already in closedAt ascending order.
+        Map<String, Period> periodsById = new HashMap<>();
+        Map<String, List<PeriodSnapshot>> snapshotsByEnrollment = new HashMap<>();
+        ArrayList<PeriodSnapshot> snapshots = DatabaseSync.loadPeriodSnapshotsForStudent(database, studentId);
+        if (snapshots != null) for (PeriodSnapshot s : snapshots) {
+            Period period = periodsById.get(s.periodId);
+            if (period == null && !periodsById.containsKey(s.periodId)) {
+                period = DatabaseSync.loadPeriod(database, s.periodId);
+                periodsById.put(s.periodId, period);
+            }
+            if (period == null || period.isReopened()) continue;
+            List<PeriodSnapshot> list = snapshotsByEnrollment.get(s.enrollmentId);
+            if (list == null) {
+                list = new ArrayList<>();
+                snapshotsByEnrollment.put(s.enrollmentId, list);
+            }
+            list.add(s);
+        }
+
+        JSONArray current = new JSONArray();
+        JSONArray closed = new JSONArray();
+        Map<String, JSONArray> historyBySnapshot = new HashMap<>();
+
+        // Build one JSON entry per closed-period snapshot first, so history can be bucketed into them.
+        for (List<PeriodSnapshot> list : snapshotsByEnrollment.values()) {
+            for (PeriodSnapshot s : list) {
+                Period period = periodsById.get(s.periodId);
+                ClassGroup group = groupsById.get(s.classGroupId);
+                JSONObject obj = new JSONObject();
+                obj.put("periodId", period.id);
+                obj.put("label", period.label == null ? "" : period.label);
+                obj.put("closedAt", period.closedAt);
+                obj.put("disciplineId", period.disciplineId);
+                obj.put("discipline", period.disciplineName == null ? "" : period.disciplineName);
+                obj.put("classClose", period.isClassClose());
+                obj.put("enrollmentId", s.enrollmentId);
+                obj.put("classGroupId", s.classGroupId);
+                obj.put("classGroup", group == null ? "" : group.name);
+                obj.put("points", s.points);
+                JSONArray history = new JSONArray();
+                obj.put("history", history);
+                historyBySnapshot.put(s.id, history);
+                closed.put(obj);
+            }
+        }
+
+        Map<String, JSONArray> historyByCurrentEnrollment = new HashMap<>();
+        ArrayList<Enrollment> enrollments = DatabaseSync.loadEnrollmentsForStudent(database, studentId);
+        if (enrollments != null) for (Enrollment e : enrollments) {
+            ClassGroup group = groupsById.get(e.classGroupId);
+            String disciplineId = group == null ? null : group.disciplineId;
+            JSONObject obj = new JSONObject();
+            obj.put("enrollmentId", e.id);
+            obj.put("classGroupId", e.classGroupId);
+            obj.put("classGroup", group == null ? "" : group.name);
+            obj.put("classGroupClosed", group != null && group.isClosed());
+            obj.put("disciplineId", disciplineId == null ? "" : disciplineId);
+            String disciplineName = disciplineId == null ? null : disciplineNames.get(disciplineId);
+            obj.put("discipline", disciplineName == null ? "" : disciplineName);
+            obj.put("points", e.grades);
+            JSONArray history = new JSONArray();
+            obj.put("history", history);
+            historyByCurrentEnrollment.put(e.id, history);
+            current.put(obj);
+        }
+
+        // Every enrollment that has either a live row or at least one closed-period snapshot.
+        Set<String> enrollmentIds = new HashSet<>(historyByCurrentEnrollment.keySet());
+        enrollmentIds.addAll(snapshotsByEnrollment.keySet());
+        for (String enrollmentId : enrollmentIds) {
+            ArrayList<PointsHistory> entries = DatabaseSync.loadHistoryForEnrollment(database, enrollmentId);
+            if (entries == null) continue;
+            List<PeriodSnapshot> closes = snapshotsByEnrollment.get(enrollmentId);
+            for (PointsHistory h : entries) {
+                JSONArray target = null;
+                if (closes != null) for (PeriodSnapshot s : closes) {
+                    if (h.createdAt <= periodsById.get(s.periodId).closedAt) {
+                        target = historyBySnapshot.get(s.id);
+                        break;
+                    }
+                }
+                if (target == null) target = historyByCurrentEnrollment.get(enrollmentId);
+                if (target != null) target.put(historyJson(h));
+            }
+        }
+
+        JSONObject result = new JSONObject();
+        result.put("student", studentJson(student));
+        result.put("current", current);
+        result.put("periods", closed);
+        return jsonResponse(Response.Status.OK, result);
     }
 
 
@@ -825,7 +945,7 @@ public class WebServer extends NanoHTTPD {
             response.addHeader("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"");
             return response;
         } catch (Exception e) {
-            return jsonError(Response.Status.INTERNAL_ERROR, "failed to export");
+            return jsonError(Response.Status.INTERNAL_ERROR, "falha ao exportar");
         }
     }
 
@@ -842,7 +962,7 @@ public class WebServer extends NanoHTTPD {
         Map<String, String> files = new HashMap<>();
         session.parseBody(files);
         String tempPath = files.get("file");
-        if (tempPath == null) return jsonError(Response.Status.BAD_REQUEST, "file is required");
+        if (tempPath == null) return jsonError(Response.Status.BAD_REQUEST, "selecione um arquivo");
 
         // Safety net: back up the whole database before mutating it with imported data.
         boolean snapshotOk = DatabaseSync.createFullSnapshot(context, database, false);
@@ -851,9 +971,9 @@ public class WebServer extends NanoHTTPD {
         try {
             data = Importer.parseJsonArray(readFileToString(new File(tempPath)));
         } catch (JSONException e) {
-            return jsonError(Response.Status.BAD_REQUEST, "invalid JSON file: " + e.getMessage());
+            return jsonError(Response.Status.BAD_REQUEST, "arquivo JSON inválido: " + e.getMessage());
         }
-        if (data.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "file has no data to import");
+        if (data.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "o arquivo não tem dados para importar");
 
         // Figure out, before importing, which incoming students already exist (by id) versus
         // which are brand new, purely to report accurate counts back to the caller.
@@ -886,7 +1006,7 @@ public class WebServer extends NanoHTTPD {
         Map<String, String> files = new HashMap<>();
         session.parseBody(files);
         String tempPath = files.get("file");
-        if (tempPath == null) return jsonError(Response.Status.BAD_REQUEST, "file is required");
+        if (tempPath == null) return jsonError(Response.Status.BAD_REQUEST, "selecione um arquivo");
 
         boolean snapshotOk = DatabaseSync.createFullSnapshot(context, database, false);
 
@@ -895,14 +1015,14 @@ public class WebServer extends NanoHTTPD {
         try (FileInputStream in = new FileInputStream(tempPath)) {
             rows = CsvImporter.parse(in);
         } catch (CsvImporter.CsvFormatException e) {
-            return jsonError(Response.Status.BAD_REQUEST, "invalid CSV file: " + e.getMessage());
+            return jsonError(Response.Status.BAD_REQUEST, "arquivo CSV inválido: " + e.getMessage());
         }
-        if (rows.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "no valid rows to import");
+        if (rows.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "nenhuma linha válida para importar");
 
         // resolveCsvRows matches each row against existing students/class groups and separates
         // rows that can be imported from ones with problems (collected in plan.errors).
         CsvImportPlan plan = DatabaseSync.resolveCsvRows(database, rows);
-        if (plan.resolved.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "no valid rows to import");
+        if (plan.resolved.isEmpty()) return jsonError(Response.Status.BAD_REQUEST, "nenhuma linha válida para importar");
 
         boolean success = DatabaseSync.importCsvRows(database, plan.resolved);
 
@@ -1005,6 +1125,6 @@ public class WebServer extends NanoHTTPD {
 
     /** Shorthand for a 404 Not Found JSON error response, used throughout the routing methods. */
     private static Response notFound() {
-        return jsonError(Response.Status.NOT_FOUND, "not found");
+        return jsonError(Response.Status.NOT_FOUND, "não encontrado");
     }
 }

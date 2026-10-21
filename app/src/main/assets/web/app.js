@@ -11,7 +11,11 @@
         leaderboardDisciplineId: null,
         studentsDisciplineId: null,
         qrDisciplineId: null,
-        qrExcludedIds: {}
+        qrExcludedIds: {},
+        historyQuery: '',
+        historyStudentId: null,
+        historyDisciplineId: '',
+        historyPeriod: 'all'
     };
 
     /* ------------------------------- API helper ------------------------------- */
@@ -26,10 +30,12 @@
         return fetch(path, options).then(function (res) {
             if (res.status === 401) {
                 showLogin();
-                throw new Error('unauthorized');
+                return res.json().catch(function () { return {}; }).then(function (data) {
+                    throw new Error(data.error || 'não autorizado');
+                });
             }
             return res.json().catch(function () { return {}; }).then(function (data) {
-                if (!res.ok) throw new Error(data.error || ('request failed: ' + res.status));
+                if (!res.ok) throw new Error(data.error || ('falha na requisição: ' + res.status));
                 return data;
             });
         });
@@ -87,6 +93,7 @@
     function renderTab(tab) {
         if (tab === 'overview') renderOverview();
         else if (tab === 'students') renderStudents();
+        else if (tab === 'history') renderHistory();
         else if (tab === 'disciplines') renderDisciplines();
         else if (tab === 'classgroups') renderClassGroups();
         else if (tab === 'goals') renderGoals();
@@ -112,7 +119,7 @@
 
     function studentName(id) {
         var s = state.students.find(function (x) { return x.id === id; });
-        return s ? s.name : '(unknown student)';
+        return s ? s.name : '(aluno desconhecido)';
     }
 
     function classGroupName(id) {
@@ -138,9 +145,9 @@
             '<h2>' + escapeHtml(title) + '</h2>' +
             '<form id="modal-form">' + fieldsHtml +
             '<div class="modal-actions">' +
-            (onDelete ? '<button type="button" class="btn danger" id="modal-delete">Delete</button>' : '') +
-            '<button type="button" class="btn secondary" id="modal-cancel">Cancel</button>' +
-            '<button type="submit" class="btn">Save</button>' +
+            (onDelete ? '<button type="button" class="btn danger" id="modal-delete">Excluir</button>' : '') +
+            '<button type="button" class="btn secondary" id="modal-cancel">Cancelar</button>' +
+            '<button type="submit" class="btn">Salvar</button>' +
             '</div></form></div></div>';
 
         root.querySelector('#modal-cancel').addEventListener('click', closeModal);
@@ -172,7 +179,7 @@
         var el = document.getElementById('tab-overview');
 
         if (state.disciplines.length === 0) {
-            el.innerHTML = '<div class="card"><p>Add a discipline first.</p></div>';
+            el.innerHTML = '<div class="card"><p>Cadastre uma disciplina primeiro.</p></div>';
             return;
         }
         if (state.leaderboardDisciplineId == null ||
@@ -184,12 +191,12 @@
         var top = scoped.slice().sort(function (a, b) { return b.points - a.points; }).slice(0, 10);
 
         el.innerHTML =
-            '<div class="card"><div class="row"><h2 style="flex:1">Leaderboard</h2><label>Discipline:</label>' +
+            '<div class="card"><div class="row"><h2 style="flex:1">Ranking</h2><label>Disciplina:</label>' +
             '<select id="leaderboard-discipline">' + disciplineOptions(state.leaderboardDisciplineId) + '</select></div>' +
             leaderboardSvg(top) + '</div>' +
-            '<div class="card"><h2>Cumulative points over time</h2>' + pointsOverTimeSvg(scoped) + '</div>' +
-            '<div class="card"><h2>All enrollments</h2><div class="table-wrap"><table><thead><tr>' +
-            '<th>Name</th><th>Discipline</th><th>Class group</th><th>Points</th></tr></thead><tbody>' +
+            '<div class="card"><h2>Pontos acumulados ao longo do tempo</h2>' + pointsOverTimeSvg(scoped) + '</div>' +
+            '<div class="card"><h2>Todas as matrículas</h2><div class="table-wrap"><table><thead><tr>' +
+            '<th>Nome</th><th>Disciplina</th><th>Turma</th><th>Pontos</th></tr></thead><tbody>' +
             state.overview.map(function (row) {
                 return '<tr><td>' + escapeHtml(row.name) + '</td><td>' + escapeHtml(row.discipline) +
                     '</td><td>' + escapeHtml(row.classGroup) + '</td><td>' + row.points + '</td></tr>';
@@ -203,7 +210,7 @@
     }
 
     function leaderboardSvg(rows) {
-        if (rows.length === 0) return '<p>No data yet.</p>';
+        if (rows.length === 0) return '<p>Ainda não há dados.</p>';
         var width = 600, barHeight = 28, gap = 8, labelWidth = 140;
         var max = Math.max.apply(null, rows.map(function (r) { return r.points; }).concat([1]));
         var height = rows.length * (barHeight + gap);
@@ -228,7 +235,7 @@
         rows.forEach(function (r) {
             (r.history || []).forEach(function (h) { points.push(h); });
         });
-        if (points.length === 0) return '<p>No history yet.</p>';
+        if (points.length === 0) return '<p>Ainda não há histórico.</p>';
 
         points.sort(function (a, b) { return a.timestamp - b.timestamp; });
         var cumulative = 0;
@@ -269,7 +276,7 @@
         var el = document.getElementById('tab-students');
 
         if (state.disciplines.length === 0) {
-            el.innerHTML = '<div class="card"><p>Add a discipline first.</p></div>';
+            el.innerHTML = '<div class="card"><p>Cadastre uma disciplina primeiro.</p></div>';
             return;
         }
         if (state.studentsDisciplineId == null ||
@@ -285,10 +292,10 @@
 
         el.innerHTML =
             '<div class="card">' +
-            '<div class="row"><h2 style="flex:1">Students</h2><label>Discipline:</label>' +
+            '<div class="row"><h2 style="flex:1">Alunos</h2><label>Disciplina:</label>' +
             '<select id="students-discipline">' + disciplineOptions(state.studentsDisciplineId) + '</select>' +
-            '<button class="btn" id="add-student">Add student</button></div>' +
-            '<div class="table-wrap"><table><thead><tr><th></th><th>Name</th><th>Photo</th></tr></thead><tbody id="students-body"></tbody></table></div>' +
+            '<button class="btn" id="add-student">Adicionar aluno</button></div>' +
+            '<div class="table-wrap"><table><thead><tr><th></th><th>Nome</th><th>Foto</th></tr></thead><tbody id="students-body"></tbody></table></div>' +
             '</div>';
 
         document.getElementById('students-discipline').addEventListener('change', function (e) {
@@ -302,13 +309,13 @@
             tr.className = 'clickable';
             tr.innerHTML = '<td><img class="avatar" src="' + (s.hasPhoto ? '/api/students/' + s.id + '/photo' : '') +
                 '" onerror="this.style.visibility=\'hidden\'"></td>' +
-                '<td>' + escapeHtml(s.name) + '</td><td>' + (s.hasPhoto ? 'Yes' : 'No') + '</td>';
+                '<td>' + escapeHtml(s.name) + '</td><td>' + (s.hasPhoto ? 'Sim' : 'Não') + '</td>';
             tr.addEventListener('click', function () { toggleStudentDetail(tr, s); });
             body.appendChild(tr);
         });
 
         document.getElementById('add-student').addEventListener('click', function () {
-            openModal('Add student', '<label>Name</label><input name="name" required>', function (fd) {
+            openModal('Adicionar aluno', '<label>Nome</label><input name="name" required>', function (fd) {
                 api('/api/students', { method: 'POST', body: { name: fd.get('name') } })
                     .then(function () { closeModal(); return loadAll(); });
             });
@@ -322,7 +329,7 @@
 
         var detail = document.createElement('tr');
         detail.className = 'detail-row';
-        detail.innerHTML = '<td colspan="3">Loading…</td>';
+        detail.innerHTML = '<td colspan="3">Carregando…</td>';
         tr.after(detail);
 
         Promise.all([
@@ -340,18 +347,18 @@
         td.colSpan = 3;
         td.innerHTML =
             '<div class="row"><strong>' + escapeHtml(student.name) + '</strong>' +
-            '<button class="btn secondary" data-action="edit-student">Rename</button>' +
-            '<button class="btn danger" data-action="delete-student">Delete student</button></div>' +
-            '<form class="inline-form" data-action="upload-photo"><label>Photo:</label>' +
+            '<button class="btn secondary" data-action="edit-student">Renomear</button>' +
+            '<button class="btn danger" data-action="delete-student">Excluir aluno</button></div>' +
+            '<form class="inline-form" data-action="upload-photo"><label>Foto:</label>' +
             '<input type="file" name="photo" accept="image/*" required>' +
-            '<button type="submit" class="btn secondary">Upload</button></form>' +
-            '<h3 style="font-size:13px;margin-bottom:4px">Enrollments</h3>' +
-            '<div class="table-wrap"><table><thead><tr><th>Class group</th><th>Discipline</th><th>Points</th><th></th></tr></thead>' +
+            '<button type="submit" class="btn secondary">Enviar</button></form>' +
+            '<h3 style="font-size:13px;margin-bottom:4px">Matrículas</h3>' +
+            '<div class="table-wrap"><table><thead><tr><th>Turma</th><th>Disciplina</th><th>Pontos</th><th></th></tr></thead>' +
             '<tbody data-role="enroll-body"></tbody></table></div>' +
             (available.length ? '<form class="inline-form" data-action="enroll"><select name="classGroupId">' +
                 available.map(function (g) { return '<option value="' + g.id + '">' + escapeHtml(g.name) +
                     ' (' + escapeHtml(disciplineName(g.disciplineId)) + ')</option>'; }).join('') +
-                '</select><button type="submit" class="btn secondary">Enroll</button></form>' : '');
+                '</select><button type="submit" class="btn secondary">Matricular</button></form>' : '');
 
         detail.innerHTML = '';
         detail.appendChild(td);
@@ -364,9 +371,9 @@
                 '<td>' + e.grades + '</td>' +
                 '<td><form class="inline-form" data-action="award">' +
                 '<input type="number" name="delta" placeholder="+/-" style="width:70px" required>' +
-                '<input type="text" name="note" placeholder="note" style="width:100px">' +
-                '<button type="submit" class="btn secondary">Award</button>' +
-                '<button type="button" class="btn danger" data-action="unenroll">Remove</button></form></td>';
+                '<input type="text" name="note" placeholder="observação" style="width:100px">' +
+                '<button type="submit" class="btn secondary">Lançar</button>' +
+                '<button type="button" class="btn danger" data-action="unenroll">Remover</button></form></td>';
 
             row.querySelector('[data-action="award"]').addEventListener('submit', function (ev) {
                 ev.preventDefault();
@@ -399,16 +406,199 @@
         });
 
         td.querySelector('[data-action="edit-student"]').addEventListener('click', function () {
-            openModal('Rename student', '<label>Name</label><input name="name" value="' + escapeHtml(student.name) + '" required>', function (fd) {
+            openModal('Renomear aluno', '<label>Nome</label><input name="name" value="' + escapeHtml(student.name) + '" required>', function (fd) {
                 api('/api/students/' + student.id, { method: 'PUT', body: { name: fd.get('name') } })
                     .then(function () { closeModal(); return loadAll(); });
             });
         });
 
         td.querySelector('[data-action="delete-student"]').addEventListener('click', function () {
-            if (!confirm('Delete ' + student.name + '? This cannot be undone.')) return;
+            if (!confirm('Excluir ' + student.name + '? Esta ação não pode ser desfeita.')) return;
             api('/api/students/' + student.id, { method: 'DELETE' }).then(function () { return loadAll(); });
         });
+    }
+
+    /* --------------------------------- History ------------------------------------ */
+
+    // Lowercased and stripped of accents, so "joao" matches "João".
+    function normalizeSearch(text) {
+        return (text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    }
+
+    function formatDate(ms) {
+        return new Date(ms).toLocaleString('pt-BR');
+    }
+
+    function periodTitle(p) {
+        return p.label ? p.label : 'Encerrado em ' + new Date(p.closedAt).toLocaleDateString('pt-BR');
+    }
+
+    function renderHistory() {
+        var el = document.getElementById('tab-history');
+        if (state.students.length === 0) {
+            el.innerHTML = '<div class="card"><p>Cadastre um aluno primeiro.</p></div>';
+            return;
+        }
+
+        el.innerHTML =
+            '<div class="card">' +
+            '<div class="row"><h2 style="flex:1">Histórico do aluno</h2>' +
+            '<input type="search" id="history-search" class="search-input" placeholder="Pesquisar aluno pelo nome…" value="' +
+            escapeHtml(state.historyQuery) + '"></div>' +
+            '<div class="table-wrap history-results"><table><tbody id="history-results"></tbody></table></div>' +
+            '</div>' +
+            '<div id="history-detail"></div>';
+
+        var search = document.getElementById('history-search');
+        search.addEventListener('input', function () {
+            state.historyQuery = search.value;
+            renderHistoryResults();
+        });
+        renderHistoryResults();
+        if (state.historyStudentId) loadStudentHistory(state.historyStudentId);
+    }
+
+    function renderHistoryResults() {
+        var body = document.getElementById('history-results');
+        if (!body) return;
+        var query = normalizeSearch(state.historyQuery.trim());
+        var matches = state.students.filter(function (s) {
+            return !query || normalizeSearch(s.name).indexOf(query) !== -1;
+        }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+
+        body.innerHTML = '';
+        if (matches.length === 0) {
+            body.innerHTML = '<tr><td>Nenhum aluno corresponde a "' + escapeHtml(state.historyQuery) + '".</td></tr>';
+            return;
+        }
+        matches.forEach(function (s) {
+            var tr = document.createElement('tr');
+            tr.className = 'clickable' + (s.id === state.historyStudentId ? ' selected' : '');
+            tr.innerHTML = '<td><div class="row" style="margin:0;flex-wrap:nowrap">' +
+                (s.hasPhoto ? '<img class="avatar" src="/api/students/' + s.id + '/photo" onerror="this.remove()">' : '') +
+                '<span>' + escapeHtml(s.name) + '</span></div></td>';
+            tr.addEventListener('click', function () {
+                state.historyStudentId = s.id;
+                state.historyDisciplineId = '';
+                state.historyPeriod = 'all';
+                renderHistoryResults();
+                loadStudentHistory(s.id);
+            });
+            body.appendChild(tr);
+        });
+    }
+
+    function loadStudentHistory(studentId) {
+        var detail = document.getElementById('history-detail');
+        detail.innerHTML = '<div class="card"><p>Carregando…</p></div>';
+        api('/api/students/' + encodeURIComponent(studentId) + '/history').then(function (data) {
+            if (state.historyStudentId !== studentId) return;
+            renderStudentHistory(data);
+        }).catch(function (err) {
+            detail.innerHTML = '<div class="card"><div class="summary-banner error">' + escapeHtml(err.message) + '</div></div>';
+        });
+    }
+
+    function renderStudentHistory(data) {
+        var detail = document.getElementById('history-detail');
+        if (!detail) return;
+        var periods = data.periods.slice().sort(function (a, b) { return b.closedAt - a.closedAt; });
+
+        // Discipline choices come from both live enrollments and past periods, so a discipline
+        // the student has since left is still selectable.
+        var disciplines = {};
+        data.current.concat(periods).forEach(function (r) { if (r.disciplineId) disciplines[r.disciplineId] = r.discipline; });
+        var byDiscipline = function (r) { return !state.historyDisciplineId || r.disciplineId === state.historyDisciplineId; };
+        var current = data.current.filter(byDiscipline);
+        var scopedPeriods = periods.filter(byDiscipline);
+        if (state.historyPeriod !== 'all' && state.historyPeriod !== 'current' &&
+            !scopedPeriods.some(function (p) { return p.periodId === state.historyPeriod; })) {
+            state.historyPeriod = 'all';
+        }
+
+        var showCurrent = state.historyPeriod === 'all' || state.historyPeriod === 'current';
+        var shownPeriods = scopedPeriods.filter(function (p) {
+            return state.historyPeriod === 'all' || p.periodId === state.historyPeriod;
+        });
+
+        var currentPoints = current.reduce(function (sum, r) { return sum + r.points; }, 0);
+        var closedPoints = scopedPeriods.reduce(function (sum, p) { return sum + p.points; }, 0);
+
+        var html =
+            '<div class="card">' +
+            '<h2>' + escapeHtml(data.student.name) + '</h2>' +
+            '<div class="history-filters"><label>Disciplina<select id="history-discipline"><option value="">Todas as disciplinas</option>' +
+            Object.keys(disciplines).map(function (id) {
+                return '<option value="' + id + '"' + (id === state.historyDisciplineId ? ' selected' : '') + '>' +
+                    escapeHtml(disciplines[id]) + '</option>';
+            }).join('') + '</select></label>' +
+            '<label>Período<select id="history-period">' +
+            '<option value="all"' + (state.historyPeriod === 'all' ? ' selected' : '') + '>Todos os períodos</option>' +
+            '<option value="current"' + (state.historyPeriod === 'current' ? ' selected' : '') + '>Período atual</option>' +
+            scopedPeriods.map(function (p) {
+                return '<option value="' + p.periodId + '"' + (p.periodId === state.historyPeriod ? ' selected' : '') + '>' +
+                    escapeHtml(periodTitle(p) + ' — ' + p.discipline) + '</option>';
+            }).join('') + '</select></label></div>' +
+            '<div class="stat-row">' +
+            statTile('Pontos no período atual', currentPoints) +
+            statTile('Períodos encerrados', scopedPeriods.length) +
+            statTile('Pontos em períodos encerrados', closedPoints) +
+            '</div></div>';
+
+        if (showCurrent) {
+            html += '<div class="card"><h2>Período atual</h2>';
+            if (current.length === 0) {
+                html += '<p>Não está matriculado(a) em nenhuma turma' + (state.historyDisciplineId ? ' desta disciplina' : '') + '.</p>';
+            } else {
+                html += current.map(function (r) {
+                    return historyBlock(r.discipline + ' · ' + r.classGroup + (r.classGroupClosed ? ' (encerrada)' : ''), r.points, r.history);
+                }).join('');
+            }
+            html += '</div>';
+        }
+
+        if (state.historyPeriod !== 'current') {
+            if (shownPeriods.length === 0 && state.historyPeriod === 'all') {
+                html += '<div class="card"><h2>Períodos encerrados</h2><p>Nenhum período encerrado ainda.</p></div>';
+            }
+            shownPeriods.forEach(function (p) {
+                html += '<div class="card"><h2>' + escapeHtml(periodTitle(p)) +
+                    ' <span class="muted">· encerrado em ' + escapeHtml(formatDate(p.closedAt)) + '</span></h2>' +
+                    historyBlock(p.discipline + ' · ' + p.classGroup + (p.classClose ? ' (turma encerrada)' : ''), p.points, p.history) +
+                    '</div>';
+            });
+        }
+
+        detail.innerHTML = html;
+
+        document.getElementById('history-discipline').addEventListener('change', function (e) {
+            state.historyDisciplineId = e.target.value;
+            renderStudentHistory(data);
+        });
+        document.getElementById('history-period').addEventListener('change', function (e) {
+            state.historyPeriod = e.target.value;
+            renderStudentHistory(data);
+        });
+    }
+
+    function statTile(label, value) {
+        return '<div class="stat-tile"><div class="stat-value">' + value + '</div><div class="stat-label">' +
+            escapeHtml(label) + '</div></div>';
+    }
+
+    function historyBlock(title, points, history) {
+        var entries = history.slice().sort(function (a, b) { return b.createdAt - a.createdAt; });
+        return '<div class="history-block"><div class="row"><strong style="flex:1">' + escapeHtml(title) + '</strong>' +
+            '<span class="points-badge">' + points + ' pts</span></div>' +
+            (entries.length === 0 ? '<p class="muted">Nenhum lançamento de pontos registrado.</p>' :
+                '<div class="table-wrap"><table><thead><tr><th>Data</th><th>Pontos</th><th>Observação</th></tr></thead><tbody>' +
+                entries.map(function (h) {
+                    return '<tr><td>' + escapeHtml(formatDate(h.createdAt)) + '</td>' +
+                        '<td class="' + (h.pointsDelta < 0 ? 'delta-neg' : 'delta-pos') + '">' +
+                        (h.pointsDelta > 0 ? '+' : '') + h.pointsDelta + '</td>' +
+                        '<td>' + escapeHtml(h.note) + '</td></tr>';
+                }).join('') + '</tbody></table></div>') +
+            '</div>';
     }
 
     /* ------------------------------- Disciplines ----------------------------------- */
@@ -417,8 +607,8 @@
         var el = document.getElementById('tab-disciplines');
         el.innerHTML =
             '<div class="card">' +
-            '<div class="row"><h2 style="flex:1">Disciplines</h2><button class="btn" id="add-discipline">Add discipline</button></div>' +
-            '<div class="table-wrap"><table><thead><tr><th>Name</th></tr></thead><tbody id="disciplines-body"></tbody></table></div>' +
+            '<div class="row"><h2 style="flex:1">Disciplinas</h2><button class="btn" id="add-discipline">Adicionar disciplina</button></div>' +
+            '<div class="table-wrap"><table><thead><tr><th>Nome</th></tr></thead><tbody id="disciplines-body"></tbody></table></div>' +
             '</div>';
 
         var body = document.getElementById('disciplines-body');
@@ -434,7 +624,7 @@
     }
 
     function openDisciplineModal(d) {
-        openModal(d ? 'Edit discipline' : 'Add discipline',
+        openModal(d ? 'Editar disciplina' : 'Adicionar disciplina',
             '<label>Name</label><input name="name" value="' + (d ? escapeHtml(d.name) : '') + '" required>',
             function (fd) {
                 var body = { name: fd.get('name') };
@@ -443,10 +633,10 @@
                 call.then(function () { closeModal(); return loadAll(); });
             },
             d ? function () {
-                if (!confirm('Delete discipline "' + d.name + '"?')) return;
+                if (!confirm('Excluir a disciplina "' + d.name + '"?')) return;
                 api('/api/disciplines/' + d.id, { method: 'DELETE' })
                     .then(function () { closeModal(); return loadAll(); })
-                    .catch(function (err) { alert(err.message === 'HAS_GROUPS' ? 'Remove its class groups first.' : err.message); });
+                    .catch(function (err) { alert(err.message === 'HAS_GROUPS' ? 'Exclua as turmas desta disciplina primeiro.' : err.message); });
             } : null);
     }
 
@@ -456,8 +646,8 @@
         var el = document.getElementById('tab-classgroups');
         el.innerHTML =
             '<div class="card">' +
-            '<div class="row"><h2 style="flex:1">Class groups</h2><button class="btn" id="add-classgroup">Add class group</button></div>' +
-            '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Discipline</th></tr></thead><tbody id="classgroups-body"></tbody></table></div>' +
+            '<div class="row"><h2 style="flex:1">Turmas</h2><button class="btn" id="add-classgroup">Adicionar turma</button></div>' +
+            '<div class="table-wrap"><table><thead><tr><th>Nome</th><th>Disciplina</th></tr></thead><tbody id="classgroups-body"></tbody></table></div>' +
             '</div>';
 
         var body = document.getElementById('classgroups-body');
@@ -479,9 +669,9 @@
     }
 
     function openClassGroupModal(g) {
-        if (state.disciplines.length === 0) { alert('Add a discipline first.'); return; }
-        openModal(g ? 'Edit class group' : 'Add class group',
-            '<label>Discipline</label><select name="disciplineId">' + disciplineOptions(g ? g.disciplineId : state.disciplines[0].id) + '</select>' +
+        if (state.disciplines.length === 0) { alert('Cadastre uma disciplina primeiro.'); return; }
+        openModal(g ? 'Editar turma' : 'Adicionar turma',
+            '<label>Disciplina</label><select name="disciplineId">' + disciplineOptions(g ? g.disciplineId : state.disciplines[0].id) + '</select>' +
             '<label>Name</label><input name="name" value="' + (g ? escapeHtml(g.name) : '') + '" required>',
             function (fd) {
                 var body = { disciplineId: fd.get('disciplineId'), name: fd.get('name') };
@@ -490,10 +680,10 @@
                 call.then(function () { closeModal(); return loadAll(); });
             },
             g ? function () {
-                if (!confirm('Delete class group "' + g.name + '"?')) return;
+                if (!confirm('Excluir a turma "' + g.name + '"?')) return;
                 api('/api/classgroups/' + g.id, { method: 'DELETE' })
                     .then(function () { closeModal(); return loadAll(); })
-                    .catch(function (err) { alert(err.message === 'HAS_STUDENTS' ? 'Remove enrolled students first.' : err.message); });
+                    .catch(function (err) { alert(err.message === 'HAS_STUDENTS' ? 'Remova os alunos matriculados primeiro.' : err.message); });
             } : null);
     }
 
@@ -502,16 +692,16 @@
     function renderGoals() {
         var el = document.getElementById('tab-goals');
         if (state.disciplines.length === 0) {
-            el.innerHTML = '<div class="card"><p>Add a discipline first.</p></div>';
+            el.innerHTML = '<div class="card"><p>Cadastre uma disciplina primeiro.</p></div>';
             return;
         }
         var selectedId = el.dataset.disciplineId || state.disciplines[0].id;
 
         el.innerHTML =
             '<div class="card">' +
-            '<div class="row"><label>Discipline:</label><select id="goals-discipline">' + disciplineOptions(selectedId) + '</select>' +
-            '<div style="flex:1"></div><button class="btn" id="add-goal">Add goal</button></div>' +
-            '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Target points</th></tr></thead><tbody id="goals-body"></tbody></table></div>' +
+            '<div class="row"><label>Disciplina:</label><select id="goals-discipline">' + disciplineOptions(selectedId) + '</select>' +
+            '<div style="flex:1"></div><button class="btn" id="add-goal">Adicionar meta</button></div>' +
+            '<div class="table-wrap"><table><thead><tr><th>Nome</th><th>Pontos da meta</th></tr></thead><tbody id="goals-body"></tbody></table></div>' +
             '</div>';
         el.dataset.disciplineId = selectedId;
 
@@ -535,9 +725,9 @@
     }
 
     function openGoalModal(g, disciplineId) {
-        openModal(g ? 'Edit goal' : 'Add goal',
+        openModal(g ? 'Editar meta' : 'Adicionar meta',
             '<label>Name</label><input name="name" value="' + (g ? escapeHtml(g.name) : '') + '" required>' +
-            '<label>Target points</label><input type="number" name="targetPoints" value="' + (g ? g.targetPoints : 0) + '" required>',
+            '<label>Pontos da meta</label><input type="number" name="targetPoints" value="' + (g ? g.targetPoints : 0) + '" required>',
             function (fd) {
                 var body = { disciplineId: disciplineId, name: fd.get('name'), targetPoints: parseInt(fd.get('targetPoints'), 10) };
                 var call = g ? api('/api/goals/' + g.id, { method: 'PUT', body: body })
@@ -545,7 +735,7 @@
                 call.then(function () { closeModal(); renderGoals(); });
             },
             g ? function () {
-                if (!confirm('Delete goal "' + g.name + '"?')) return;
+                if (!confirm('Excluir a meta "' + g.name + '"?')) return;
                 api('/api/goals/' + g.id, { method: 'DELETE' }).then(function () { closeModal(); renderGoals(); });
             } : null);
     }
@@ -565,7 +755,7 @@
     function renderQrCodes() {
         var el = document.getElementById('tab-qrcodes');
         if (state.students.length === 0) {
-            el.innerHTML = '<div class="card"><p>Add a student first.</p></div>';
+            el.innerHTML = '<div class="card"><p>Cadastre um aluno primeiro.</p></div>';
             return;
         }
 
@@ -580,14 +770,14 @@
 
         el.innerHTML =
             '<div class="card no-print">' +
-            '<div class="row"><h2 style="flex:1">Print QR codes</h2>' +
-            '<label>Discipline:</label><select id="qr-discipline"><option value="">All students</option>' +
+            '<div class="row"><h2 style="flex:1">Imprimir códigos QR</h2>' +
+            '<label>Disciplina:</label><select id="qr-discipline"><option value="">Todos os alunos</option>' +
             disciplineOptions(state.qrDisciplineId) + '</select>' +
-            '<button type="button" class="btn secondary" id="qr-select-all">Select all</button>' +
-            '<button type="button" class="btn secondary" id="qr-select-none">Select none</button>' +
-            '<button type="button" class="btn" id="qr-print-btn">Print</button></div>' +
-            '<p>Each code prints with the student\'s first name in full and the rest of their name abbreviated to initials.</p>' +
-            '<div class="table-wrap"><table><thead><tr><th></th><th>Name</th><th>Label preview</th></tr></thead>' +
+            '<button type="button" class="btn secondary" id="qr-select-all">Selecionar todos</button>' +
+            '<button type="button" class="btn secondary" id="qr-select-none">Desmarcar todos</button>' +
+            '<button type="button" class="btn" id="qr-print-btn">Imprimir</button></div>' +
+            '<p>Cada código é impresso com o primeiro nome do aluno por extenso e o restante do nome abreviado em iniciais.</p>' +
+            '<div class="table-wrap"><table><thead><tr><th></th><th>Nome</th><th>Prévia da etiqueta</th></tr></thead>' +
             '<tbody id="qr-select-body"></tbody></table></div>' +
             '</div>' +
             '<div id="qr-print-grid" class="qr-grid"></div>';
@@ -644,24 +834,24 @@
     function renderData() {
         var el = document.getElementById('tab-data');
         el.innerHTML =
-            '<div class="card"><h2>Export</h2>' +
-            '<p>Downloads data for all students currently in the database.</p>' +
+            '<div class="card"><h2>Exportar</h2>' +
+            '<p>Baixa os dados de todos os alunos cadastrados no momento.</p>' +
             '<div class="row">' +
             '<a class="btn" href="/api/export?format=json">JSON</a>' +
             '<a class="btn" href="/api/export?format=md">Markdown</a>' +
             '<a class="btn" href="/api/export?format=pdf">PDF</a>' +
             '</div></div>' +
 
-            '<div class="card"><h2>Import JSON backup</h2>' +
-            '<p class="warning-note">A safety snapshot is taken automatically before importing.</p>' +
+            '<div class="card"><h2>Importar backup JSON</h2>' +
+            '<p class="warning-note">Uma cópia de segurança é feita automaticamente antes de importar.</p>' +
             '<form class="inline-form" id="import-json-form"><input type="file" name="file" accept="application/json" required>' +
-            '<button type="submit" class="btn">Import</button></form>' +
+            '<button type="submit" class="btn">Importar</button></form>' +
             '<div id="import-json-result"></div></div>' +
 
-            '<div class="card"><h2>Import CSV roster</h2>' +
-            '<p>Columns: name, discipline, class group. A safety snapshot is taken automatically first.</p>' +
+            '<div class="card"><h2>Importar lista de alunos (CSV)</h2>' +
+            '<p>O cabeçalho do arquivo deve ter as colunas <code>name</code>, <code>discipline</code> e <code>classGroup</code> (nome, disciplina e turma). Uma cópia de segurança é feita automaticamente antes.</p>' +
             '<form class="inline-form" id="import-csv-form"><input type="file" name="file" accept=".csv,text/csv" required>' +
-            '<button type="submit" class="btn">Import</button></form>' +
+            '<button type="submit" class="btn">Importar</button></form>' +
             '<div id="import-csv-result"></div></div>';
 
         document.getElementById('import-json-form').addEventListener('submit', function (e) {
@@ -670,8 +860,8 @@
             var resultEl = document.getElementById('import-json-result');
             resultEl.innerHTML = '';
             api('/api/import/json', { method: 'POST', body: fd }).then(function (res) {
-                resultEl.innerHTML = '<div class="summary-banner">Imported. New students: ' + res.newCount +
-                    ', existing students updated: ' + res.existingCount + '.</div>';
+                resultEl.innerHTML = '<div class="summary-banner">Importação concluída. Alunos novos: ' + res.newCount +
+                    ', alunos existentes atualizados: ' + res.existingCount + '.</div>';
                 return loadAll();
             }).catch(function (err) {
                 resultEl.innerHTML = '<div class="summary-banner error">' + escapeHtml(err.message) + '</div>';
@@ -684,12 +874,12 @@
             var resultEl = document.getElementById('import-csv-result');
             resultEl.innerHTML = '';
             api('/api/import/csv', { method: 'POST', body: fd }).then(function (res) {
-                var text = 'Imported. New students: ' + res.newCount + ', matched: ' + res.matchedCount + '.';
+                var text = 'Importação concluída. Alunos novos: ' + res.newCount + ', encontrados: ' + res.matchedCount + '.';
                 if (res.newDisciplineCount || res.newClassGroupCount) {
-                    text += ' New disciplines: ' + res.newDisciplineCount + ', new class groups: ' + res.newClassGroupCount + '.';
+                    text += ' Disciplinas novas: ' + res.newDisciplineCount + ', turmas novas: ' + res.newClassGroupCount + '.';
                 }
                 if (res.errors && res.errors.length) {
-                    text += '\n' + res.errors.map(function (er) { return 'Line ' + er.line + ': ' + er.reason; }).join('\n');
+                    text += '\n' + res.errors.map(function (er) { return 'Linha ' + er.line + ': ' + er.reason; }).join('\n');
                 }
                 resultEl.innerHTML = '<div class="summary-banner' + (res.errors && res.errors.length ? ' error' : '') + '">' +
                     escapeHtml(text) + '</div>';

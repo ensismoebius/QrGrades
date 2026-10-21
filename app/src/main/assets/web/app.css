@@ -398,3 +398,78 @@ form.inline-form input:focus, form.inline-form select:focus,
     color: var(--md-error);
     margin-top: var(--sp-sm);
 }
+
+/* ---------------- Student history ---------------- */
+
+.search-input {
+    flex: 1 1 240px;
+    padding: var(--sp-sm) var(--sp-md);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--md-outline);
+    background: var(--md-surface);
+    color: var(--md-on-surface);
+}
+
+.search-input:focus { outline: none; border-color: var(--md-primary); }
+
+.history-results { max-height: 320px; overflow-y: auto; }
+
+tr.selected { background: var(--md-primary-container); color: var(--md-on-primary-container); }
+
+.history-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--sp-md);
+}
+
+.history-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+    font-size: 12px;
+    color: var(--md-on-surface-variant);
+}
+
+#history-detail select {
+    padding: var(--sp-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--md-outline);
+    background: var(--md-surface);
+    color: var(--md-on-surface);
+    max-width: 100%;
+}
+
+.stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--sp-md);
+    margin-top: var(--sp-md);
+}
+
+.stat-tile {
+    background: var(--md-surface);
+    border-radius: var(--radius-sm);
+    padding: var(--sp-md);
+}
+
+.stat-value { font-size: 24px; font-weight: 600; color: var(--md-primary); }
+.stat-label { font-size: 12px; color: var(--md-on-surface-variant); }
+
+.history-block + .history-block {
+    margin-top: var(--sp-lg);
+    padding-top: var(--sp-md);
+    border-top: 1px solid var(--md-surface-variant);
+}
+
+.points-badge {
+    background: var(--md-secondary-container);
+    color: var(--md-on-secondary-container);
+    border-radius: var(--radius-sm);
+    padding: var(--sp-xs) var(--sp-sm);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.muted { color: var(--md-on-surface-variant); font-weight: normal; font-size: 13px; }
+.delta-pos { color: var(--scan-success); font-weight: 600; }
+.delta-neg { color: var(--md-error); font-weight: 600; }

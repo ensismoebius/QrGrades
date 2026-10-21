@@ -1066,6 +1066,23 @@ public class Database {
         });
     }
 
+    /** Every period snapshot ever taken of this student's enrollments (across all disciplines), oldest close first — the per-student counterpart of {@link #loadPeriodSnapshots}. */
+    public void loadPeriodSnapshotsForStudent(String studentId, final IDatabaseOnLoad<ArrayList<PeriodSnapshot>> listener) {
+        executor.execute(() -> {
+            ArrayList<PeriodSnapshot> list = new ArrayList<>();
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            String sql = "SELECT ps.* FROM " + StudentDbHelper.TABLE_PERIOD_SNAPSHOTS + " ps"
+                    + " JOIN " + StudentDbHelper.TABLE_PERIODS + " p ON p." + StudentDbHelper.COL_PERIOD_ID
+                    + " = ps." + StudentDbHelper.COL_PERIOD_SNAPSHOT_PERIOD_ID
+                    + " WHERE ps." + StudentDbHelper.COL_PERIOD_SNAPSHOT_STUDENT_ID + " = ?"
+                    + " ORDER BY p." + StudentDbHelper.COL_PERIOD_CLOSED_AT + " ASC";
+            try (Cursor cursor = db.rawQuery(sql, new String[]{studentId})) {
+                while (cursor.moveToNext()) list.add(periodSnapshotFromCursor(cursor));
+            }
+            postResult(() -> listener.onLoadComplete(true, list));
+        });
+    }
+
     /* ------------------------------ Export ---------------------------------- */
 
     /**

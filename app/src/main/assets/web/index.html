@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,9 +13,9 @@
     <form id="login-card" autocomplete="off">
         <img class="app-logo" src="/favicon.svg" alt="" width="56" height="56">
         <h1>QrGrades</h1>
-        <input type="password" id="login-password" placeholder="Password" autofocus>
+        <input type="password" id="login-password" placeholder="Senha" autofocus>
         <div id="login-error"></div>
-        <button type="submit" class="btn" style="width:100%">Log in</button>
+        <button type="submit" class="btn" style="width:100%">Entrar</button>
     </form>
 </div>
 
@@ -25,20 +25,22 @@
             <img class="app-logo" src="/favicon.svg" alt="" width="28" height="28">
             <h1>QrGrades</h1>
         </div>
-        <button class="btn secondary" id="logout-btn">Log out</button>
+        <button class="btn secondary" id="logout-btn">Sair</button>
     </header>
     <nav id="tab-nav">
-        <button data-tab="overview" class="active">Overview</button>
-        <button data-tab="students">Students</button>
-        <button data-tab="disciplines">Disciplines</button>
-        <button data-tab="classgroups">Class groups</button>
-        <button data-tab="goals">Goals</button>
-        <button data-tab="qrcodes">QR codes</button>
-        <button data-tab="data">Import / Export</button>
+        <button data-tab="overview" class="active">Visão geral</button>
+        <button data-tab="students">Alunos</button>
+        <button data-tab="history">Histórico</button>
+        <button data-tab="disciplines">Disciplinas</button>
+        <button data-tab="classgroups">Turmas</button>
+        <button data-tab="goals">Metas</button>
+        <button data-tab="qrcodes">Códigos QR</button>
+        <button data-tab="data">Importar / Exportar</button>
     </nav>
     <main>
         <section class="tab active" id="tab-overview"></section>
         <section class="tab" id="tab-students"></section>
+        <section class="tab" id="tab-history"></section>
         <section class="tab" id="tab-disciplines"></section>
         <section class="tab" id="tab-classgroups"></section>
         <section class="tab" id="tab-goals"></section>
