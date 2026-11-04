@@ -23,6 +23,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
+import org.dedira.qrnotas.model.Attendance;
 import org.dedira.qrnotas.model.ClassGroup;
 import org.dedira.qrnotas.model.CsvImportPlan;
 import org.dedira.qrnotas.model.CsvRowError;
@@ -30,8 +31,7 @@ import org.dedira.qrnotas.model.CsvStudentRow;
 import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.Goal;
-import org.dedira.qrnotas.model.Period;
-import org.dedira.qrnotas.model.PeriodSnapshot;
+import org.dedira.qrnotas.model.GoalProgress;
 import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.model.StudentExportData;
@@ -40,6 +40,7 @@ import org.dedira.qrnotas.util.CsvImporter;
 import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.DatabaseSync;
 import org.dedira.qrnotas.util.Exporter;
+import org.dedira.qrnotas.util.GoalTracker;
 import org.dedira.qrnotas.util.Importer;
 import org.dedira.qrnotas.util.QrCode;
 import org.json.JSONArray;
@@ -59,6 +60,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -101,6 +103,10 @@ public class WebServer extends NanoHTTPD {
     private final Context context;
     private final Database database;
     private final String password;
+    // The newer endpoints live in their own classes; this one keeps the session handling, routing and the older CRUD handlers.
+    private final PointsApi pointsApi;
+    private final AttendanceApi attendanceApi;
+    private final HistoryApi historyApi;
     // Set of currently-valid session tokens (one per logged-in browser). Wrapped with
     // Collections.synchronizedSet because multiple request-handling threads can read/write it concurrently.
     private final Set<String> validTokens = Collections.synchronizedSet(new HashSet<>());
@@ -110,12 +116,20 @@ public class WebServer extends NanoHTTPD {
     private final Map<String, Long> lockUntil = Collections.synchronizedMap(new HashMap<>());
 
     public WebServer(Context context, Database database, String password) {
-        super(PORT);
+        this(context, database, password, PORT);
+    }
+
+    /** For tests, which ask for port 0 (any free port) instead of the fixed one. */
+    WebServer(Context context, Database database, String password, int port) {
+        super(port);
         // Always store the application Context (not an Activity/Service Context) to avoid
         // accidentally keeping a short-lived component alive/leaking memory.
         this.context = context.getApplicationContext();
         this.database = database;
         this.password = password;
+        this.pointsApi = new PointsApi(this.context, database);
+        this.attendanceApi = new AttendanceApi(database);
+        this.historyApi = new HistoryApi(this.context, database);
     }
 
     /**
@@ -135,6 +149,8 @@ public class WebServer extends NanoHTTPD {
             if (uri.equals("/app.css")) return serveAsset("web/app.css", "text/css");
             if (uri.equals("/app.js")) return serveAsset("web/app.js", "application/javascript");
             if (uri.equals("/favicon.svg")) return serveAsset("web/favicon.svg", "image/svg+xml");
+            // Feature scripts, one file per screen. Only plain "/js/<name>.js" is accepted — no sub-folders or ".." tricks.
+            if (uri.matches("/js/[A-Za-z0-9_-]+\\.js")) return serveAsset("web" + uri, "application/javascript");
 
             // Everything else must be a JSON API call under /api/; anything else is unknown.
             if (!uri.startsWith("/api/")) return notFound();
@@ -148,6 +164,7 @@ public class WebServer extends NanoHTTPD {
             }
 
             if (uri.equals("/api/logout") && method == Method.POST) {
+                readJsonBody(session); // unused, but it has to be read: see readJsonBody
                 validTokens.remove(token);
                 return jsonOk();
             }
@@ -186,7 +203,28 @@ public class WebServer extends NanoHTTPD {
             case "enrollments":
                 return routeEnrollments(session, method, parts);
             case "history":
-                if (method == Method.GET) return handleHistory(session);
+                if (parts.length == 1 && method == Method.GET) return handleHistory(session);
+                // "/api/history/revert-batch", "/api/history/{id}/revert", "/api/history/{id}/correct"
+                if (parts.length == 2 && parts[1].equals("revert-batch") && method == Method.POST) {
+                    return pointsApi.handleRevertBatch(session);
+                }
+                if (parts.length == 3 && method == Method.POST) {
+                    if (parts[2].equals("revert")) return pointsApi.handleRevert(session, parts[1], false);
+                    if (parts[2].equals("correct")) return pointsApi.handleRevert(session, parts[1], true);
+                }
+                break;
+            case "points":
+                // "/api/points/batch"
+                if (parts.length == 2 && parts[1].equals("batch") && method == Method.POST) return pointsApi.handleBatch(session);
+                break;
+            case "suggestions":
+                if (method == Method.GET) return pointsApi.handleSuggestions();
+                break;
+            case "attendance":
+                return attendanceApi.handle(session, method, parts);
+            case "periods":
+                // "/api/periods/compare"
+                if (parts.length == 2 && parts[1].equals("compare") && method == Method.GET) return historyApi.handleCompare(session);
                 break;
             case "export":
                 if (method == Method.GET) return handleExport(session);
@@ -304,18 +342,26 @@ public class WebServer extends NanoHTTPD {
         } else if (parts.length == 3 && parts[2].equals("qrcode")) {
             // "/api/students/{id}/qrcode"
             if (method == Method.GET) return handleGetQrCode(parts[1]);
+        } else if (parts.length == 4 && parts[2].equals("qrcode") && parts[3].equals("regenerate")) {
+            // "/api/students/{id}/qrcode/regenerate"
+            if (method == Method.POST) return handleRegenerateQrCode(session, parts[1]);
         } else if (parts.length == 3 && parts[2].equals("history")) {
             // "/api/students/{id}/history"
-            if (method == Method.GET) return handleStudentHistory(parts[1]);
+            if (method == Method.GET) return historyApi.handleStudentHistory(parts[1]);
+        } else if (parts.length == 3 && parts[2].equals("report.pdf")) {
+            // "/api/students/{id}/report.pdf"
+            if (method == Method.GET) return historyApi.handleStudentReportPdf(parts[1]);
         }
         return notFound();
     }
 
     /** Converts a {@link Student} entity into the small JSON shape the web UI expects. */
-    private static JSONObject studentJson(Student s) throws JSONException {
+    static JSONObject studentJson(Student s) throws JSONException {
         JSONObject obj = new JSONObject();
         obj.put("id", s.id);
         obj.put("name", s.name);
+        // Whether the printed code was ever replaced (never the token itself) — the UI shows a small marker.
+        obj.put("qrRegenerated", s.qrToken != null);
         // Only expose whether a photo exists, not the photo data itself (that's fetched
         // separately via GET /api/students/{id}/photo).
         obj.put("hasPhoto", s.photoPath != null);
@@ -390,13 +436,29 @@ public class WebServer extends NanoHTTPD {
         Student student = DatabaseSync.loadStudent(database, id);
         if (student == null) return notFound();
 
-        Bitmap qrBitmap = QrCode.generateQRCode(student.id);
+        // The code to print is the current one: the id until the code is regenerated, the token after.
+        Bitmap qrBitmap = QrCode.generateQRCode(student.qrCode());
         if (qrBitmap == null) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao gerar o código QR");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         qrBitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
         byte[] png = out.toByteArray();
-        return newFixedLengthResponse(Response.Status.OK, "image/png", new ByteArrayInputStream(png), png.length);
+        Response response = newFixedLengthResponse(Response.Status.OK, "image/png", new ByteArrayInputStream(png), png.length);
+        // A browser that kept the old image around would keep showing (and printing) a code that no longer works.
+        response.addHeader("Cache-Control", "no-store");
+        return response;
+    }
+
+    /**
+     * Handles POST /api/students/{id}/qrcode/regenerate: issues the student a new QR code (they lose
+     * theirs often). The previous code stops identifying anyone immediately — that is the point of
+     * regenerating rather than just reprinting — so the browser asks for confirmation first.
+     */
+    private Response handleRegenerateQrCode(IHTTPSession session, String id) throws Exception {
+        readJsonBody(session); // nothing in it is needed, but it has to be read: see readJsonBody
+        Student updated = DatabaseSync.regenerateQrToken(database, id);
+        if (updated == null) return notFound();
+        return jsonResponse(Response.Status.OK, new JSONObject().put("success", true).put("student", studentJson(updated)));
     }
 
     /**
@@ -525,6 +587,8 @@ public class WebServer extends NanoHTTPD {
         obj.put("id", g.id);
         obj.put("disciplineId", g.disciplineId);
         obj.put("name", g.name);
+        // A class closed together with its period is archived: it stays listed, but can't take attendance or new enrollments.
+        obj.put("closed", g.isClosed());
         return obj;
     }
 
@@ -597,22 +661,29 @@ public class WebServer extends NanoHTTPD {
     private Response routeGoals(IHTTPSession session, Method method, String[] parts) throws Exception {
         if (parts.length == 1) {
             if (method == Method.GET) return handleListGoals(session);
-            if (method == Method.POST) return handleCreateGoal(session);
+            if (method == Method.POST) return handleSaveGoal(session, null);
         } else if (parts.length == 2) {
             String id = parts[1];
-            if (method == Method.PUT) return handleUpdateGoal(session, id);
+            if (method == Method.PUT) return handleSaveGoal(session, id);
             if (method == Method.DELETE) return handleDeleteGoal(id);
         }
         return notFound();
     }
 
-    /** Converts a {@link Goal} entity (a point target within a discipline) into JSON. */
+    /**
+     * Converts a {@link Goal} entity (a point target within a discipline and a window of days)
+     * into JSON. {@code status} says where today falls in the window: "upcoming", "active",
+     * "ended", or "open" for a goal that predates dates and so has none.
+     */
     private static JSONObject goalJson(Goal g) throws JSONException {
         JSONObject obj = new JSONObject();
         obj.put("id", g.id);
         obj.put("disciplineId", g.disciplineId);
         obj.put("name", g.name);
         obj.put("targetPoints", g.targetPoints);
+        obj.put("startDate", g.startDate == null ? JSONObject.NULL : g.startDate);
+        obj.put("endDate", g.endDate == null ? JSONObject.NULL : g.endDate);
+        obj.put("status", GoalProgress.nameOf(GoalTracker.stateOf(g.startDate, g.endDate, Attendance.today())));
         return obj;
     }
 
@@ -626,27 +697,13 @@ public class WebServer extends NanoHTTPD {
         return jsonResponse(Response.Status.OK, array);
     }
 
-    /** Handles POST /api/goals: creates a new goal (name + target points) under a discipline. */
-    private Response handleCreateGoal(IHTTPSession session) throws Exception {
-        JSONObject body = readJsonBody(session);
-        String disciplineId = body.optString("disciplineId", "");
-        String name = body.optString("name", "").trim();
-        int targetPoints = body.optInt("targetPoints", 0);
-        if (disciplineId.isEmpty() || name.isEmpty()) {
-            return jsonError(Response.Status.BAD_REQUEST, "disciplina e nome são obrigatórios");
-        }
-
-        Goal goal = new Goal();
-        goal.disciplineId = disciplineId;
-        goal.name = name;
-        goal.targetPoints = targetPoints;
-        DatabaseSync.Result<Goal> result = DatabaseSync.saveGoal(database, goal);
-        if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao salvar a meta");
-        return jsonResponse(Response.Status.OK, goalJson(result.value));
-    }
-
-    /** Handles PUT /api/goals/{id}: updates an existing goal's discipline/name/target points. */
-    private Response handleUpdateGoal(IHTTPSession session, String id) throws Exception {
+    /**
+     * Handles POST /api/goals (creates) and PUT /api/goals/{id} (updates): a goal is a discipline,
+     * a name, the points to reach and the first and last day (both included, "yyyy-MM-dd") whose
+     * points count. The two days are required — a goal without them, or one that ends before it
+     * starts, is a 400.
+     */
+    private Response handleSaveGoal(IHTTPSession session, String id) throws Exception {
         JSONObject body = readJsonBody(session);
         String disciplineId = body.optString("disciplineId", "");
         String name = body.optString("name", "").trim();
@@ -660,6 +717,18 @@ public class WebServer extends NanoHTTPD {
         goal.disciplineId = disciplineId;
         goal.name = name;
         goal.targetPoints = targetPoints;
+        goal.startDate = body.optString("startDate", "").trim();
+        goal.endDate = body.optString("endDate", "").trim();
+        if (goal.startDate.isEmpty() || goal.endDate.isEmpty()) {
+            return jsonError(Response.Status.BAD_REQUEST, "informe as datas de início e de fim da meta");
+        }
+        if (!Attendance.isValidDay(goal.startDate) || !Attendance.isValidDay(goal.endDate)) {
+            return jsonError(Response.Status.BAD_REQUEST, "as datas da meta devem ser dias válidos (AAAA-MM-DD)");
+        }
+        if (goal.startDate.compareTo(goal.endDate) > 0) {
+            return jsonError(Response.Status.BAD_REQUEST, "o fim da meta não pode ser anterior ao início");
+        }
+
         DatabaseSync.Result<Goal> result = DatabaseSync.saveGoal(database, goal);
         if (!result.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao salvar a meta");
         return jsonResponse(Response.Status.OK, goalJson(result.value));
@@ -685,13 +754,13 @@ public class WebServer extends NanoHTTPD {
             return handleDeleteEnrollment(parts[1]);
         } else if (parts.length == 3 && parts[2].equals("points") && method == Method.POST) {
             // "/api/enrollments/{id}/points"
-            return handleAwardPoints(session, parts[1]);
+            return pointsApi.handleAward(session, parts[1]);
         }
         return notFound();
     }
 
     /** Converts an {@link Enrollment} entity (a student's membership in a class group, with grades/points) into JSON. */
-    private static JSONObject enrollmentJson(Enrollment e) throws JSONException {
+    static JSONObject enrollmentJson(Enrollment e) throws JSONException {
         JSONObject obj = new JSONObject();
         obj.put("id", e.id);
         obj.put("studentId", e.studentId);
@@ -734,37 +803,6 @@ public class WebServer extends NanoHTTPD {
         return success ? jsonOk() : jsonError(Response.Status.NOT_FOUND, "matrícula não encontrada");
     }
 
-    /**
-     * Handles POST /api/enrollments/{id}/points: applies a point delta (positive or negative) to
-     * an enrollment and records it in the points history log with an optional note.
-     * Mirrors {@code activities/Main.java#onNoteConfirmed}: delta-then-history, never a raw grades setter.
-     */
-    private Response handleAwardPoints(IHTTPSession session, String enrollmentId) throws Exception {
-        JSONObject body = readJsonBody(session);
-        int delta = body.optInt("delta", 0);
-        if (delta == 0) return jsonError(Response.Status.BAD_REQUEST, "a quantidade de pontos não pode ser zero");
-        String note = body.optString("note", "");
-
-        Enrollment enrollment = DatabaseSync.loadEnrollmentById(database, enrollmentId);
-        if (enrollment == null) return notFound();
-
-        // Points are always applied as a relative change (+N/-N) on top of the current total,
-        // never overwritten wholesale, so the history log stays an accurate audit trail.
-        int newGrades = enrollment.grades + delta;
-        DatabaseSync.Result<Enrollment> updateResult = DatabaseSync.updateEnrollmentGrades(database, enrollmentId, newGrades);
-        if (!updateResult.success) return jsonError(Response.Status.INTERNAL_ERROR, "falha ao atualizar os pontos");
-
-        // Record this change as a new history entry so it shows up in the enrollment's timeline.
-        PointsHistory history = new PointsHistory();
-        history.enrollmentId = enrollmentId;
-        history.pointsDelta = delta;
-        history.note = note;
-        history.createdAt = System.currentTimeMillis();
-        DatabaseSync.savePointsHistory(database, history);
-
-        return jsonResponse(Response.Status.OK, enrollmentJson(updateResult.value));
-    }
-
     /* ---------------------------------- History -------------------------------------- */
 
     /** Handles GET /api/history: returns the points-change log for a given enrollment (required query parameter). */
@@ -785,125 +823,11 @@ public class WebServer extends NanoHTTPD {
         obj.put("enrollmentId", h.enrollmentId);
         obj.put("pointsDelta", h.pointsDelta);
         obj.put("note", h.note == null ? "" : h.note);
+        obj.put("tag", h.tag == null ? "" : h.tag);
+        obj.put("revertsId", h.revertsId == null ? "" : h.revertsId);
         obj.put("createdAt", h.createdAt);
         return obj;
     }
-
-    /**
-     * Handles GET /api/students/{id}/history: the student's whole points timeline split into the
-     * current (still open) period and every closed period, across all disciplines.
-     * <p>
-     * Closing a period never deletes {@link PointsHistory} rows — it only snapshots each
-     * enrollment's total into a {@link PeriodSnapshot} and resets it to 0 — so each history entry
-     * is assigned to the earliest non-reopened period of its enrollment whose closedAt is at or
-     * after the entry's createdAt; entries newer than the last close belong to the current period.
-     * Reopened periods are skipped entirely: reopening restored their totals, so their entries
-     * fold into whichever period (or the current one) comes next.
-     */
-    private Response handleStudentHistory(String studentId) throws JSONException {
-        Student student = DatabaseSync.loadStudent(database, studentId);
-        if (student == null) return notFound();
-
-        Map<String, ClassGroup> groupsById = new HashMap<>();
-        ArrayList<ClassGroup> groups = DatabaseSync.loadAllClassGroups(database);
-        if (groups != null) for (ClassGroup g : groups) groupsById.put(g.id, g);
-        Map<String, String> disciplineNames = new HashMap<>();
-        ArrayList<Discipline> disciplines = DatabaseSync.loadAllDisciplines(database);
-        if (disciplines != null) for (Discipline d : disciplines) disciplineNames.put(d.id, d.name);
-
-        // Closed-period snapshots grouped per enrollment, already in closedAt ascending order.
-        Map<String, Period> periodsById = new HashMap<>();
-        Map<String, List<PeriodSnapshot>> snapshotsByEnrollment = new HashMap<>();
-        ArrayList<PeriodSnapshot> snapshots = DatabaseSync.loadPeriodSnapshotsForStudent(database, studentId);
-        if (snapshots != null) for (PeriodSnapshot s : snapshots) {
-            Period period = periodsById.get(s.periodId);
-            if (period == null && !periodsById.containsKey(s.periodId)) {
-                period = DatabaseSync.loadPeriod(database, s.periodId);
-                periodsById.put(s.periodId, period);
-            }
-            if (period == null || period.isReopened()) continue;
-            List<PeriodSnapshot> list = snapshotsByEnrollment.get(s.enrollmentId);
-            if (list == null) {
-                list = new ArrayList<>();
-                snapshotsByEnrollment.put(s.enrollmentId, list);
-            }
-            list.add(s);
-        }
-
-        JSONArray current = new JSONArray();
-        JSONArray closed = new JSONArray();
-        Map<String, JSONArray> historyBySnapshot = new HashMap<>();
-
-        // Build one JSON entry per closed-period snapshot first, so history can be bucketed into them.
-        for (List<PeriodSnapshot> list : snapshotsByEnrollment.values()) {
-            for (PeriodSnapshot s : list) {
-                Period period = periodsById.get(s.periodId);
-                ClassGroup group = groupsById.get(s.classGroupId);
-                JSONObject obj = new JSONObject();
-                obj.put("periodId", period.id);
-                obj.put("label", period.label == null ? "" : period.label);
-                obj.put("closedAt", period.closedAt);
-                obj.put("disciplineId", period.disciplineId);
-                obj.put("discipline", period.disciplineName == null ? "" : period.disciplineName);
-                obj.put("classClose", period.isClassClose());
-                obj.put("enrollmentId", s.enrollmentId);
-                obj.put("classGroupId", s.classGroupId);
-                obj.put("classGroup", group == null ? "" : group.name);
-                obj.put("points", s.points);
-                JSONArray history = new JSONArray();
-                obj.put("history", history);
-                historyBySnapshot.put(s.id, history);
-                closed.put(obj);
-            }
-        }
-
-        Map<String, JSONArray> historyByCurrentEnrollment = new HashMap<>();
-        ArrayList<Enrollment> enrollments = DatabaseSync.loadEnrollmentsForStudent(database, studentId);
-        if (enrollments != null) for (Enrollment e : enrollments) {
-            ClassGroup group = groupsById.get(e.classGroupId);
-            String disciplineId = group == null ? null : group.disciplineId;
-            JSONObject obj = new JSONObject();
-            obj.put("enrollmentId", e.id);
-            obj.put("classGroupId", e.classGroupId);
-            obj.put("classGroup", group == null ? "" : group.name);
-            obj.put("classGroupClosed", group != null && group.isClosed());
-            obj.put("disciplineId", disciplineId == null ? "" : disciplineId);
-            String disciplineName = disciplineId == null ? null : disciplineNames.get(disciplineId);
-            obj.put("discipline", disciplineName == null ? "" : disciplineName);
-            obj.put("points", e.grades);
-            JSONArray history = new JSONArray();
-            obj.put("history", history);
-            historyByCurrentEnrollment.put(e.id, history);
-            current.put(obj);
-        }
-
-        // Every enrollment that has either a live row or at least one closed-period snapshot.
-        Set<String> enrollmentIds = new HashSet<>(historyByCurrentEnrollment.keySet());
-        enrollmentIds.addAll(snapshotsByEnrollment.keySet());
-        for (String enrollmentId : enrollmentIds) {
-            ArrayList<PointsHistory> entries = DatabaseSync.loadHistoryForEnrollment(database, enrollmentId);
-            if (entries == null) continue;
-            List<PeriodSnapshot> closes = snapshotsByEnrollment.get(enrollmentId);
-            for (PointsHistory h : entries) {
-                JSONArray target = null;
-                if (closes != null) for (PeriodSnapshot s : closes) {
-                    if (h.createdAt <= periodsById.get(s.periodId).closedAt) {
-                        target = historyBySnapshot.get(s.id);
-                        break;
-                    }
-                }
-                if (target == null) target = historyByCurrentEnrollment.get(enrollmentId);
-                if (target != null) target.put(historyJson(h));
-            }
-        }
-
-        JSONObject result = new JSONObject();
-        result.put("student", studentJson(student));
-        result.put("current", current);
-        result.put("periods", closed);
-        return jsonResponse(Response.Status.OK, result);
-    }
-
 
     /* ---------------------------------- Export ---------------------------------------- */
 
@@ -1064,7 +988,7 @@ public class WebServer extends NanoHTTPD {
      * Reads the first value of a URL query-string parameter, or null if it wasn't supplied.
      * {@code IHTTPSession.getParms()} is deprecated in favor of {@code getParameters()}, which returns one list per key.
      */
-    private static String queryParam(IHTTPSession session, String key) {
+    static String queryParam(IHTTPSession session, String key) {
         List<String> values = session.getParameters().get(key);
         return (values == null || values.isEmpty()) ? null : values.get(0);
     }
@@ -1073,7 +997,10 @@ public class WebServer extends NanoHTTPD {
     private Response serveAsset(String assetPath, String mimeType) {
         try {
             InputStream in = context.getAssets().open(assetPath);
-            return newFixedLengthResponse(Response.Status.OK, mimeType, in, in.available());
+            Response response = newFixedLengthResponse(Response.Status.OK, mimeType, in, in.available());
+            // The app (and so its pages) can be updated under a browser that still has the old ones open; make it re-check.
+            response.addHeader("Cache-Control", "no-cache");
+            return response;
         } catch (IOException e) {
             return notFound();
         }
@@ -1084,8 +1011,22 @@ public class WebServer extends NanoHTTPD {
      * NanoHTTPD only stuffs the raw body into the {@code "postData"} entry for POST requests;
      * for PUT it writes the body to a temp file referenced by the {@code "content"} entry instead.
      * Every JSON-bodied endpoint (both POST and PUT) reads through here so both cases work.
+     *
+     * <p>Every POST/PUT handler must call this, even one that ignores the body. NanoHTTPD keeps the
+     * connection open for the next request and only skips the body when it has been read; a body left
+     * behind is taken for the start of that next request, which then fails with "400 Bad Request"
+     * (the browser's refresh right after a "cancel entry" POST hit exactly that).
      */
-    private JSONObject readJsonBody(IHTTPSession session) throws IOException, ResponseException, JSONException {
+    static JSONObject readJsonBody(IHTTPSession session) throws IOException, ResponseException, JSONException {
+        // NanoHTTPD decodes a POST body as US-ASCII unless the Content-Type names a charset, which would turn
+        // "Participação" into "Participa????o" before this code ever sees it. JSON is UTF-8, and browsers'
+        // fetch() doesn't add the charset by itself, so say it here (header names are lower-cased by NanoHTTPD).
+        Map<String, String> headers = session.getHeaders();
+        String contentType = headers.get("content-type");
+        if (contentType != null && !contentType.toLowerCase(Locale.ROOT).contains("charset")) {
+            headers.put("content-type", contentType + "; charset=UTF-8");
+        }
+
         Map<String, String> body = new HashMap<>();
         session.parseBody(body);
         String content = body.get("postData");
@@ -1099,7 +1040,7 @@ public class WebServer extends NanoHTTPD {
     }
 
     /** Wraps any JSON-serializable value into a fixed-length "application/json" HTTP response. */
-    private static Response jsonResponse(Response.Status status, Object body) {
+    static Response jsonResponse(Response.Status status, Object body) {
         return newFixedLengthResponse(status, "application/json", body.toString());
     }
 
@@ -1115,7 +1056,7 @@ public class WebServer extends NanoHTTPD {
     }
 
     /** Shorthand for an error response with the given HTTP status and a JSON {"error": message} body. */
-    private static Response jsonError(Response.Status status, String message) {
+    static Response jsonError(Response.Status status, String message) {
         try {
             return jsonResponse(status, new JSONObject().put("error", message));
         } catch (JSONException e) {
@@ -1124,7 +1065,7 @@ public class WebServer extends NanoHTTPD {
     }
 
     /** Shorthand for a 404 Not Found JSON error response, used throughout the routing methods. */
-    private static Response notFound() {
+    static Response notFound() {
         return jsonError(Response.Status.NOT_FOUND, "não encontrado");
     }
 }

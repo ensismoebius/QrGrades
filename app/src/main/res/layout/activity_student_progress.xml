@@ -17,8 +17,10 @@
         app:titleTextAppearance="@style/TextAppearance.QrGrades.TitleLarge" />
 
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/scroll"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:clipToPadding="false"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -27,8 +29,10 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:paddingBottom="@dimen/spacing_lg">
 
+            <!-- Who: photo and name, with the report card as a PDF to share or print. -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -59,59 +63,49 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/spacing_sm"
+                        android:gravity="center"
                         android:textAppearance="@style/TextAppearance.QrGrades.TitleLarge"
                         android:textColor="?attr/colorOnSurface" />
+
+                    <LinearLayout
+                        android:id="@+id/reportButtons"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/spacing_md"
+                        android:orientation="horizontal"
+                        android:visibility="gone">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnReportPdf"
+                            style="?attr/materialButtonOutlinedStyle"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="@dimen/spacing_sm"
+                            android:layout_weight="1"
+                            android:text="@string/history_pdf"
+                            app:icon="@drawable/ic_share" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnReportPrint"
+                            style="?attr/materialButtonOutlinedStyle"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/history_print"
+                            app:icon="@drawable/ic_print" />
+
+                    </LinearLayout>
 
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>
 
-            <TextView
-                android:id="@+id/txtEmpty"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:padding="@dimen/spacing_lg"
-                android:text="@string/no_enrollments_yet"
-                android:textAppearance="@style/TextAppearance.QrGrades.BodyLarge"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:visibility="gone" />
-
+            <!-- Filled in code: filters, figures, then one block per enrollment and period. -->
             <LinearLayout
-                android:id="@+id/disciplinesContainer"
+                android:id="@+id/detail"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingBottom="@dimen/spacing_sm" />
-
-            <TextView
-                android:id="@+id/txtHistoryTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/spacing_md"
-                android:layout_marginTop="@dimen/spacing_sm"
-                android:text="@string/history_title"
-                android:textAppearance="@style/TextAppearance.QrGrades.TitleMedium"
-                android:textColor="?attr/colorOnSurface" />
-
-            <TextView
-                android:id="@+id/txtHistoryEmpty"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:padding="@dimen/spacing_lg"
-                android:text="@string/no_history_yet"
-                android:textAppearance="@style/TextAppearance.QrGrades.BodyLarge"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:visibility="gone" />
-
-            <LinearLayout
-                android:id="@+id/historyContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_sm"
-                android:orientation="vertical"
-                android:paddingBottom="@dimen/spacing_lg" />
+                android:orientation="vertical" />
 
         </LinearLayout>
 

@@ -34,10 +34,9 @@ import android.widget.TextView;
 
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.util.Database;
-import org.dedira.qrnotas.util.adapters.FuzzyNoteAdapter;
 import org.dedira.qrnotas.util.KeyboardUtils;
+import org.dedira.qrnotas.util.Suggestions;
 
-import java.util.ArrayList;
 import java.util.Locale;
 
 /**
@@ -52,17 +51,14 @@ import java.util.Locale;
  * returning a value directly (dialogs are asynchronous/non-blocking by nature).
  */
 public class NoteDialog extends Dialog {
-    // Maximum number of previously-used notes to fetch for the autocomplete suggestions.
-    private static final int NOTE_HISTORY_LIMIT = 200;
-
     /**
-     * Callback used to hand the finished note text back to whoever created this
-     * dialog, once the user taps "save". Dialogs can't return values like a
-     * normal method call because the user interacts with them over time, so a
+     * Callback used to hand the finished note text (and the optional category, empty when none)
+     * back to whoever created this dialog, once the user taps "save". Dialogs can't return
+     * values like a normal method call because the user interacts with them over time, so a
      * listener interface is the standard Android way to get a result out.
      */
     public interface OnNoteConfirmedListener {
-        void onNoteConfirmed(String note);
+        void onNoteConfirmed(String note, String tag);
     }
 
     private final Context mContext;
@@ -113,33 +109,23 @@ public class NoteDialog extends Dialog {
                 String.format(Locale.getDefault(), "%+d", pointsDelta), studentName));
 
         AutoCompleteTextView txtNote = inflateView.findViewById(R.id.txtNoteDialogNote);
-        // A threshold of 0 means the dropdown of suggestions can appear even
-        // before the user types anything (normally it requires N characters).
-        txtNote.setThreshold(0);
-        // Show the suggestion dropdown as soon as the field gains focus, not just when typing.
-        txtNote.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) txtNote.showDropDown();
-        });
-        // Also show suggestions if the user taps the field while it's already focused.
-        txtNote.setOnClickListener(v -> txtNote.showDropDown());
+        // Offer the notes used before, even before anything is typed.
+        Suggestions.attachNotes(mContext, database, txtNote);
         // Utility helper that requests focus on the field and pops up the soft keyboard.
         KeyboardUtils.focusAndShowKeyboard(txtNote);
-        // Asynchronously fetch recently-used notes from the database so the user can
-        // quickly reuse a past note. The (success, notes) callback runs later, after
-        // the query completes, and is posted back to the main/UI thread by Database
-        // so it's safe to touch views here.
-        database.loadRecentNotes(NOTE_HISTORY_LIMIT, (success, notes) -> {
-            txtNote.setAdapter(new FuzzyNoteAdapter(mContext, notes != null ? notes : new ArrayList<>()));
-            if (txtNote.hasFocus()) txtNote.showDropDown();
-        });
+
+        // The category field offers the categories used before, then the built-in defaults.
+        AutoCompleteTextView txtTag = inflateView.findViewById(R.id.txtNoteDialogTag);
+        Suggestions.attachTags(mContext, database, txtTag);
 
         // Cancel button just closes the dialog without invoking the listener.
         inflateView.findViewById(R.id.btnNoteDialogCancel).setOnClickListener(v -> dismiss());
         inflateView.findViewById(R.id.btnNoteDialogSave).setOnClickListener(v -> {
             // getText() can be null if the field was never touched; fall back to an empty string.
             String note = txtNote.getText() == null ? "" : txtNote.getText().toString().trim();
+            String tag = txtTag.getText() == null ? "" : txtTag.getText().toString().trim();
             dismiss();
-            listener.onNoteConfirmed(note);
+            listener.onNoteConfirmed(note, tag);
         });
     }
 }

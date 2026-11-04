@@ -20,6 +20,7 @@
 package org.dedira.qrnotas.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -114,6 +115,30 @@ public class ExporterTest {
         assertEquals(0, goals.getJSONObject(0).getInt("remaining"));
         assertTrue(!goals.getJSONObject(1).getBoolean("achieved"));
         assertEquals(8, goals.getJSONObject(1).getInt("remaining"));
+    }
+
+    // A goal with a window is exported with its dates, the points that count for it and where today falls;
+    // one without dates leaves the two day fields out so an old reader sees what it always saw.
+    @Test
+    public void buildJsonArray_exportsTheWindowOfAGoalThatHasOne() throws Exception {
+        StudentExportData s = sampleStudent();
+        s.goals.add(new GoalProgress("Bimestre", 30, 9, "2026-02-01", "2026-04-30", GoalProgress.STATE_ACTIVE, 5));
+
+        JSONArray goals = Exporter.buildJsonArray(Collections.singletonList(s)).getJSONObject(0).getJSONArray("goals");
+
+        JSONObject withWindow = goals.getJSONObject(2);
+        assertEquals("2026-02-01", withWindow.getString("startDate"));
+        assertEquals("2026-04-30", withWindow.getString("endDate"));
+        assertEquals(9, withWindow.getInt("current"));
+        assertEquals("active", withWindow.getString("state"));
+        assertEquals(5, withWindow.getInt("daysLeft"));
+        assertEquals(21, withWindow.getInt("remaining"));
+
+        JSONObject withoutWindow = goals.getJSONObject(0);
+        assertFalse(withoutWindow.has("startDate"));
+        assertFalse(withoutWindow.has("endDate"));
+        assertEquals("open", withoutWindow.getString("state"));
+        assertEquals(22, withoutWindow.getInt("current"));
     }
 
     // Verifies that the point-history entry is exported with its point delta and note text.

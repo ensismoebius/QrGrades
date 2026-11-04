@@ -35,10 +35,32 @@
                 android:completionThreshold="1"
                 android:dropDownHeight="200dp"
                 android:gravity="top|start"
-                android:hint="@string/note_hint"
                 android:inputType="textMultiLine|textCapSentences"
                 android:minLines="3"
                 android:maxLines="5" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Optional category ("Participation", "Exam"...), so points can be totalled by kind later. -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/layoutNoteDialogTag"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm"
+            android:hint="@string/note_dialog_tag_hint">
+
+            <AutoCompleteTextView
+                android:id="@+id/txtNoteDialogTag"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:completionThreshold="1"
+                android:imeOptions="actionDone"
+                android:inputType="textCapSentences"
+                android:maxLength="40"
+                android:maxLines="1"
+                android:minHeight="56dp"
+                android:paddingTop="@dimen/spacing_md"
+                android:paddingBottom="@dimen/spacing_md" />
 
         </com.google.android.material.textfield.TextInputLayout>
 

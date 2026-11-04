@@ -46,22 +46,36 @@
             android:text="@string/tap_to_share"
             android:textAppearance="@style/TextAppearance.QrGrades.BodyMedium"
             android:textColor="?attr/colorOnSurfaceVariant"
-            app:layout_constraintBottom_toTopOf="@id/btnQrDialogClose"
+            app:layout_constraintBottom_toTopOf="@id/btnQrDialogRegenerate"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/imgQrDialog" />
+
+        <!-- For a student who lost their printed code: issues a new one and retires the old. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnQrDialogRegenerate"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm"
+            android:text="@string/regenerate_qr"
+            android:textColor="?attr/colorError"
+            app:layout_constraintBottom_toTopOf="@id/btnQrDialogClose"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/txtQrDialogHint" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnQrDialogClose"
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_md"
+            android:layout_marginTop="@dimen/spacing_xs"
             android:text="@string/close"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/txtQrDialogHint" />
+            app:layout_constraintTop_toBottomOf="@id/btnQrDialogRegenerate" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

@@ -48,6 +48,27 @@
         <action
             android:id="@+id/action_more_to_webServer"
             app:destination="@id/webServerFragment" />
+        <action
+            android:id="@+id/action_more_to_attendance"
+            app:destination="@id/attendanceFragment" />
+        <action
+            android:id="@+id/action_more_to_batchPoints"
+            app:destination="@id/batchPointsFragment" />
+        <action
+            android:id="@+id/action_more_to_alerts"
+            app:destination="@id/alertsFragment" />
+        <action
+            android:id="@+id/action_more_to_studentProgress"
+            app:destination="@id/studentProgressFragment" />
+        <action
+            android:id="@+id/action_more_to_overview"
+            app:destination="@id/overviewFragment" />
+        <action
+            android:id="@+id/action_more_to_periodCompare"
+            app:destination="@id/periodCompareFragment" />
+        <action
+            android:id="@+id/action_more_to_qrSheet"
+            app:destination="@id/qrSheetFragment" />
     </fragment>
 
     <!-- Nested (pushed) destinations: reached via navigate(), not on the bottom bar. -->
@@ -114,6 +135,61 @@
         android:name="org.dedira.qrnotas.fragments.StudentProgressFragment"
         android:label="StudentProgress"
         tools:layout="@layout/activity_student_progress" />
+
+    <!-- The phone's own versions of the browser page's tabs; reached from the "Mais" hub, and the
+         ones that list students open a student's history. -->
+
+    <fragment
+        android:id="@+id/attendanceFragment"
+        android:name="org.dedira.qrnotas.fragments.AttendanceFragment"
+        android:label="Attendance"
+        tools:layout="@layout/screen_scroll">
+        <action
+            android:id="@+id/action_attendance_to_studentProgress"
+            app:destination="@id/studentProgressFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/batchPointsFragment"
+        android:name="org.dedira.qrnotas.fragments.BatchPointsFragment"
+        android:label="BatchPoints"
+        tools:layout="@layout/fragment_batch_points" />
+
+    <fragment
+        android:id="@+id/alertsFragment"
+        android:name="org.dedira.qrnotas.fragments.AlertsFragment"
+        android:label="Alerts"
+        tools:layout="@layout/screen_scroll">
+        <action
+            android:id="@+id/action_alerts_to_studentProgress"
+            app:destination="@id/studentProgressFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/overviewFragment"
+        android:name="org.dedira.qrnotas.fragments.OverviewFragment"
+        android:label="Overview"
+        tools:layout="@layout/screen_scroll">
+        <action
+            android:id="@+id/action_overview_to_studentProgress"
+            app:destination="@id/studentProgressFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/periodCompareFragment"
+        android:name="org.dedira.qrnotas.fragments.PeriodCompareFragment"
+        android:label="PeriodCompare"
+        tools:layout="@layout/screen_scroll">
+        <action
+            android:id="@+id/action_periodCompare_to_studentProgress"
+            app:destination="@id/studentProgressFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/qrSheetFragment"
+        android:name="org.dedira.qrnotas.fragments.QrSheetFragment"
+        android:label="QrSheet"
+        tools:layout="@layout/screen_scroll" />
 
     <fragment
         android:id="@+id/addOrEditStudentFragment"

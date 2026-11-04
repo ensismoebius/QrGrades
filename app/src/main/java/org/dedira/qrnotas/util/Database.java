@@ -26,6 +26,8 @@ import android.database.sqlite.SQLiteDatabase;
 import android.os.Handler;
 import android.os.Looper;
 
+import org.dedira.qrnotas.R;
+import org.dedira.qrnotas.model.Attendance;
 import org.dedira.qrnotas.model.ClassGroup;
 import org.dedira.qrnotas.model.CsvImportPlan;
 import org.dedira.qrnotas.model.CsvRowError;
@@ -36,8 +38,10 @@ import org.dedira.qrnotas.model.Goal;
 import org.dedira.qrnotas.model.GoalProgress;
 import org.dedira.qrnotas.model.Period;
 import org.dedira.qrnotas.model.PeriodSnapshot;
+import org.dedira.qrnotas.model.PointsAward;
 import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.ResolvedCsvRow;
+import org.dedira.qrnotas.model.RevertResult;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.model.StudentExportData;
 import org.dedira.qrnotas.model.IDatabaseOnDelete;
@@ -56,6 +60,7 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -93,11 +98,18 @@ public class Database {
     // One small "from cursor" method per table, isolating the column-name lookups so the rest of
     // the class deals in plain model objects instead of raw Cursor indices.
 
+    /** The column's text, or null if the column is missing from the result set or the value is NULL — for columns added by later schema versions. */
+    private static String optString(Cursor cursor, String column) {
+        int index = cursor.getColumnIndex(column);
+        return (index < 0 || cursor.isNull(index)) ? null : cursor.getString(index);
+    }
+
     private static Student studentFromCursor(Cursor cursor) {
         Student s = new Student();
         s.id = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_ID));
         s.name = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_NAME));
         s.photoPath = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_PHOTO_PATH));
+        s.qrToken = optString(cursor, StudentDbHelper.COL_QR_TOKEN);
         return s;
     }
 
@@ -133,6 +145,8 @@ public class Database {
         g.disciplineId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_GOAL_DISCIPLINE_ID));
         g.name = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_GOAL_NAME));
         g.targetPoints = cursor.getInt(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_GOAL_TARGET_POINTS));
+        g.startDate = optString(cursor, StudentDbHelper.COL_GOAL_START_DATE);
+        g.endDate = optString(cursor, StudentDbHelper.COL_GOAL_END_DATE);
         return g;
     }
 
@@ -143,6 +157,8 @@ public class Database {
         h.pointsDelta = cursor.getInt(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_HISTORY_POINTS_DELTA));
         h.note = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_HISTORY_NOTE));
         h.createdAt = cursor.getLong(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_HISTORY_CREATED_AT));
+        h.tag = optString(cursor, StudentDbHelper.COL_HISTORY_TAG);
+        h.revertsId = optString(cursor, StudentDbHelper.COL_HISTORY_REVERTS_ID);
         return h;
     }
 
@@ -193,6 +209,8 @@ public class Database {
                     StudentDbHelper.COL_QR_SCAN_STUDENT_ID + "=?", new String[]{studentId});
             db.delete(StudentDbHelper.TABLE_PERIOD_SNAPSHOTS,
                     StudentDbHelper.COL_PERIOD_SNAPSHOT_STUDENT_ID + "=?", new String[]{studentId});
+            db.delete(StudentDbHelper.TABLE_ATTENDANCE,
+                    StudentDbHelper.COL_ATTENDANCE_STUDENT_ID + "=?", new String[]{studentId});
 
             int rows = db.delete(StudentDbHelper.TABLE_STUDENTS, StudentDbHelper.COL_ID + "=?", new String[]{studentId});
             boolean success = rows > 0;
@@ -242,6 +260,15 @@ public class Database {
             values.put(StudentDbHelper.COL_PHOTO_PATH, s.photoPath);
 
             SQLiteDatabase db = dbHelper.getWritableDatabase();
+            // CONFLICT_REPLACE rewrites the whole row, so a caller that built the Student from
+            // scratch (and never knew about the token) must not silently retire the student's
+            // regenerated QR code: carry the stored token over instead. Regeneration itself goes
+            // through regenerateQrToken, which always sets a new non-null token.
+            if (s.qrToken == null) {
+                Student existing = queryStudentById(db, s.id);
+                if (existing != null) s.qrToken = existing.qrToken;
+            }
+            values.put(StudentDbHelper.COL_QR_TOKEN, s.qrToken);
             long result = db.insertWithOnConflict(StudentDbHelper.TABLE_STUDENTS, null, values,
                     SQLiteDatabase.CONFLICT_REPLACE);
             boolean success = result != -1;
@@ -255,6 +282,42 @@ public class Database {
             SQLiteDatabase db = dbHelper.getReadableDatabase();
             Student s = queryStudentById(db, id);
             postResult(() -> listener.onLoadComplete(s != null, s));
+        });
+    }
+
+    /**
+     * Resolves whatever a scanned QR code decoded to into its student. A student whose code was
+     * regenerated is found only by their token; one who never was is found by their id (their
+     * original code). That asymmetry is the whole point: the moment a new token is issued, the
+     * old printed code — which encodes the id — stops matching anyone.
+     */
+    public void loadStudentByQrCode(String code, final IDatabaseOnLoad<Student> listener) {
+        executor.execute(() -> {
+            Student s = null;
+            if (code != null && !code.isEmpty()) {
+                SQLiteDatabase db = dbHelper.getReadableDatabase();
+                try (Cursor cursor = db.query(StudentDbHelper.TABLE_STUDENTS, null,
+                        StudentDbHelper.COL_QR_TOKEN + "=? OR (" + StudentDbHelper.COL_QR_TOKEN + " IS NULL AND "
+                                + StudentDbHelper.COL_ID + "=?)",
+                        new String[]{code, code}, null, null, null, "1")) {
+                    if (cursor.moveToFirst()) s = studentFromCursor(cursor);
+                }
+            }
+            final Student found = s;
+            postResult(() -> listener.onLoadComplete(found != null, found));
+        });
+    }
+
+    /** Retires the student's current QR code by issuing a new random token; the returned student carries it. */
+    public void regenerateQrToken(String studentId, final IDatabaseOnLoad<Student> listener) {
+        executor.execute(() -> {
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            ContentValues values = new ContentValues();
+            values.put(StudentDbHelper.COL_QR_TOKEN, UUID.randomUUID().toString());
+            int rows = db.update(StudentDbHelper.TABLE_STUDENTS, values,
+                    StudentDbHelper.COL_ID + "=?", new String[]{studentId});
+            Student updated = rows > 0 ? queryStudentById(db, studentId) : null;
+            postResult(() -> listener.onLoadComplete(updated != null, updated));
         });
     }
 
@@ -390,6 +453,8 @@ public class Database {
             values.put(StudentDbHelper.COL_HISTORY_POINTS_DELTA, h.pointsDelta);
             values.put(StudentDbHelper.COL_HISTORY_NOTE, h.note);
             values.put(StudentDbHelper.COL_HISTORY_CREATED_AT, h.createdAt);
+            values.put(StudentDbHelper.COL_HISTORY_TAG, h.tag);
+            values.put(StudentDbHelper.COL_HISTORY_REVERTS_ID, h.revertsId);
 
             SQLiteDatabase db = dbHelper.getWritableDatabase();
             long result = db.insertWithOnConflict(StudentDbHelper.TABLE_POINTS_HISTORY, null, values,
@@ -436,6 +501,410 @@ public class Database {
         });
     }
 
+    /** Distinct category tags across all history, most-recently-used first, for the suggestion lists in the note dialog and the web forms. */
+    public void loadRecentTags(int limit, final IDatabaseOnLoad<ArrayList<String>> listener) {
+        executor.execute(() -> {
+            ArrayList<String> tags = new ArrayList<>();
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            String sql = "SELECT " + StudentDbHelper.COL_HISTORY_TAG + ", MAX(" + StudentDbHelper.COL_HISTORY_CREATED_AT + ") AS latest "
+                    + "FROM " + StudentDbHelper.TABLE_POINTS_HISTORY + " "
+                    + "WHERE " + StudentDbHelper.COL_HISTORY_TAG + " IS NOT NULL AND TRIM(" + StudentDbHelper.COL_HISTORY_TAG + ") != '' "
+                    + "GROUP BY " + StudentDbHelper.COL_HISTORY_TAG + " "
+                    + "ORDER BY latest DESC LIMIT ?";
+            try (Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(limit)})) {
+                while (cursor.moveToNext()) tags.add(cursor.getString(0));
+            }
+            postResult(() -> listener.onLoadComplete(true, tags));
+        });
+    }
+
+    /* ----------------- Atomic points changes (award, batch, revert) ----------------- */
+
+    // Keeps a free-typed category short enough to read in a table cell and a tag list.
+    private static final int MAX_TAG_LENGTH = 40;
+
+    /** Stored form of a free-typed category: trimmed, inner whitespace squeezed, capped in length; blank means "no category" (null). */
+    public static String cleanTag(String tag) {
+        if (tag == null) return null;
+        String cleaned = tag.trim().replaceAll("\\s+", " ");
+        if (cleaned.length() > MAX_TAG_LENGTH) cleaned = cleaned.substring(0, MAX_TAG_LENGTH).trim();
+        return cleaned.isEmpty() ? null : cleaned;
+    }
+
+    private static PointsHistory queryHistoryById(SQLiteDatabase db, String id) {
+        try (Cursor cursor = db.query(StudentDbHelper.TABLE_POINTS_HISTORY, null,
+                StudentDbHelper.COL_HISTORY_ID + "=?", new String[]{id}, null, null, null)) {
+            if (cursor.moveToFirst()) return pointsHistoryFromCursor(cursor);
+        }
+        return null;
+    }
+
+    /** True once a compensating entry pointing at {@code historyId} exists — i.e. the entry has already been cancelled. */
+    private static boolean isReverted(SQLiteDatabase db, String historyId) {
+        return android.database.DatabaseUtils.queryNumEntries(db, StudentDbHelper.TABLE_POINTS_HISTORY,
+                StudentDbHelper.COL_HISTORY_REVERTS_ID + "=?", new String[]{historyId}) > 0;
+    }
+
+    /**
+     * True if a still-standing (non-reopened) period close of this enrollment happened at or after
+     * {@code createdAt} — meaning the entry was counted into that period's snapshot. Changing it
+     * now would quietly move points between periods without touching the snapshot, so such
+     * entries are locked until the period is reopened.
+     */
+    private static boolean isInClosedPeriod(SQLiteDatabase db, String enrollmentId, long createdAt) {
+        String sql = "SELECT COUNT(*) FROM " + StudentDbHelper.TABLE_PERIOD_SNAPSHOTS + " ps"
+                + " JOIN " + StudentDbHelper.TABLE_PERIODS + " p ON p." + StudentDbHelper.COL_PERIOD_ID
+                + " = ps." + StudentDbHelper.COL_PERIOD_SNAPSHOT_PERIOD_ID
+                + " WHERE ps." + StudentDbHelper.COL_PERIOD_SNAPSHOT_ENROLLMENT_ID + " = ?"
+                + " AND p." + StudentDbHelper.COL_PERIOD_REOPENED_AT + " IS NULL"
+                + " AND p." + StudentDbHelper.COL_PERIOD_CLOSED_AT + " >= ?";
+        try (Cursor cursor = db.rawQuery(sql, new String[]{enrollmentId, String.valueOf(createdAt)})) {
+            return cursor.moveToFirst() && cursor.getInt(0) > 0;
+        }
+    }
+
+    /**
+     * The one place an enrollment's total ever moves: shifts it by {@code delta} in SQL — a
+     * relative update, so two awards arriving from the phone and the web at the same moment can't
+     * overwrite each other's result — and appends the matching history row. Must run inside a
+     * transaction the caller began; returns null if the enrollment doesn't exist.
+     */
+    private static PointsAward applyPoints(SQLiteDatabase db, String enrollmentId, int delta,
+                                           String note, String tag, String revertsId) {
+        if (queryEnrollmentById(db, enrollmentId) == null) return null;
+
+        db.execSQL("UPDATE " + StudentDbHelper.TABLE_ENROLLMENTS
+                        + " SET " + StudentDbHelper.COL_ENROLLMENT_GRADES + " = " + StudentDbHelper.COL_ENROLLMENT_GRADES + " + ?"
+                        + " WHERE " + StudentDbHelper.COL_ENROLLMENT_ID + " = ?",
+                new Object[]{delta, enrollmentId});
+
+        PointsHistory h = new PointsHistory();
+        h.id = UUID.randomUUID().toString();
+        h.enrollmentId = enrollmentId;
+        h.pointsDelta = delta;
+        h.note = note == null ? "" : note;
+        h.tag = tag;
+        h.revertsId = revertsId;
+        h.createdAt = System.currentTimeMillis();
+
+        ContentValues values = new ContentValues();
+        values.put(StudentDbHelper.COL_HISTORY_ID, h.id);
+        values.put(StudentDbHelper.COL_HISTORY_ENROLLMENT_ID, h.enrollmentId);
+        values.put(StudentDbHelper.COL_HISTORY_POINTS_DELTA, h.pointsDelta);
+        values.put(StudentDbHelper.COL_HISTORY_NOTE, h.note);
+        values.put(StudentDbHelper.COL_HISTORY_CREATED_AT, h.createdAt);
+        values.put(StudentDbHelper.COL_HISTORY_TAG, h.tag);
+        values.put(StudentDbHelper.COL_HISTORY_REVERTS_ID, h.revertsId);
+        db.insertOrThrow(StudentDbHelper.TABLE_POINTS_HISTORY, null, values);
+
+        PointsAward award = new PointsAward();
+        award.enrollment = queryEnrollmentById(db, enrollmentId);
+        award.history = h;
+        return award;
+    }
+
+    /**
+     * Awards (or deducts, for a negative {@code delta}) points to one enrollment and records the
+     * history entry, as a single transaction. Unlike calling {@link #updateEnrollmentGrades} and
+     * {@link #savePointsHistory} separately, the total and the audit trail can't drift apart, and
+     * the new total is computed from what's stored now rather than from a copy the caller read earlier.
+     */
+    public void awardPoints(String enrollmentId, int delta, String note, String tag, final IDatabaseOnLoad<PointsAward> listener) {
+        executor.execute(() -> {
+            PointsAward award = null;
+            if (delta != 0) {
+                SQLiteDatabase db = dbHelper.getWritableDatabase();
+                db.beginTransaction();
+                try {
+                    award = applyPoints(db, enrollmentId, delta, note, cleanTag(tag), null);
+                    if (award != null) db.setTransactionSuccessful();
+                } catch (RuntimeException e) {
+                    award = null;
+                } finally {
+                    db.endTransaction();
+                }
+            }
+            final PointsAward result = award;
+            postResult(() -> listener.onLoadComplete(result != null, result));
+        });
+    }
+
+    /** Same change for several enrollments at once ("everyone handed in the assignment"), all-or-nothing: if any enrollment is missing, none is touched. Duplicates are applied once. */
+    public void awardPointsBatch(List<String> enrollmentIds, int delta, String note, String tag,
+                                 final IDatabaseOnLoad<ArrayList<PointsAward>> listener) {
+        executor.execute(() -> {
+            ArrayList<PointsAward> awards = new ArrayList<>();
+            boolean success = false;
+            if (delta != 0 && enrollmentIds != null && !enrollmentIds.isEmpty()) {
+                SQLiteDatabase db = dbHelper.getWritableDatabase();
+                String cleanedTag = cleanTag(tag);
+                db.beginTransaction();
+                try {
+                    success = true;
+                    for (String enrollmentId : new LinkedHashSet<>(enrollmentIds)) {
+                        PointsAward award = applyPoints(db, enrollmentId, delta, note, cleanedTag, null);
+                        if (award == null) {
+                            success = false;
+                            break;
+                        }
+                        awards.add(award);
+                    }
+                    if (success) db.setTransactionSuccessful();
+                } catch (RuntimeException e) {
+                    success = false;
+                } finally {
+                    db.endTransaction();
+                }
+            }
+            final boolean finalSuccess = success;
+            if (!finalSuccess) awards.clear();
+            postResult(() -> listener.onLoadComplete(finalSuccess, awards));
+        });
+    }
+
+    /** "Estorno: bom trabalho" — what a compensating entry's note says, so it reads sensibly in the history on its own. */
+    private String reversalNote(String originalNote) {
+        String text = originalNote == null ? "" : originalNote.trim();
+        return text.isEmpty() ? appContext.getString(R.string.reversal_note_blank)
+                : appContext.getString(R.string.reversal_note, text);
+    }
+
+    /**
+     * Cancels a history entry by appending an opposite one (history is append-only, so nothing is
+     * rewritten or deleted) and, when {@code replacement} is given, records the corrected entry
+     * right after it — "edit" is just cancel + re-enter, in one transaction. Refuses with
+     * {@link RevertResult#error} codes: NOT_FOUND, IS_REVERSAL (a cancelling entry can't itself be
+     * cancelled), ALREADY_REVERTED, or CLOSED_PERIOD (the entry belongs to a closed period; reopen
+     * it first).
+     */
+    public void revertPointsHistory(String historyId, PointsHistory replacement, final IDatabaseOnLoad<RevertResult> listener) {
+        executor.execute(() -> {
+            RevertResult result = new RevertResult();
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            db.beginTransaction();
+            try {
+                PointsHistory original = queryHistoryById(db, historyId);
+                if (original == null) {
+                    result.error = "NOT_FOUND";
+                } else if (original.revertsId != null) {
+                    result.error = "IS_REVERSAL";
+                } else if (isReverted(db, historyId)) {
+                    result.error = "ALREADY_REVERTED";
+                } else if (isInClosedPeriod(db, original.enrollmentId, original.createdAt)) {
+                    result.error = "CLOSED_PERIOD";
+                } else {
+                    result.reversal = applyPoints(db, original.enrollmentId, -original.pointsDelta,
+                            reversalNote(original.note), original.tag, original.id);
+                    if (result.reversal == null) {
+                        result.error = "NOT_FOUND";
+                    } else {
+                        if (replacement != null && replacement.pointsDelta != 0) {
+                            result.replacement = applyPoints(db, original.enrollmentId, replacement.pointsDelta,
+                                    replacement.note, cleanTag(replacement.tag), null);
+                        }
+                        db.setTransactionSuccessful();
+                    }
+                }
+            } catch (RuntimeException e) {
+                result.error = "FAILED";
+                result.reversal = null;
+                result.replacement = null;
+            } finally {
+                db.endTransaction();
+            }
+            postResult(() -> listener.onLoadComplete(result.error == null, result));
+        });
+    }
+
+    /**
+     * Takes back an award that was just made (the "Desfazer" snackbar): removes the history row
+     * outright and subtracts its points, as if it never happened. Unlike {@link #revertPointsHistory}
+     * this leaves no trace, so it is only meant for the few seconds right after the award; the
+     * same locks apply (error codes ALREADY_REVERTED, IS_REVERSAL, CLOSED_PERIOD, NOT_FOUND).
+     */
+    public void deletePointsAward(String historyId, final IDatabaseOnResult listener) {
+        executor.execute(() -> {
+            String error = null;
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            db.beginTransaction();
+            try {
+                PointsHistory entry = queryHistoryById(db, historyId);
+                if (entry == null) {
+                    error = "NOT_FOUND";
+                } else if (entry.revertsId != null) {
+                    error = "IS_REVERSAL";
+                } else if (isReverted(db, historyId)) {
+                    error = "ALREADY_REVERTED";
+                } else if (isInClosedPeriod(db, entry.enrollmentId, entry.createdAt)) {
+                    error = "CLOSED_PERIOD";
+                } else {
+                    db.execSQL("UPDATE " + StudentDbHelper.TABLE_ENROLLMENTS
+                                    + " SET " + StudentDbHelper.COL_ENROLLMENT_GRADES + " = " + StudentDbHelper.COL_ENROLLMENT_GRADES + " - ?"
+                                    + " WHERE " + StudentDbHelper.COL_ENROLLMENT_ID + " = ?",
+                            new Object[]{entry.pointsDelta, entry.enrollmentId});
+                    db.delete(StudentDbHelper.TABLE_POINTS_HISTORY, StudentDbHelper.COL_HISTORY_ID + "=?", new String[]{historyId});
+                    db.setTransactionSuccessful();
+                }
+            } catch (RuntimeException e) {
+                error = "FAILED";
+            } finally {
+                db.endTransaction();
+            }
+            final String finalError = error;
+            postResult(() -> listener.onResult(finalError == null, finalError));
+        });
+    }
+
+    /* ------------------------------- Attendance --------------------------------- */
+
+    private static Attendance attendanceFromCursor(Cursor cursor) {
+        Attendance a = new Attendance();
+        a.id = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_ATTENDANCE_ID));
+        a.classGroupId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_ATTENDANCE_CLASS_GROUP_ID));
+        a.studentId = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_ATTENDANCE_STUDENT_ID));
+        a.day = cursor.getString(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_ATTENDANCE_DAY));
+        a.status = cursor.getInt(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_ATTENDANCE_STATUS));
+        a.createdAt = cursor.getLong(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_ATTENDANCE_CREATED_AT));
+        a.updatedAt = cursor.getLong(cursor.getColumnIndexOrThrow(StudentDbHelper.COL_ATTENDANCE_UPDATED_AT));
+        return a;
+    }
+
+    private static ArrayList<Attendance> queryAttendance(SQLiteDatabase db, String selection, String[] args) {
+        ArrayList<Attendance> list = new ArrayList<>();
+        try (Cursor cursor = db.query(StudentDbHelper.TABLE_ATTENDANCE, null, selection, args, null, null,
+                StudentDbHelper.COL_ATTENDANCE_DAY + " ASC, " + StudentDbHelper.COL_ATTENDANCE_STUDENT_ID + " ASC")) {
+            while (cursor.moveToNext()) list.add(attendanceFromCursor(cursor));
+        }
+        return list;
+    }
+
+    private static final String ATTENDANCE_DAY_SELECTION =
+            StudentDbHelper.COL_ATTENDANCE_CLASS_GROUP_ID + "=? AND " + StudentDbHelper.COL_ATTENDANCE_DAY + "=?";
+
+    /**
+     * Opens (or re-opens) a roll call for a class group on a day: every student currently enrolled
+     * who has no record yet for that day starts out absent, and scanning/marking then flips them
+     * to present. Safe to call again — records that already exist, such as students already
+     * marked present, are left exactly as they are. Returns the day's full list.
+     */
+    public void startAttendance(String classGroupId, String day, final IDatabaseOnLoad<ArrayList<Attendance>> listener) {
+        executor.execute(() -> {
+            ArrayList<Attendance> rows = null;
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            db.beginTransaction();
+            try {
+                long now = System.currentTimeMillis();
+                List<String> studentIds = new ArrayList<>();
+                try (Cursor cursor = db.query(StudentDbHelper.TABLE_ENROLLMENTS,
+                        new String[]{StudentDbHelper.COL_ENROLLMENT_STUDENT_ID},
+                        StudentDbHelper.COL_ENROLLMENT_CLASS_GROUP_ID + "=?", new String[]{classGroupId}, null, null, null)) {
+                    while (cursor.moveToNext()) studentIds.add(cursor.getString(0));
+                }
+                for (String studentId : studentIds) {
+                    ContentValues values = new ContentValues();
+                    values.put(StudentDbHelper.COL_ATTENDANCE_ID, UUID.randomUUID().toString());
+                    values.put(StudentDbHelper.COL_ATTENDANCE_CLASS_GROUP_ID, classGroupId);
+                    values.put(StudentDbHelper.COL_ATTENDANCE_STUDENT_ID, studentId);
+                    values.put(StudentDbHelper.COL_ATTENDANCE_DAY, day);
+                    values.put(StudentDbHelper.COL_ATTENDANCE_STATUS, Attendance.STATUS_ABSENT);
+                    values.put(StudentDbHelper.COL_ATTENDANCE_CREATED_AT, now);
+                    values.put(StudentDbHelper.COL_ATTENDANCE_UPDATED_AT, now);
+                    db.insertWithOnConflict(StudentDbHelper.TABLE_ATTENDANCE, null, values, SQLiteDatabase.CONFLICT_IGNORE);
+                }
+                rows = queryAttendance(db, ATTENDANCE_DAY_SELECTION, new String[]{classGroupId, day});
+                db.setTransactionSuccessful();
+            } catch (RuntimeException e) {
+                rows = null;
+            } finally {
+                db.endTransaction();
+            }
+            final ArrayList<Attendance> result = rows;
+            postResult(() -> listener.onLoadComplete(result != null, result));
+        });
+    }
+
+    /**
+     * Sets the status of the given students for one class day (only {@code studentId} and
+     * {@code status} of each mark are read), creating the record if the student had none. All
+     * marks apply or none do. Returns the day's full list afterwards.
+     */
+    public void setAttendance(String classGroupId, String day, List<Attendance> marks,
+                              final IDatabaseOnLoad<ArrayList<Attendance>> listener) {
+        executor.execute(() -> {
+            ArrayList<Attendance> rows = null;
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            db.beginTransaction();
+            try {
+                long now = System.currentTimeMillis();
+                for (Attendance mark : marks) {
+                    if (mark.studentId == null || !Attendance.isValidStatus(mark.status)) {
+                        throw new IllegalArgumentException("invalid attendance mark");
+                    }
+                    ContentValues update = new ContentValues();
+                    update.put(StudentDbHelper.COL_ATTENDANCE_STATUS, mark.status);
+                    update.put(StudentDbHelper.COL_ATTENDANCE_UPDATED_AT, now);
+                    int changed = db.update(StudentDbHelper.TABLE_ATTENDANCE, update,
+                            ATTENDANCE_DAY_SELECTION + " AND " + StudentDbHelper.COL_ATTENDANCE_STUDENT_ID + "=?",
+                            new String[]{classGroupId, day, mark.studentId});
+                    if (changed == 0) {
+                        ContentValues insert = new ContentValues();
+                        insert.put(StudentDbHelper.COL_ATTENDANCE_ID, UUID.randomUUID().toString());
+                        insert.put(StudentDbHelper.COL_ATTENDANCE_CLASS_GROUP_ID, classGroupId);
+                        insert.put(StudentDbHelper.COL_ATTENDANCE_STUDENT_ID, mark.studentId);
+                        insert.put(StudentDbHelper.COL_ATTENDANCE_DAY, day);
+                        insert.put(StudentDbHelper.COL_ATTENDANCE_STATUS, mark.status);
+                        insert.put(StudentDbHelper.COL_ATTENDANCE_CREATED_AT, now);
+                        insert.put(StudentDbHelper.COL_ATTENDANCE_UPDATED_AT, now);
+                        db.insertOrThrow(StudentDbHelper.TABLE_ATTENDANCE, null, insert);
+                    }
+                }
+                rows = queryAttendance(db, ATTENDANCE_DAY_SELECTION, new String[]{classGroupId, day});
+                db.setTransactionSuccessful();
+            } catch (RuntimeException e) {
+                rows = null;
+            } finally {
+                db.endTransaction();
+            }
+            final ArrayList<Attendance> result = rows;
+            postResult(() -> listener.onLoadComplete(result != null, result));
+        });
+    }
+
+    public void loadAttendanceForDay(String classGroupId, String day, final IDatabaseOnLoad<ArrayList<Attendance>> listener) {
+        executor.execute(() -> {
+            ArrayList<Attendance> rows = queryAttendance(dbHelper.getReadableDatabase(),
+                    ATTENDANCE_DAY_SELECTION, new String[]{classGroupId, day});
+            postResult(() -> listener.onLoadComplete(true, rows));
+        });
+    }
+
+    /** Every recorded day of a class group, oldest first. */
+    public void loadAttendanceForClassGroup(String classGroupId, final IDatabaseOnLoad<ArrayList<Attendance>> listener) {
+        executor.execute(() -> {
+            ArrayList<Attendance> rows = queryAttendance(dbHelper.getReadableDatabase(),
+                    StudentDbHelper.COL_ATTENDANCE_CLASS_GROUP_ID + "=?", new String[]{classGroupId});
+            postResult(() -> listener.onLoadComplete(true, rows));
+        });
+    }
+
+    /** Every recorded day of one student, across all their class groups, oldest first. */
+    public void loadAttendanceForStudent(String studentId, final IDatabaseOnLoad<ArrayList<Attendance>> listener) {
+        executor.execute(() -> {
+            ArrayList<Attendance> rows = queryAttendance(dbHelper.getReadableDatabase(),
+                    StudentDbHelper.COL_ATTENDANCE_STUDENT_ID + "=?", new String[]{studentId});
+            postResult(() -> listener.onLoadComplete(true, rows));
+        });
+    }
+
+    /** Deletes a class day's whole roll call (e.g. one opened by mistake); reports how many records were removed. */
+    public void deleteAttendanceDay(String classGroupId, String day, final IDatabaseOnLoad<Integer> listener) {
+        executor.execute(() -> {
+            int removed = dbHelper.getWritableDatabase().delete(StudentDbHelper.TABLE_ATTENDANCE,
+                    ATTENDANCE_DAY_SELECTION, new String[]{classGroupId, day});
+            postResult(() -> listener.onLoadComplete(true, removed));
+        });
+    }
+
     /* ------------------------------ QR scan log ------------------------------- */
 
     /**
@@ -446,15 +915,26 @@ public class Database {
      * count lets the app flag a repeat before the student benefits from that lapse.
      */
     public void logScanAndCountToday(String studentId, final IDatabaseOnLoad<Integer> listener) {
+        scansToday(studentId, true, listener);
+    }
+
+    /** How many scans of this student were logged today, without logging a new one. */
+    public void countScansToday(String studentId, final IDatabaseOnLoad<Integer> listener) {
+        scansToday(studentId, false, listener);
+    }
+
+    private void scansToday(String studentId, boolean record, final IDatabaseOnLoad<Integer> listener) {
         executor.execute(() -> {
             SQLiteDatabase db = dbHelper.getWritableDatabase();
             long now = System.currentTimeMillis();
 
-            ContentValues values = new ContentValues();
-            values.put(StudentDbHelper.COL_QR_SCAN_ID, UUID.randomUUID().toString());
-            values.put(StudentDbHelper.COL_QR_SCAN_STUDENT_ID, studentId);
-            values.put(StudentDbHelper.COL_QR_SCAN_AT, now);
-            db.insert(StudentDbHelper.TABLE_QR_SCANS, null, values);
+            if (record) {
+                ContentValues values = new ContentValues();
+                values.put(StudentDbHelper.COL_QR_SCAN_ID, UUID.randomUUID().toString());
+                values.put(StudentDbHelper.COL_QR_SCAN_STUDENT_ID, studentId);
+                values.put(StudentDbHelper.COL_QR_SCAN_AT, now);
+                db.insert(StudentDbHelper.TABLE_QR_SCANS, null, values);
+            }
 
             Calendar startOfDay = Calendar.getInstance();
             startOfDay.setTimeInMillis(now);
@@ -608,14 +1088,25 @@ public class Database {
             }
 
             int rows = db.delete(StudentDbHelper.TABLE_CLASS_GROUPS, StudentDbHelper.COL_CLASS_GROUP_ID_PK + "=?", new String[]{id});
+            // Nobody is enrolled any more, so whatever roll calls were recorded for the group have nothing left to hang on to.
+            db.delete(StudentDbHelper.TABLE_ATTENDANCE, StudentDbHelper.COL_ATTENDANCE_CLASS_GROUP_ID + "=?", new String[]{id});
             postResult(() -> listener.onResult(rows > 0, null));
         });
     }
 
     /* ------------------------------- Goals ---------------------------------- */
 
+    /**
+     * Saves a goal. Every goal needs a start and an end date (see {@link Goal#hasValidDates}); one
+     * without them — or ending before it starts — is refused with {@code success == false} and
+     * nothing is written.
+     */
     public void saveGoal(Goal g, final IDatabaseOnSave<Goal> listener) {
         executor.execute(() -> {
+            if (!g.hasValidDates()) {
+                postResult(() -> listener.onSaveComplete(false, g));
+                return;
+            }
             if (g.id == null) g.id = UUID.randomUUID().toString();
 
             ContentValues values = new ContentValues();
@@ -623,6 +1114,8 @@ public class Database {
             values.put(StudentDbHelper.COL_GOAL_DISCIPLINE_ID, g.disciplineId);
             values.put(StudentDbHelper.COL_GOAL_NAME, g.name);
             values.put(StudentDbHelper.COL_GOAL_TARGET_POINTS, g.targetPoints);
+            values.put(StudentDbHelper.COL_GOAL_START_DATE, g.startDate);
+            values.put(StudentDbHelper.COL_GOAL_END_DATE, g.endDate);
 
             SQLiteDatabase db = dbHelper.getWritableDatabase();
             long result = db.insertWithOnConflict(StudentDbHelper.TABLE_GOALS, null, values,
@@ -633,14 +1126,17 @@ public class Database {
         });
     }
 
-    /** Loaded in ascending target-point order, so goal lists/progress bars naturally read easiest-to-hardest. */
+    /** Soonest-ending window first (goals without dates come before any), then easiest target first within a window. */
+    private static final String GOAL_ORDER = StudentDbHelper.COL_GOAL_END_DATE + " ASC, "
+            + StudentDbHelper.COL_GOAL_START_DATE + " ASC, " + StudentDbHelper.COL_GOAL_TARGET_POINTS + " ASC";
+
     public void loadGoalsForDiscipline(String disciplineId, final IDatabaseOnLoad<ArrayList<Goal>> listener) {
         executor.execute(() -> {
             ArrayList<Goal> list = new ArrayList<>();
             SQLiteDatabase db = dbHelper.getReadableDatabase();
             try (Cursor cursor = db.query(StudentDbHelper.TABLE_GOALS, null,
                     StudentDbHelper.COL_GOAL_DISCIPLINE_ID + "=?", new String[]{disciplineId}, null, null,
-                    StudentDbHelper.COL_GOAL_TARGET_POINTS + " ASC")) {
+                    GOAL_ORDER)) {
                 while (cursor.moveToNext()) {
                     list.add(goalFromCursor(cursor));
                 }
@@ -1093,6 +1589,9 @@ public class Database {
         executor.execute(() -> {
             SQLiteDatabase db = dbHelper.getReadableDatabase();
 
+            // Goal windows are judged against the local calendar day this export is made on.
+            String today = Attendance.today();
+
             // Every lookup table is loaded up front into an in-memory Map, so the per-enrollment
             // loop below is pure in-memory joining instead of one query per row (which would be
             // very slow for a roster of any real size).
@@ -1113,8 +1612,7 @@ public class Database {
             }
 
             Map<String, List<Goal>> goalsByDiscipline = new HashMap<>();
-            try (Cursor cursor = db.query(StudentDbHelper.TABLE_GOALS, null, null, null, null, null,
-                    StudentDbHelper.COL_GOAL_TARGET_POINTS + " ASC")) {
+            try (Cursor cursor = db.query(StudentDbHelper.TABLE_GOALS, null, null, null, null, null, GOAL_ORDER)) {
                 while (cursor.moveToNext()) {
                     Goal g = goalFromCursor(cursor);
                     List<Goal> list = goalsByDiscipline.get(g.disciplineId);
@@ -1183,21 +1681,22 @@ public class Database {
                 ClassGroup cg = classGroups.get(e.classGroupId);
                 data.classGroupId = e.classGroupId;
                 data.classGroupName = cg != null ? cg.name : "";
+                data.classGroupClosed = cg != null && cg.isClosed();
+                data.qrToken = s.qrToken;
                 String disciplineId = cg != null ? cg.disciplineId : null;
                 data.disciplineId = disciplineId;
                 String disciplineName = disciplineId != null ? disciplineNames.get(disciplineId) : null;
                 data.disciplineName = disciplineName != null ? disciplineName : "";
 
+                List<PointsHistory> history = historyByEnrollment.get(e.id);
+
                 List<Goal> goals = disciplineId != null ? goalsByDiscipline.get(disciplineId) : null;
                 if (goals != null) {
-                    for (Goal g : goals) {
-                        // GoalProgress computes achieved/remaining from the enrollment's current
-                        // points at construction time — it's a snapshot, not a live reference.
-                        data.goals.add(new GoalProgress(g.name, g.targetPoints, e.grades));
-                    }
+                    // A goal counts only the points awarded inside its start/end window (one without
+                    // dates still counts the whole period). It's a snapshot as of today, not a live reference.
+                    data.goals.addAll(GoalTracker.progressFor(goals, history, e.grades, today));
                 }
 
-                List<PointsHistory> history = historyByEnrollment.get(e.id);
                 if (history != null) {
                     for (PointsHistory h : history) h.disciplineName = data.disciplineName;
                     data.history.addAll(history);
@@ -1221,8 +1720,8 @@ public class Database {
     /**
      * Restores data previously produced by {@link Exporter#exportJson}. Disciplines, class
      * groups, students, enrollments and points history are matched by id (re-importing the same
-     * file is idempotent); goals are matched by discipline+name+target since the export does not
-     * carry a goal id.
+     * file is idempotent); goals are matched by discipline+name+target (+dates) since the export
+     * does not carry a goal id.
      */
     public void importExportData(List<StudentExportData> data, final IDatabaseOnResult listener) {
         executor.execute(() -> {
@@ -1254,6 +1753,14 @@ public class Database {
                     studentValues.put(StudentDbHelper.COL_ID, s.studentId);
                     studentValues.put(StudentDbHelper.COL_NAME, s.studentName);
                     studentValues.put(StudentDbHelper.COL_PHOTO_PATH, s.photoPath);
+                    // An older export has no token; keep the one already on this device rather than
+                    // retiring a regenerated QR code just because the file predates regeneration.
+                    String qrToken = s.qrToken;
+                    if (qrToken == null) {
+                        Student existingStudent = queryStudentById(db, s.studentId);
+                        if (existingStudent != null) qrToken = existingStudent.qrToken;
+                    }
+                    studentValues.put(StudentDbHelper.COL_QR_TOKEN, qrToken);
                     db.insertWithOnConflict(StudentDbHelper.TABLE_STUDENTS, null, studentValues,
                             SQLiteDatabase.CONFLICT_REPLACE);
 
@@ -1280,6 +1787,8 @@ public class Database {
                                 historyValues.put(StudentDbHelper.COL_HISTORY_POINTS_DELTA, h.pointsDelta);
                                 historyValues.put(StudentDbHelper.COL_HISTORY_NOTE, h.note);
                                 historyValues.put(StudentDbHelper.COL_HISTORY_CREATED_AT, h.createdAt);
+                                historyValues.put(StudentDbHelper.COL_HISTORY_TAG, cleanTag(h.tag));
+                                historyValues.put(StudentDbHelper.COL_HISTORY_REVERTS_ID, h.revertsId);
                                 db.insertWithOnConflict(StudentDbHelper.TABLE_POINTS_HISTORY, null, historyValues,
                                         SQLiteDatabase.CONFLICT_REPLACE);
                             }
@@ -1288,7 +1797,7 @@ public class Database {
 
                     if (s.disciplineId != null && !s.disciplineId.isEmpty() && s.goals != null) {
                         for (GoalProgress g : s.goals) {
-                            upsertGoal(db, s.disciplineId, g.goalName, g.targetPoints);
+                            upsertGoal(db, s.disciplineId, g.goalName, g.targetPoints, g.startDate, g.endDate);
                         }
                     }
                 }
@@ -1300,13 +1809,24 @@ public class Database {
         });
     }
 
-    /** Inserts a goal only if one with the same discipline+name+target doesn't already exist, since the export format has no goal id to match on directly. */
-    private static void upsertGoal(SQLiteDatabase db, String disciplineId, String name, int targetPoints) {
+    /**
+     * Inserts a goal only if it isn't there yet, since the export format has no goal id to match on
+     * directly. A goal with dates matches on discipline, name, target and both dates; one from an
+     * older file (no dates) matches on discipline, name and target alone, so re-importing such a
+     * file after the teacher gave that goal dates doesn't bring back an undated copy.
+     */
+    private static void upsertGoal(SQLiteDatabase db, String disciplineId, String name, int targetPoints,
+                                   String startDate, String endDate) {
+        // A file that carries nonsense dates is treated like an older one: the goal comes in without a window.
+        boolean dated = Attendance.isValidDay(startDate) && Attendance.isValidDay(endDate) && startDate.compareTo(endDate) <= 0;
+        String selection = StudentDbHelper.COL_GOAL_DISCIPLINE_ID + "=? AND " + StudentDbHelper.COL_GOAL_NAME + "=? AND "
+                + StudentDbHelper.COL_GOAL_TARGET_POINTS + "=?"
+                + (dated ? " AND " + StudentDbHelper.COL_GOAL_START_DATE + "=? AND " + StudentDbHelper.COL_GOAL_END_DATE + "=?" : "");
+        String[] args = dated
+                ? new String[]{disciplineId, name, String.valueOf(targetPoints), startDate, endDate}
+                : new String[]{disciplineId, name, String.valueOf(targetPoints)};
         try (Cursor cursor = db.query(StudentDbHelper.TABLE_GOALS,
-                new String[]{StudentDbHelper.COL_GOAL_ID},
-                StudentDbHelper.COL_GOAL_DISCIPLINE_ID + "=? AND " + StudentDbHelper.COL_GOAL_NAME + "=? AND "
-                        + StudentDbHelper.COL_GOAL_TARGET_POINTS + "=?",
-                new String[]{disciplineId, name, String.valueOf(targetPoints)}, null, null, null)) {
+                new String[]{StudentDbHelper.COL_GOAL_ID}, selection, args, null, null, null)) {
             if (cursor.moveToFirst()) return;
         }
 
@@ -1315,6 +1835,10 @@ public class Database {
         goalValues.put(StudentDbHelper.COL_GOAL_DISCIPLINE_ID, disciplineId);
         goalValues.put(StudentDbHelper.COL_GOAL_NAME, name);
         goalValues.put(StudentDbHelper.COL_GOAL_TARGET_POINTS, targetPoints);
+        if (dated) {
+            goalValues.put(StudentDbHelper.COL_GOAL_START_DATE, startDate);
+            goalValues.put(StudentDbHelper.COL_GOAL_END_DATE, endDate);
+        }
         db.insertWithOnConflict(StudentDbHelper.TABLE_GOALS, null, goalValues, SQLiteDatabase.CONFLICT_REPLACE);
     }
 

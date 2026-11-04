@@ -85,6 +85,23 @@ public class ImporterTest {
         assertEquals(10, g.targetPoints);
     }
 
+    // A goal exported with a window comes back with it; one from an older file has none.
+    @Test
+    public void parseJsonArray_readsTheWindowOfAGoalWhenTheFileHasOne() throws JSONException {
+        String withDates = "[{\"studentId\":\"s1\",\"name\":\"A\",\"points\":22,\"goals\":["
+                + "{\"name\":\"R\",\"target\":10,\"current\":9,\"startDate\":\"2026-02-01\",\"endDate\":\"2026-04-30\"}]}]";
+
+        GoalProgress dated = Importer.parseJsonArray(withDates).get(0).goals.get(0);
+        assertEquals("2026-02-01", dated.startDate);
+        assertEquals("2026-04-30", dated.endDate);
+        assertEquals(9, dated.currentPoints);
+
+        GoalProgress old = Importer.parseJsonArray(SAMPLE).get(0).goals.get(0);
+        assertNull(old.startDate);
+        assertNull(old.endDate);
+        assertEquals(22, old.currentPoints);
+    }
+
     // Verifies that the nested "history" array is parsed into PointsHistory objects, with the
     // JSON key "points" mapped to the pointsDelta field and "timestamp" mapped to createdAt.
     @Test

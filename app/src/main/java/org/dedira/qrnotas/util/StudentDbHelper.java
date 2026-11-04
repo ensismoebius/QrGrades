@@ -37,12 +37,14 @@ public class StudentDbHelper extends SQLiteOpenHelper {
     static final String DB_NAME = "qrgrades.db";
     // Bump this whenever the schema changes (new table/column/etc.) — SQLiteOpenHelper compares
     // this against the version stored in the existing DB file and calls onUpgrade() if it's higher.
-    private static final int DB_VERSION = 8;
+    private static final int DB_VERSION = 10;
 
     public static final String TABLE_STUDENTS = "students";
     public static final String COL_ID = "id";
     public static final String COL_NAME = "name";
     public static final String COL_PHOTO_PATH = "photo_path";
+    // NULL until the teacher regenerates the student's QR code; see Student#qrToken.
+    public static final String COL_QR_TOKEN = "qr_token";
 
     public static final String TABLE_DISCIPLINES = "disciplines";
     public static final String COL_DISCIPLINE_ID = "id";
@@ -61,6 +63,10 @@ public class StudentDbHelper extends SQLiteOpenHelper {
     public static final String COL_GOAL_DISCIPLINE_ID = "discipline_id";
     public static final String COL_GOAL_NAME = "name";
     public static final String COL_GOAL_TARGET_POINTS = "target_points";
+    // The days (local "yyyy-MM-dd", both included) whose points count towards the goal. NULL only
+    // on goals saved before they had dates; those keep counting the period's whole total.
+    public static final String COL_GOAL_START_DATE = "start_date";
+    public static final String COL_GOAL_END_DATE = "end_date";
 
     // A student's participation in a single class group / discipline, with its own points total.
     // A student can have several enrollments (one per discipline) to support multi-discipline participation.
@@ -76,6 +82,10 @@ public class StudentDbHelper extends SQLiteOpenHelper {
     public static final String COL_HISTORY_POINTS_DELTA = "points_delta";
     public static final String COL_HISTORY_NOTE = "note";
     public static final String COL_HISTORY_CREATED_AT = "created_at";
+    // Optional category of the points (e.g. "Participação").
+    public static final String COL_HISTORY_TAG = "tag";
+    // Set only on a compensating entry: the id of the history row it cancels.
+    public static final String COL_HISTORY_REVERTS_ID = "reverts_id";
 
     // One row per QR-code scan/identification, regardless of what it was used for — lets the app
     // flag when the same student's code is scanned more than once in a day, e.g. to catch a
@@ -117,6 +127,19 @@ public class StudentDbHelper extends SQLiteOpenHelper {
     public static final String COL_PERIOD_SNAPSHOT_CLASS_GROUP_ID = "class_group_id";
     public static final String COL_PERIOD_SNAPSHOT_POINTS = "points";
 
+    // One row per student per class day, created when a roll call is started or the student is
+    // marked individually. The day is a local "yyyy-MM-dd" string so a class day never shifts
+    // with the time zone; created_at (never updated) decides which period the record belongs to.
+    public static final String TABLE_ATTENDANCE = "attendance";
+    public static final String COL_ATTENDANCE_ID = "id";
+    public static final String COL_ATTENDANCE_CLASS_GROUP_ID = "class_group_id";
+    public static final String COL_ATTENDANCE_STUDENT_ID = "student_id";
+    public static final String COL_ATTENDANCE_DAY = "day";
+    // 0 = absent, 1 = present, 2 = excused (see model.Attendance).
+    public static final String COL_ATTENDANCE_STATUS = "status";
+    public static final String COL_ATTENDANCE_CREATED_AT = "created_at";
+    public static final String COL_ATTENDANCE_UPDATED_AT = "updated_at";
+
     /** Creates the helper. The actual DB file isn't touched yet — SQLiteOpenHelper opens it lazily on first use. */
     public StudentDbHelper(Context context) {
         // Always use the application Context (not an Activity Context) here: the helper may
@@ -145,12 +168,15 @@ public class StudentDbHelper extends SQLiteOpenHelper {
                 COL_GOAL_ID + " TEXT PRIMARY KEY, " +
                 COL_GOAL_DISCIPLINE_ID + " TEXT NOT NULL, " +
                 COL_GOAL_NAME + " TEXT NOT NULL, " +
-                COL_GOAL_TARGET_POINTS + " INTEGER NOT NULL DEFAULT 0)");
+                COL_GOAL_TARGET_POINTS + " INTEGER NOT NULL DEFAULT 0, " +
+                COL_GOAL_START_DATE + " TEXT, " +
+                COL_GOAL_END_DATE + " TEXT)");
 
         db.execSQL("CREATE TABLE " + TABLE_STUDENTS + " (" +
                 COL_ID + " TEXT PRIMARY KEY, " +
                 COL_NAME + " TEXT NOT NULL, " +
-                COL_PHOTO_PATH + " TEXT)");
+                COL_PHOTO_PATH + " TEXT, " +
+                COL_QR_TOKEN + " TEXT)");
 
         // UNIQUE(student_id, class_group_id) prevents the same student from being enrolled twice
         // in the same class group (the database itself enforces this, not just app logic).
@@ -168,7 +194,9 @@ public class StudentDbHelper extends SQLiteOpenHelper {
                 COL_HISTORY_ENROLLMENT_ID + " TEXT NOT NULL, " +
                 COL_HISTORY_POINTS_DELTA + " INTEGER NOT NULL, " +
                 COL_HISTORY_NOTE + " TEXT, " +
-                COL_HISTORY_CREATED_AT + " INTEGER NOT NULL)");
+                COL_HISTORY_CREATED_AT + " INTEGER NOT NULL, " +
+                COL_HISTORY_TAG + " TEXT, " +
+                COL_HISTORY_REVERTS_ID + " TEXT)");
 
         db.execSQL("CREATE TABLE " + TABLE_QR_SCANS + " (" +
                 COL_QR_SCAN_ID + " TEXT PRIMARY KEY, " +
@@ -191,6 +219,35 @@ public class StudentDbHelper extends SQLiteOpenHelper {
                 COL_PERIOD_SNAPSHOT_STUDENT_ID + " TEXT NOT NULL, " +
                 COL_PERIOD_SNAPSHOT_CLASS_GROUP_ID + " TEXT NOT NULL, " +
                 COL_PERIOD_SNAPSHOT_POINTS + " INTEGER NOT NULL)");
+
+        createAttendanceTable(db);
+        createIndexes(db);
+    }
+
+    /** IF NOT EXISTS, so {@link #onCreate} and the additive {@link #onUpgrade} step can share it. */
+    private static void createAttendanceTable(SQLiteDatabase db) {
+        // UNIQUE(class group, student, day) makes re-marking the same day an update instead of a duplicate row.
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_ATTENDANCE + " (" +
+                COL_ATTENDANCE_ID + " TEXT PRIMARY KEY, " +
+                COL_ATTENDANCE_CLASS_GROUP_ID + " TEXT NOT NULL, " +
+                COL_ATTENDANCE_STUDENT_ID + " TEXT NOT NULL, " +
+                COL_ATTENDANCE_DAY + " TEXT NOT NULL, " +
+                COL_ATTENDANCE_STATUS + " INTEGER NOT NULL, " +
+                COL_ATTENDANCE_CREATED_AT + " INTEGER NOT NULL, " +
+                COL_ATTENDANCE_UPDATED_AT + " INTEGER NOT NULL, " +
+                "UNIQUE(" + COL_ATTENDANCE_CLASS_GROUP_ID + ", " + COL_ATTENDANCE_STUDENT_ID + ", " + COL_ATTENDANCE_DAY + "))");
+    }
+
+    /**
+     * Lookup indexes for the queries that run on every scan or screen load. The QR-token index is
+     * deliberately not UNIQUE: the students table is written with CONFLICT_REPLACE, which would
+     * silently delete a different student's row on a (vanishingly unlikely) duplicate token.
+     */
+    private static void createIndexes(SQLiteDatabase db) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_students_qr_token ON " + TABLE_STUDENTS + "(" + COL_QR_TOKEN + ")");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_history_enrollment ON " + TABLE_POINTS_HISTORY + "(" + COL_HISTORY_ENROLLMENT_ID + ")");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_history_reverts ON " + TABLE_POINTS_HISTORY + "(" + COL_HISTORY_REVERTS_ID + ")");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_attendance_student ON " + TABLE_ATTENDANCE + "(" + COL_ATTENDANCE_STUDENT_ID + ")");
     }
 
     /** True if {@code column} already exists on {@code table} — lets an additive migration add a column exactly once without erroring on re-run. */
@@ -254,5 +311,32 @@ public class StudentDbHelper extends SQLiteOpenHelper {
         // this safe to run more than once.
         db.execSQL("DROP TABLE IF EXISTS bathroom_visits");
         db.execSQL("DROP TABLE IF EXISTS indiscipline_events");
+
+        // Version 9 adds QR-code regeneration (students.qr_token), point categories and
+        // cancelled-entry links (points_history.tag / reverts_id), and attendance. Purely
+        // additive, like versions 6 and 7: a teacher's students, points and history stay as they
+        // are, and every existing printed QR code keeps working because a NULL token means "the
+        // code is the student id". The column guards make re-running this safe.
+        if (!columnExists(db, TABLE_STUDENTS, COL_QR_TOKEN)) {
+            db.execSQL("ALTER TABLE " + TABLE_STUDENTS + " ADD COLUMN " + COL_QR_TOKEN + " TEXT");
+        }
+        if (!columnExists(db, TABLE_POINTS_HISTORY, COL_HISTORY_TAG)) {
+            db.execSQL("ALTER TABLE " + TABLE_POINTS_HISTORY + " ADD COLUMN " + COL_HISTORY_TAG + " TEXT");
+        }
+        if (!columnExists(db, TABLE_POINTS_HISTORY, COL_HISTORY_REVERTS_ID)) {
+            db.execSQL("ALTER TABLE " + TABLE_POINTS_HISTORY + " ADD COLUMN " + COL_HISTORY_REVERTS_ID + " TEXT");
+        }
+        createAttendanceTable(db);
+        createIndexes(db);
+
+        // Version 10 gives goals a start and an end date. Also additive: the two columns stay
+        // empty on goals that already exist, which then keep counting the period's whole total
+        // exactly as before until the teacher edits them and picks the dates. Nothing is guessed.
+        if (!columnExists(db, TABLE_GOALS, COL_GOAL_START_DATE)) {
+            db.execSQL("ALTER TABLE " + TABLE_GOALS + " ADD COLUMN " + COL_GOAL_START_DATE + " TEXT");
+        }
+        if (!columnExists(db, TABLE_GOALS, COL_GOAL_END_DATE)) {
+            db.execSQL("ALTER TABLE " + TABLE_GOALS + " ADD COLUMN " + COL_GOAL_END_DATE + " TEXT");
+        }
     }
 }

@@ -21,6 +21,7 @@ package org.dedira.qrnotas.util;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.pdf.PdfDocument;
@@ -28,9 +29,12 @@ import android.net.Uri;
 
 import androidx.core.content.FileProvider;
 
+import org.dedira.qrnotas.R;
+import org.dedira.qrnotas.model.AttendanceStats;
 import org.dedira.qrnotas.model.GoalProgress;
 import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.StudentExportData;
+import org.dedira.qrnotas.model.StudentReport;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -66,7 +70,7 @@ public class Exporter {
     private Exporter() {
     }
 
-    private static File exportDir(Context context) {
+    public static File exportDir(Context context) {
         File dir = new File(context.getCacheDir(), "exports");
         if (!dir.exists()) dir.mkdirs();
         return dir;
@@ -113,14 +117,20 @@ public class Exporter {
         return new ArrayList<>(totals.values());
     }
 
-    /** Builds a one-line, comma-separated summary of a student's goal progress, e.g. "R ✓, MB (5 to go)". */
+    /**
+     * Builds a one-line, comma-separated summary of a student's goal progress, e.g.
+     * "R ✓, MB (5 to go), E ✗, X (not started)" — ✓ reached, ✗ finished without reaching it.
+     */
     private static String goalsSummary(StudentExportData s) {
         if (s.goals == null || s.goals.isEmpty()) return "";
         StringBuilder sb = new StringBuilder();
         for (GoalProgress g : s.goals) {
             if (sb.length() > 0) sb.append(", ");
             sb.append(g.goalName);
-            sb.append(g.achieved ? " ✓" : " (" + g.remaining + " to go)");
+            if (g.achieved) sb.append(" ✓");
+            else if (g.isMissed()) sb.append(" ✗");
+            else if (g.state == GoalProgress.STATE_UPCOMING) sb.append(" (not started)");
+            else sb.append(" (").append(g.remaining).append(" to go)");
         }
         return sb.toString();
     }
@@ -153,14 +163,15 @@ public class Exporter {
             }
 
             writer.write("\n## Points History\n\n");
-            writer.write("| Name | Date | Points | Note |\n");
-            writer.write("|---|---|---|---|\n");
+            writer.write("| Name | Date | Points | Category | Note |\n");
+            writer.write("|---|---|---|---|---|\n");
             for (StudentExportData s : data) {
                 if (s.history == null) continue;
                 for (PointsHistory h : s.history) {
                     writer.write("| " + escapeMd(s.studentName)
                             + " | " + historyFormat.format(new Date(h.createdAt))
                             + " | " + String.format(Locale.getDefault(), "%+d", h.pointsDelta)
+                            + " | " + escapeMd(h.tag == null ? "" : h.tag)
                             + " | " + escapeMd(h.note == null ? "" : h.note)
                             + " |\n");
                 }
@@ -177,7 +188,8 @@ public class Exporter {
     /** Writes {@link #buildJsonArray}'s output to a pretty-printed (2-space indent) JSON file. */
     public static File exportJson(Context context, List<StudentExportData> data) throws IOException, JSONException {
         File file = new File(exportDir(context), baseFileName(data) + "_" + System.currentTimeMillis() + ".json");
-        JSONArray array = buildJsonArray(data);
+        // The file doubles as a full backup, so it carries each student's regenerated QR token: restoring it must not silently revive an old code or retire the new one.
+        JSONArray array = buildJsonArray(data, true);
 
         try (Writer writer = new OutputStreamWriter(new FileOutputStream(file))) {
             writer.write(array.toString(2));
@@ -187,6 +199,14 @@ public class Exporter {
 
     /** Same JSON shape as {@link #exportJson}, without writing it to a file — reused by the web server's live "/api/overview" endpoint. */
     public static JSONArray buildJsonArray(List<StudentExportData> data) throws JSONException {
+        return buildJsonArray(data, false);
+    }
+
+    /**
+     * @param includeQrToken whether to include each student's QR secret. Only the downloadable
+     *                       backup file wants it; the live overview shown in the browser has no use for it.
+     */
+    public static JSONArray buildJsonArray(List<StudentExportData> data, boolean includeQrToken) throws JSONException {
         Map<String, Integer> totalsByStudent = new LinkedHashMap<>();
         for (StudentTotal total : computeTotals(data)) totalsByStudent.put(total.studentId, total.points);
 
@@ -202,6 +222,8 @@ public class Exporter {
             obj.put("discipline", s.disciplineName);
             obj.put("classGroupId", s.classGroupId);
             obj.put("classGroup", s.classGroupName);
+            obj.put("classGroupClosed", s.classGroupClosed);
+            if (includeQrToken && s.qrToken != null) obj.put("qrToken", s.qrToken);
             obj.put("points", s.points);
             // Combined total across every one of this student's enrollments in this export, not
             // just this one discipline/class — see the "points" field above for the per-row value.
@@ -213,8 +235,16 @@ public class Exporter {
                     JSONObject goalObj = new JSONObject();
                     goalObj.put("name", g.goalName);
                     goalObj.put("target", g.targetPoints);
+                    // The points that count for this goal (those inside its window), which is not always the row's total.
+                    goalObj.put("current", g.currentPoints);
                     goalObj.put("achieved", g.achieved);
                     goalObj.put("remaining", g.remaining);
+                    if (g.hasDates()) {
+                        goalObj.put("startDate", g.startDate);
+                        goalObj.put("endDate", g.endDate);
+                    }
+                    goalObj.put("state", g.stateName());
+                    goalObj.put("daysLeft", g.daysLeft);
                     goals.put(goalObj);
                 }
             }
@@ -228,6 +258,8 @@ public class Exporter {
                     historyObj.put("points", h.pointsDelta);
                     historyObj.put("note", h.note == null ? "" : h.note);
                     historyObj.put("timestamp", h.createdAt);
+                    if (h.tag != null) historyObj.put("tag", h.tag);
+                    if (h.revertsId != null) historyObj.put("revertsId", h.revertsId);
                     history.put(historyObj);
                 }
             }
@@ -365,7 +397,7 @@ public class Exporter {
                         s.studentName == null ? "" : s.studentName,
                         historyFormat.format(new Date(h.createdAt)),
                         String.format(Locale.getDefault(), "%+d", h.pointsDelta),
-                        h.note == null ? "" : h.note
+                        (h.tag == null ? "" : "[" + h.tag + "] ") + (h.note == null ? "" : h.note)
                 };
 
                 for (int i = 0; i < historyValues.length; i++) {
@@ -384,6 +416,163 @@ public class Exporter {
             document.close();
         }
         return file;
+    }
+
+    private static Paint paint(float size, boolean bold, int color) {
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setTextSize(size);
+        paint.setFakeBoldText(bold);
+        paint.setColor(color);
+        return paint;
+    }
+
+    /**
+     * Renders one student's report card as a PDF: the period still open first, then each closed
+     * period newest first — with points, goals, attendance, points by category and the full point
+     * history of each. The text comes from the string resources in {@code locale} rather than the
+     * device language, because the browser UI that asks for it is Brazilian Portuguese whatever
+     * the phone happens to be set to.
+     */
+    public static File exportStudentReport(Context context, StudentReport report, Locale locale) throws IOException {
+        Configuration config = new Configuration(context.getResources().getConfiguration());
+        config.setLocale(locale);
+        Context ctx = context.createConfigurationContext(config);
+
+        Paint title = paint(20, true, 0xFF111111);
+        Paint heading = paint(14, true, 0xFF3C2FA8);
+        Paint subheading = paint(11.5f, true, 0xFF111111);
+        Paint body = paint(10, false, 0xFF222222);
+        Paint muted = paint(9, false, 0xFF666666);
+        Paint columnHead = paint(9, true, 0xFF444444);
+        Paint gain = paint(10, true, 0xFF2E7D32);
+        Paint loss = paint(10, true, 0xFFBA1A1A);
+        Paint line = new Paint();
+        line.setColor(0xFFBBBBBB);
+        line.setStrokeWidth(0.7f);
+
+        SimpleDateFormat dateTime = new SimpleDateFormat("dd/MM/yyyy HH:mm", locale);
+        SimpleDateFormat dateOnly = new SimpleDateFormat("dd/MM/yyyy", locale);
+
+        PdfLayout pdf = new PdfLayout(ctx.getString(R.string.report_page));
+        pdf.text(report.student.name == null ? "" : report.student.name, title);
+        pdf.text(ctx.getString(R.string.report_title) + " · "
+                + ctx.getString(R.string.report_generated_on, dateTime.format(new Date())), muted);
+        pdf.space(8);
+        pdf.rule(line);
+        pdf.space(6);
+
+        pdf.text(ctx.getString(R.string.report_current_period), heading);
+        pdf.space(4);
+        if (report.current.isEmpty()) {
+            pdf.text(ctx.getString(R.string.report_no_enrollments), body);
+            pdf.space(8);
+        }
+        for (StudentReport.Bucket bucket : report.current) {
+            String name = bucket.discipline + " · " + bucket.classGroup
+                    + (bucket.classGroupClosed ? ctx.getString(R.string.report_class_closed) : "");
+            writeReportBucket(pdf, ctx, bucket, name, dateTime, subheading, body, muted, columnHead, gain, loss, line);
+        }
+
+        // Closed periods, most recent first.
+        List<StudentReport.Bucket> closedNewestFirst = new ArrayList<>(report.closed);
+        java.util.Collections.reverse(closedNewestFirst);
+        for (StudentReport.Bucket bucket : closedNewestFirst) {
+            String date = dateOnly.format(new Date(bucket.closedAt));
+            String when = bucket.label.isEmpty()
+                    ? ctx.getString(R.string.report_closed_on, date)
+                    : ctx.getString(R.string.report_closed_period_heading, bucket.label, date);
+            pdf.ensureSpace(60);
+            pdf.text(when, heading);
+            pdf.space(4);
+            String name = bucket.discipline + " · " + bucket.classGroup;
+            writeReportBucket(pdf, ctx, bucket, name, dateTime, subheading, body, muted, columnHead, gain, loss, line);
+        }
+
+        File file = new File(exportDir(context), "boletim_" + sanitize(report.student.name) + "_" + System.currentTimeMillis() + ".pdf");
+        return pdf.write(file);
+    }
+
+    /** A stored "yyyy-MM-dd" day the way the report shows dates, "dd/MM/yyyy". */
+    private static String reportDay(String day) {
+        return day.substring(8, 10) + "/" + day.substring(5, 7) + "/" + day.substring(0, 4);
+    }
+
+    /** One enrollment-in-one-period block of the report card. */
+    private static void writeReportBucket(PdfLayout pdf, Context ctx, StudentReport.Bucket bucket, String name,
+                                          SimpleDateFormat dateTime, Paint subheading, Paint body, Paint muted,
+                                          Paint columnHead, Paint gain, Paint loss, Paint rule) {
+        pdf.ensureSpace(70);
+        pdf.text(name, subheading);
+        pdf.text(ctx.getString(R.string.report_points, bucket.points), body);
+
+        if (!bucket.goals.isEmpty()) {
+            pdf.text(ctx.getString(R.string.report_goals) + ":", muted);
+            for (GoalProgress goal : bucket.goals) {
+                // "MB (01/02/2026 – 30/04/2026)": a goal with a window says which days counted.
+                String label = goal.hasDates()
+                        ? ctx.getString(R.string.report_goal_window, goal.goalName, reportDay(goal.startDate), reportDay(goal.endDate))
+                        : goal.goalName;
+                String text;
+                if (goal.achieved) {
+                    text = ctx.getString(R.string.report_goal_achieved, label, goal.targetPoints);
+                } else if (goal.isMissed()) {
+                    text = ctx.getString(R.string.report_goal_missed, label, goal.targetPoints, goal.currentPoints);
+                } else if (goal.state == GoalProgress.STATE_UPCOMING) {
+                    text = ctx.getString(R.string.report_goal_upcoming, label, goal.targetPoints);
+                } else {
+                    text = ctx.getString(R.string.report_goal_remaining, label, goal.targetPoints, goal.remaining);
+                }
+                pdf.text("  • " + text, body);
+            }
+        }
+
+        AttendanceStats attendance = bucket.attendance;
+        String attendanceText = attendance.total() == 0
+                ? ctx.getString(R.string.report_attendance_none)
+                : ctx.getString(R.string.report_attendance_summary, attendance.present, attendance.absent,
+                attendance.excused, (int) Math.round(attendance.presentPercent()));
+        pdf.text(ctx.getString(R.string.report_attendance) + ": " + attendanceText, body);
+
+        // Worth a line only when some category is in use; a lone "no category" figure would just repeat the total.
+        List<StudentReport.Bucket.TagTotal> byTag = bucket.pointsByTag();
+        boolean anyCategory = false;
+        for (StudentReport.Bucket.TagTotal t : byTag) if (!t.tag.isEmpty()) anyCategory = true;
+        if (anyCategory) {
+            StringBuilder sb = new StringBuilder(ctx.getString(R.string.report_by_category)).append(": ");
+            for (int i = 0; i < byTag.size(); i++) {
+                StudentReport.Bucket.TagTotal t = byTag.get(i);
+                if (i > 0) sb.append(" · ");
+                sb.append(t.tag.isEmpty() ? ctx.getString(R.string.report_no_category) : t.tag)
+                        .append(' ').append(String.format(Locale.US, "%+d", t.points));
+            }
+            pdf.text(sb.toString(), body);
+        }
+
+        pdf.space(6);
+        pdf.text(ctx.getString(R.string.report_history), columnHead);
+        if (bucket.history.isEmpty()) {
+            pdf.text(ctx.getString(R.string.report_no_history), muted);
+        } else {
+            float[] offsets = {0, 100, 140, 245};
+            float[] widths = {95, 36, 100, pdf.contentWidth() - 245};
+            pdf.row(new String[]{ctx.getString(R.string.report_col_date), ctx.getString(R.string.report_col_points),
+                            ctx.getString(R.string.report_col_category), ctx.getString(R.string.report_col_note)},
+                    offsets, widths, new Paint[]{columnHead, columnHead, columnHead, columnHead});
+            for (PointsHistory h : bucket.history) {
+                // A cancelled entry stays visible but greyed out, so the history still adds up on paper.
+                boolean cancelled = h.reverted;
+                Paint numberPaint = cancelled ? muted : (h.pointsDelta < 0 ? loss : gain);
+                Paint textPaint = cancelled ? muted : body;
+                String note = (h.note == null ? "" : h.note)
+                        + (cancelled ? " " + ctx.getString(R.string.report_cancelled) : "");
+                pdf.row(new String[]{dateTime.format(new Date(h.createdAt)),
+                                String.format(Locale.US, "%+d", h.pointsDelta), h.tag == null ? "" : h.tag, note.trim()},
+                        offsets, widths, new Paint[]{textPaint, numberPaint, textPaint, textPaint});
+            }
+        }
+        pdf.space(8);
+        pdf.rule(rule);
+        pdf.space(8);
     }
 
     /** Draws one row of column headers and returns the y-coordinate for the next row below it. */

@@ -46,6 +46,8 @@ public class DbBackup {
 
     private static final String MANUAL_PREFIX = "manual_";
     private static final String AUTO_PREFIX = "auto_";
+    // Taken by AutoBackup on its own schedule; kept apart so those never crowd out the user's own backups.
+    private static final String SCHEDULED_PREFIX = "scheduled_";
     private static final String DB_ENTRY = "qrgrades.db";
     private static final String PHOTOS_ENTRY_PREFIX = "photos/";
 
@@ -72,20 +74,45 @@ public class DbBackup {
         return snapshot.getName().startsWith(MANUAL_PREFIX);
     }
 
+    /** True for the snapshots the app takes on a schedule (see {@link AutoBackup}). */
+    public static boolean isScheduled(File snapshot) {
+        return snapshot.getName().startsWith(SCHEDULED_PREFIX);
+    }
+
     public static boolean deleteSnapshot(File snapshot) {
         return snapshot.delete();
     }
 
-    /** Keeps only the {@code keep} newest snapshots, deleting the rest, so automatic pre-import backups don't accumulate forever. */
+    /**
+     * Keeps only the {@code keep} newest manual and pre-import snapshots, deleting the rest, so
+     * they don't accumulate forever. Scheduled snapshots are neither counted nor deleted here:
+     * they have their own limit ({@link #pruneScheduledSnapshots}), and counting them would let a
+     * daily backup push the user's own backups out after a couple of weeks.
+     */
     public static void pruneOldSnapshots(Context context, int keep) {
-        File[] snapshots = listSnapshots(context);
-        for (int i = keep; i < snapshots.length; i++) snapshots[i].delete();
+        int kept = 0;
+        for (File snapshot : listSnapshots(context)) {
+            if (isScheduled(snapshot)) continue;
+            if (++kept > keep) snapshot.delete();
+        }
+    }
+
+    /** Keeps only the {@code keep} newest scheduled snapshots. */
+    public static void pruneScheduledSnapshots(Context context, int keep) {
+        int kept = 0;
+        for (File snapshot : listSnapshots(context)) {
+            if (!isScheduled(snapshot)) continue;
+            if (++kept > keep) snapshot.delete();
+        }
     }
 
     /** Builds a fresh, timestamped destination path for a new snapshot zip, prefixed by whether it's manual or automatic. */
     public static File newSnapshotFile(Context context, boolean manual) {
+        return newSnapshotFile(context, manual ? MANUAL_PREFIX : AUTO_PREFIX);
+    }
+
+    private static File newSnapshotFile(Context context, String prefix) {
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-        String prefix = manual ? MANUAL_PREFIX : AUTO_PREFIX;
         return new File(backupDir(context), prefix + timestamp + ".zip");
     }
 
@@ -96,6 +123,15 @@ public class DbBackup {
      * since a class roster's worth of photos is too much to do on the caller's thread.
      */
     public static void createFullSnapshot(Context context, Database database, boolean manual, IDatabaseOnResult listener) {
+        createSnapshot(context, database, manual ? MANUAL_PREFIX : AUTO_PREFIX, listener);
+    }
+
+    /** Same snapshot, filed as a scheduled one (see {@link AutoBackup}). */
+    public static void createScheduledSnapshot(Context context, Database database, IDatabaseOnResult listener) {
+        createSnapshot(context, database, SCHEDULED_PREFIX, listener);
+    }
+
+    private static void createSnapshot(Context context, Database database, String prefix, IDatabaseOnResult listener) {
         File tempDb = new File(backupDir(context), ".tmp_" + System.nanoTime() + ".db");
         database.createSnapshot(tempDb, (success, error) -> {
             if (!success) {
@@ -105,7 +141,7 @@ public class DbBackup {
             }
 
             new Thread(() -> {
-                File zipFile = newSnapshotFile(context, manual);
+                File zipFile = newSnapshotFile(context, prefix);
                 boolean zipSuccess;
                 String zipError = null;
                 try {

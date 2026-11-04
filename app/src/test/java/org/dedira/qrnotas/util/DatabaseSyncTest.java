@@ -202,6 +202,8 @@ public class DatabaseSyncTest {
         goal.disciplineId = savedDiscipline.value.id;
         goal.name = "R";
         goal.targetPoints = 10;
+        goal.startDate = "2026-02-01";
+        goal.endDate = "2026-04-30";
         DatabaseSync.Result<Goal> savedGoal = runOnWorker(() -> DatabaseSync.saveGoal(database, goal));
         assertTrue(savedGoal.success);
 

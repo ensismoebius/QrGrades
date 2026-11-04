@@ -28,6 +28,19 @@ public class Student {
     public String id;
     public String name;
     public String photoPath; // File path to the student's saved photo on device storage; may be null if no photo was taken.
+    // Random secret encoded in the student's printed QR code once it has been regenerated (a lost
+    // or leaked code is retired by issuing a new one). Null for a student whose code was never
+    // regenerated: their original code is simply their id, so existing printed codes keep working.
+    public String qrToken;
+
+    /**
+     * The exact text this student's QR code must encode right now. Once {@link #qrToken} is set,
+     * the id stops being accepted by the scanner, which is what makes regenerating a code
+     * actually invalidate the old one.
+     */
+    public String qrCode() {
+        return qrToken != null ? qrToken : id;
+    }
 
     @Override
     public String toString() {

@@ -22,6 +22,7 @@ package org.dedira.qrnotas.util;
 import android.content.Context;
 import android.os.Looper;
 
+import org.dedira.qrnotas.model.Attendance;
 import org.dedira.qrnotas.model.ClassGroup;
 import org.dedira.qrnotas.model.CsvImportPlan;
 import org.dedira.qrnotas.model.CsvStudentRow;
@@ -30,8 +31,11 @@ import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.Goal;
 import org.dedira.qrnotas.model.Period;
 import org.dedira.qrnotas.model.PeriodSnapshot;
+import org.dedira.qrnotas.model.PointsAward;
 import org.dedira.qrnotas.model.PointsHistory;
+import org.dedira.qrnotas.model.IDatabaseOnLoad;
 import org.dedira.qrnotas.model.ResolvedCsvRow;
+import org.dedira.qrnotas.model.RevertResult;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.model.StudentExportData;
 
@@ -240,7 +244,139 @@ public class DatabaseSync {
         return result.value;
     }
 
+    /** One {@link Database} load call, parameterised only by the listener — lets {@link #load} wrap any of them without repeating the latch plumbing each time. */
+    private interface LoadCall<T> {
+        void run(IDatabaseOnLoad<T> listener);
+    }
+
+    /** Runs {@code call} and blocks (bounded by {@link #TIMEOUT_SECONDS}) until its listener fires; the returned {@link Result} is unsuccessful with a null value if it never did. */
+    private static <T> Result<T> load(LoadCall<T> call) {
+        assertNotMainThread();
+        CountDownLatch latch = new CountDownLatch(1);
+        Result<T> result = new Result<>();
+        call.run((success, value) -> {
+            result.success = success;
+            result.value = value;
+            latch.countDown();
+        });
+        awaitLatch(latch);
+        return result;
+    }
+
+    /* ------------------------------- QR codes ---------------------------------- */
+
+    /** Synchronous wrapper around {@link Database#loadStudentByQrCode}; null if the code matches nobody (including a retired, regenerated one). */
+    public static Student loadStudentByQrCode(Database database, String code) {
+        Result<Student> result = load(l -> database.loadStudentByQrCode(code, l));
+        return result.success ? result.value : null;
+    }
+
+    /** Synchronous wrapper around {@link Database#regenerateQrToken}; null if the student doesn't exist. */
+    public static Student regenerateQrToken(Database database, String studentId) {
+        Result<Student> result = load(l -> database.regenerateQrToken(studentId, l));
+        return result.success ? result.value : null;
+    }
+
+    /* ----------------------- Atomic points changes ----------------------------- */
+
+    /** Synchronous wrapper around {@link Database#awardPoints}; null if the enrollment doesn't exist or delta is zero. */
+    public static PointsAward awardPoints(Database database, String enrollmentId, int delta, String note, String tag) {
+        Result<PointsAward> result = load(l -> database.awardPoints(enrollmentId, delta, note, tag, l));
+        return result.success ? result.value : null;
+    }
+
+    /** Synchronous wrapper around {@link Database#awardPointsBatch}; null if the batch was rejected (nothing was changed). */
+    public static ArrayList<PointsAward> awardPointsBatch(Database database, List<String> enrollmentIds, int delta, String note, String tag) {
+        Result<ArrayList<PointsAward>> result = load(l -> database.awardPointsBatch(enrollmentIds, delta, note, tag, l));
+        return result.success ? result.value : null;
+    }
+
+    /** Synchronous wrapper around {@link Database#revertPointsHistory}; the result's {@code error} is null on success, otherwise a stable code (NOT_FOUND, IS_REVERSAL, ALREADY_REVERTED, CLOSED_PERIOD, FAILED). */
+    public static RevertResult revertPointsHistory(Database database, String historyId, PointsHistory replacement) {
+        Result<RevertResult> result = load(l -> database.revertPointsHistory(historyId, replacement, l));
+        if (result.value != null) return result.value;
+        RevertResult failed = new RevertResult();
+        failed.error = "FAILED";
+        return failed;
+    }
+
+    /** Synchronous wrapper around {@link Database#loadRecentNotes}. */
+    public static ArrayList<String> loadRecentNotes(Database database, int limit) {
+        Result<ArrayList<String>> result = load(l -> database.loadRecentNotes(limit, l));
+        return result.value;
+    }
+
+    /** Synchronous wrapper around {@link Database#loadRecentTags}. */
+    public static ArrayList<String> loadRecentTags(Database database, int limit) {
+        Result<ArrayList<String>> result = load(l -> database.loadRecentTags(limit, l));
+        return result.value;
+    }
+
+    /* ------------------------------- Attendance -------------------------------- */
+
+    /** Synchronous wrapper around {@link Database#startAttendance}; null on failure. */
+    public static ArrayList<Attendance> startAttendance(Database database, String classGroupId, String day) {
+        Result<ArrayList<Attendance>> result = load(l -> database.startAttendance(classGroupId, day, l));
+        return result.success ? result.value : null;
+    }
+
+    /** Synchronous wrapper around {@link Database#setAttendance}; null if any mark was invalid (nothing was changed). */
+    public static ArrayList<Attendance> setAttendance(Database database, String classGroupId, String day, List<Attendance> marks) {
+        Result<ArrayList<Attendance>> result = load(l -> database.setAttendance(classGroupId, day, marks, l));
+        return result.success ? result.value : null;
+    }
+
+    /** Synchronous wrapper around {@link Database#loadAttendanceForDay}. */
+    public static ArrayList<Attendance> loadAttendanceForDay(Database database, String classGroupId, String day) {
+        Result<ArrayList<Attendance>> result = load(l -> database.loadAttendanceForDay(classGroupId, day, l));
+        return result.value;
+    }
+
+    /** Synchronous wrapper around {@link Database#loadAttendanceForClassGroup}. */
+    public static ArrayList<Attendance> loadAttendanceForClassGroup(Database database, String classGroupId) {
+        Result<ArrayList<Attendance>> result = load(l -> database.loadAttendanceForClassGroup(classGroupId, l));
+        return result.value;
+    }
+
+    /** Synchronous wrapper around {@link Database#loadAttendanceForStudent}. */
+    public static ArrayList<Attendance> loadAttendanceForStudent(Database database, String studentId) {
+        Result<ArrayList<Attendance>> result = load(l -> database.loadAttendanceForStudent(studentId, l));
+        return result.value;
+    }
+
+    /** Synchronous wrapper around {@link Database#deleteAttendanceDay}; returns how many records were removed. */
+    public static int deleteAttendanceDay(Database database, String classGroupId, String day) {
+        Result<Integer> result = load(l -> database.deleteAttendanceDay(classGroupId, day, l));
+        return result.value == null ? 0 : result.value;
+    }
+
+    /* --------------------------- Class groups & students ------------------------ */
+
+    /** Synchronous wrapper around {@link Database#loadClassGroup}; null if it doesn't exist. */
+    public static ClassGroup loadClassGroup(Database database, String id) {
+        Result<ClassGroup> result = load(l -> database.loadClassGroup(id, l));
+        return result.success ? result.value : null;
+    }
+
+    /** Synchronous wrapper around {@link Database#loadStudentsForClassGroup}. */
+    public static ArrayList<Student> loadStudentsForClassGroup(Database database, String classGroupId) {
+        Result<ArrayList<Student>> result = load(l -> database.loadStudentsForClassGroup(classGroupId, l));
+        return result.value;
+    }
+
     /* --------------------------------- Periods ---------------------------------- */
+
+    /** Synchronous wrapper around {@link Database#loadPeriodsForDiscipline} — every period closed for the discipline, newest first, reopened ones included. */
+    public static ArrayList<Period> loadPeriodsForDiscipline(Database database, String disciplineId) {
+        Result<ArrayList<Period>> result = load(l -> database.loadPeriodsForDiscipline(disciplineId, l));
+        return result.value;
+    }
+
+    /** Synchronous wrapper around {@link Database#loadPeriodSnapshots}. */
+    public static ArrayList<PeriodSnapshot> loadPeriodSnapshots(Database database, String periodId) {
+        Result<ArrayList<PeriodSnapshot>> result = load(l -> database.loadPeriodSnapshots(periodId, l));
+        return result.value;
+    }
 
     /** Synchronous wrapper around {@link Database#loadPeriod}. */
     public static Period loadPeriod(Database database, String periodId) {

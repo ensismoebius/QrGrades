@@ -31,6 +31,13 @@ public class PointsHistory {
     public int pointsDelta; // Change in points for this single event (can be negative); NOT a running total.
     public String note; // Optional human-readable reason for the change (e.g. "QR scan", "bonus").
     public long createdAt; // When this entry was created, in milliseconds since the Unix epoch.
+    // Optional category the points were given for (e.g. "Participação", "Atividade"), so totals can be broken down by kind.
+    public String tag;
+    // Set only on a compensating entry: the id of the earlier entry it cancels. History is append-only, so a
+    // correction is recorded as a new opposite entry instead of rewriting or deleting the original.
+    public String revertsId;
+    // Not stored: filled in while building a report, true once a later entry has cancelled this one.
+    public boolean reverted;
 
     // Populated only when the entry is loaded for a multi-discipline view, to label which discipline it belongs to.
     public String disciplineName;

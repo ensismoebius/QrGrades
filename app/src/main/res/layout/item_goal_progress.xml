@@ -47,6 +47,15 @@
 
         </LinearLayout>
 
+        <!-- When the goal counts and how long is left; hidden for a goal without dates. -->
+        <TextView
+            android:id="@+id/txtGoalDates"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.QrGrades.BodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:visibility="gone" />
+
         <com.google.android.material.progressindicator.LinearProgressIndicator
             android:id="@+id/progressGoal"
             android:layout_width="match_parent"

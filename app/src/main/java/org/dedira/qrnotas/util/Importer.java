@@ -65,16 +65,25 @@ public class Importer {
             s.disciplineName = obj.optString("discipline", "");
             s.classGroupId = obj.optString("classGroupId", null);
             s.classGroupName = obj.optString("classGroup", "");
+            // Absent in files written before QR codes could be regenerated.
+            s.qrToken = obj.optString("qrToken", null);
+            if (s.qrToken != null && s.qrToken.isEmpty()) s.qrToken = null;
             s.points = obj.optInt("points", 0);
 
             JSONArray goals = obj.optJSONArray("goals");
             if (goals != null) {
                 for (int g = 0; g < goals.length(); g++) {
                     JSONObject goalObj = goals.getJSONObject(g);
-                    s.goals.add(new GoalProgress(
+                    GoalProgress goal = new GoalProgress(
                             goalObj.optString("name", ""),
                             goalObj.optInt("target", 0),
-                            s.points));
+                            goalObj.optInt("current", s.points));
+                    // Absent in files written before goals had a start and an end date.
+                    if (goalObj.has("startDate") && goalObj.has("endDate")) {
+                        goal.startDate = goalObj.optString("startDate", null);
+                        goal.endDate = goalObj.optString("endDate", null);
+                    }
+                    s.goals.add(goal);
                 }
             }
 
@@ -87,6 +96,8 @@ public class Importer {
                     ph.pointsDelta = historyObj.optInt("points", 0);
                     ph.note = historyObj.optString("note", "");
                     ph.createdAt = historyObj.optLong("timestamp", 0);
+                    ph.tag = historyObj.optString("tag", null);
+                    ph.revertsId = historyObj.optString("revertsId", null);
                     s.history.add(ph);
                 }
             }

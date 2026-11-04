@@ -153,15 +153,29 @@
     <string name="goal_name_hint">Goal name</string>
     <string name="goal_target_hint">Target points</string>
     <string name="goal_target_points">%1$d pts</string>
-    <string name="progress_title">Progress</string>
+    <string name="progress_title">History</string>
     <string name="current_points_label">Current points</string>
-    <string name="discipline_class_format">%1$s — %2$s</string>
-    <string name="no_goals_for_discipline">"No goals registered for this discipline yet."</string>
     <string name="goal_achieved">Achieved!</string>
     <string name="goal_remaining">%1$d to go</string>
-    <string name="history_title">History</string>
-    <string name="no_history_yet">No points recorded yet.</string>
-    <string name="no_enrollments_yet">"Not enrolled in any discipline yet."</string>
+    <string name="goal_start_hint">Start (first day that counts)</string>
+    <string name="goal_end_hint">End (last day that counts)</string>
+    <string name="goal_window_help">Only points awarded between these two dates, inclusive, count.</string>
+    <string name="goal_target_required">Enter the points needed.</string>
+    <string name="goal_dates_order">The end can\'t be before the start.</string>
+    <string name="goal_window_state_active">In progress</string>
+    <string name="goal_window_state_upcoming">Upcoming</string>
+    <string name="goal_window_state_ended">Ended</string>
+    <string name="goal_window_line">"%1$s – %2$s · %3$s"</string>
+    <string name="goal_window_line_stacked">"%1$s – %2$s\n%3$s"</string>
+    <string name="goal_without_dates">"No dates — edit the goal to set a start and an end"</string>
+    <string name="goal_missed">Not reached</string>
+    <string name="goal_upcoming">Upcoming</string>
+    <string name="goal_ends_today">ends today</string>
+    <string name="goal_ends_tomorrow">ends tomorrow</string>
+    <string name="goal_ends_in_days" tools:ignore="PluralsCandidate">ends in %1$d days</string>
+    <string name="goal_not_started">not started yet</string>
+    <string name="goal_ended">ended</string>
+    <string name="goal_points_of">"%1$d of %2$d pts"</string>
 
     <!-- Export / selection -->
     <string name="select_students">Select students</string>
@@ -230,4 +244,334 @@
     <string name="web_server_password_hint">Password</string>
     <string name="web_server_start">Start</string>
     <string name="web_server_password_too_short">"Password must be at least 4 characters."</string>
+
+    <!-- Point categories and corrections -->
+    <string name="reversal_note">"Reversal: %1$s"</string>
+    <string name="reversal_note_blank">Reversal of an earlier entry</string>
+    <string-array name="default_tags">
+        <item>Participation</item>
+        <item>Assignment</item>
+        <item>Exam</item>
+        <item>Behavior</item>
+        <item>Bonus</item>
+    </string-array>
+
+    <!-- Student report card (PDF) -->
+    <string name="report_title">Student report</string>
+    <string name="report_generated_on">"Generated on %1$s"</string>
+    <string name="report_current_period">Current period</string>
+    <string name="report_closed_on">"Closed on %1$s"</string>
+    <string name="report_closed_period_heading">"%1$s — closed on %2$s"</string>
+    <string name="report_no_enrollments">Not enrolled in any class group.</string>
+    <string name="report_class_closed">" (class closed)"</string>
+    <string name="report_points" tools:ignore="PluralsCandidate">"%1$d points"</string>
+    <string name="report_goals">Goals</string>
+    <string name="report_goal_achieved">"%1$s — achieved (target %2$d)"</string>
+    <string name="report_goal_remaining">"%1$s — %3$d to go (target %2$d)"</string>
+    <string name="report_goal_window">"%1$s (%2$s – %3$s)"</string>
+    <string name="report_goal_missed">"%1$s — not reached (%3$d of %2$d)"</string>
+    <string name="report_goal_upcoming">"%1$s — not started yet (target %2$d)"</string>
+    <string name="report_attendance">Attendance</string>
+    <string name="report_attendance_summary">"Present: %1$d · Absent: %2$d · Excused: %3$d — %4$d%% attendance"</string>
+    <string name="report_attendance_none">No attendance recorded.</string>
+    <string name="report_by_category">By category</string>
+    <string name="report_no_category">No category</string>
+    <string name="report_history">Point history</string>
+    <string name="report_no_history">No point changes recorded.</string>
+    <string name="report_col_date">Date</string>
+    <string name="report_col_points">Points</string>
+    <string name="report_col_category">Category</string>
+    <string name="report_col_note">Note</string>
+    <string name="report_cancelled">(cancelled)</string>
+    <string name="report_page">"Page %1$d"</string>
+
+    <!-- New QR code for a student who lost theirs -->
+    <string name="regenerate_qr">New QR code</string>
+    <string name="regenerate_qr_title">Generate a new QR code?</string>
+    <string name="regenerate_qr_message">"The printed QR code of %1$s will stop working immediately. After this, print the new code and give it to the student."</string>
+    <string name="regenerate_qr_confirm">Generate</string>
+    <string name="regenerate_qr_done">"New code generated for %1$s. The previous one no longer works."</string>
+    <string name="regenerate_qr_failed">Could not generate a new code.</string>
+    <string name="qr_code_unknown">QR code not recognized. If this student was given a new code, the old printed one no longer works.</string>
+
+    <!-- Category of a points entry -->
+    <string name="note_dialog_tag_hint">Category (optional)</string>
+
+    <!-- Attendance mode on the scan screen -->
+    <string name="attendance_mode">Attendance mode</string>
+    <string name="attendance_mode_hint">Attendance mode: scan each student\'s QR code</string>
+    <string name="attendance_marked">"%1$s: present (%2$d of %3$d)"</string>
+    <string name="attendance_already">"%1$s was already marked present (%2$d of %3$d)"</string>
+    <string name="attendance_failed">Could not save the attendance.</string>
+
+    <!-- Scheduled backups -->
+    <string name="auto_backup_title">Automatic backup</string>
+    <string name="auto_backup_daily">Daily · last 7 kept</string>
+    <string name="auto_backup_weekly">Weekly · last 7 kept</string>
+    <string name="auto_backup_off">Off</string>
+    <string name="backup_scheduled_detail">"Scheduled · %1$s"</string>
+
+    <!-- More hub: tools that mirror the browser page -->
+    <string name="hub_attendance">Attendance</string>
+    <string name="hub_attendance_subtitle">Take the roll call and see absences by period</string>
+    <string name="hub_batch_points">Award points in bulk</string>
+    <string name="hub_batch_points_subtitle">Give points to several students at once</string>
+    <string name="hub_alerts">Alerts and weekly summary</string>
+    <string name="hub_alerts_subtitle">Who needs attention this week</string>
+    <string name="hub_student_history">Student history</string>
+    <string name="hub_student_history_subtitle">Current and closed periods, with corrections and report card</string>
+    <string name="hub_overview">Overview</string>
+    <string name="hub_overview_subtitle">Ranking, points over time and every enrollment</string>
+    <string name="hub_compare_periods">Compare periods</string>
+    <string name="hub_compare_periods_subtitle">Each student\'s points in every closed period</string>
+    <string name="hub_qr_sheet">QR codes</string>
+    <string name="hub_qr_sheet_subtitle">A printable sheet with each student\'s code</string>
+    <string name="show_all_count">Show all (%1$d)</string>
+    <string name="show_less">Show less</string>
+
+    <!-- Alerts and weekly summary -->
+    <string name="alerts_title">Alerts and weekly summary</string>
+    <string name="alerts_filters">Filters</string>
+    <string name="alerts_filter_discipline">Discipline</string>
+    <string name="alerts_all_disciplines">All disciplines</string>
+    <string name="alerts_filter_days">No points for</string>
+    <string name="alerts_days_option">%1$d days</string>
+    <string name="alerts_filter_limit">Absences above (%)</string>
+    <string name="alerts_add_discipline_first">Add a discipline first.</string>
+    <string name="alerts_loading">Loading…</string>
+    <string name="alerts_load_failed">Could not load the data.</string>
+    <string name="alerts_missing">%1$d to go</string>
+    <string name="alerts_points_of_goal">%1$d of %2$d points</string>
+    <string name="alerts_goal_line">Goal: %1$s · %2$s</string>
+    <string name="alerts_goal_deadline">until %1$s (%2$s)</string>
+    <string name="alerts_goal_no_deadline">no deadline</string>
+    <string name="week_title">Weekly summary</string>
+    <string name="week_description">The last 7 days against the 7 before them. Cancelled entries are left out.</string>
+    <string name="week_empty">No points were entered in the last 7 days.</string>
+    <string name="week_empty_prev">No points were entered in the last 7 days (the 7 before had %1$d).</string>
+    <string name="week_given">Points given</string>
+    <string name="week_deducted">Points deducted</string>
+    <string name="week_students">Students scored</string>
+    <string name="week_entries">Entries</string>
+    <string name="week_change">Change vs. previous week</string>
+    <string name="week_top">Most points this week</string>
+    <string name="week_tags">Most used categories</string>
+    <string name="absences_title">Excess absences</string>
+    <string name="absences_description">Students past %1$d%% absences this period (excused ones count), in classes with at least %2$d recorded days.</string>
+    <string name="absences_none">No student is above %1$d%% absences.</string>
+    <string name="absences_detail">%1$s · %2$s</string>
+    <string name="below_title">Below the minimum goal</string>
+    <string name="below_description">Students with fewer points than the lowest goal still running in the discipline (the minimum goal), furthest first. Only points given between each goal\'s start and end count.</string>
+    <string name="below_no_goals">No discipline has goals yet. Create them (with a start and an end) under Disciplines › Goals to see who is below the minimum.</string>
+    <string name="below_no_running">No goal is running today: the ones that are over have a final result and the future ones have not begun.</string>
+    <string name="below_none">Every student has reached the minimum goal.</string>
+    <string name="near_title">Close to the next goal</string>
+    <string name="near_description">Students a few points from the next running goal they have not reached: a little push can make the difference.</string>
+    <string name="near_none">Nobody is a few points from a goal right now.</string>
+    <string name="inactive_title">No recent points</string>
+    <string name="inactive_description">Students with no points in the last %1$d days, in classes where others did score. Classes that stopped altogether are left out.</string>
+    <string name="inactive_none">Every student received points in that period.</string>
+    <string name="inactive_never">never scored</string>
+    <string name="inactive_last_point">Last point: %1$s</string>
+    <string name="inactive_days_ago_one">1 day ago</string>
+    <string name="inactive_days_ago_many">%1$d days ago</string>
+
+    <!-- Bulk points -->
+    <string name="batch_title">Award points in bulk</string>
+    <string name="batch_need_class">Add a class and enroll students first.</string>
+    <string name="batch_group_hint">Class</string>
+    <string name="batch_points_hint">Points</string>
+    <string name="batch_note_hint">Note</string>
+    <string name="batch_note_placeholder">e.g. handed in the work</string>
+    <string name="batch_tag_hint">Category (optional)</string>
+    <string name="batch_students">Students</string>
+    <string name="batch_select_all">All</string>
+    <string name="batch_select_none">None</string>
+    <string name="batch_select_invert">Invert</string>
+    <string name="batch_select_present">Present today</string>
+    <string name="batch_filter_hint">Filter by name…</string>
+    <string name="batch_no_students">This class has no students enrolled yet.</string>
+    <string name="batch_no_match">No student matches “%1$s”.</string>
+    <string name="batch_preview_selected">%1$d of %2$d students selected</string>
+    <string name="batch_preview_with_points">%1$s to each · %2$s</string>
+    <string name="batch_points_unit_one">%1$s point</string>
+    <string name="batch_points_unit_many">%1$s points</string>
+    <string name="batch_submit">Award</string>
+    <string name="batch_need_points">Enter the number of points (not zero).</string>
+    <string name="batch_points_too_big">That is too many points (at most %1$d).</string>
+    <string name="batch_need_students">Select at least one student.</string>
+    <string name="batch_too_many">Batch too large (at most %1$d students).</string>
+    <string name="batch_done">%1$s given to %2$d students.</string>
+    <string name="batch_done_one">%1$s given to 1 student.</string>
+    <string name="batch_failed">Nothing was changed: the batch could not be saved.</string>
+    <string name="batch_undo">Undo</string>
+    <string name="batch_no_attendance_today">There is no roll call for this class today.</string>
+    <string name="batch_session_title">Bulk awards in this session</string>
+    <string name="batch_session_hint">Undoing cancels each entry of the batch; they stay in the students\' history, marked as cancelled.</string>
+    <string name="batch_session_details">%1$d students</string>
+    <string name="batch_session_details_one">1 student</string>
+    <string name="batch_undo_batch">Undo batch</string>
+    <string name="batch_undo_confirm">Undo the batch of %1$s for %2$d student(s)?</string>
+    <string name="batch_undone">Batch undone.</string>
+    <string name="batch_undo_partial">%1$d entries could not be undone. %2$s</string>
+    <string name="batch_chip_undone">undone</string>
+    <string name="revert_error_not_found">That entry no longer exists.</string>
+    <string name="revert_error_already">That entry was already cancelled.</string>
+    <string name="revert_error_reversal">A cancellation cannot be cancelled.</string>
+    <string name="revert_error_closed">The entry belongs to a closed period; reopen the period to change it.</string>
+    <string name="revert_error_failed">The entry could not be cancelled.</string>
+
+    <!-- Attendance screen -->
+    <string name="attendance_title">Attendance</string>
+    <string name="attendance_need_class">Add a class and enroll students first.</string>
+    <string name="attendance_roll_title">Roll call</string>
+    <string name="attendance_group_hint">Class</string>
+    <string name="attendance_no_students">This class has no students enrolled.</string>
+    <string name="attendance_not_started">No roll call recorded for this day.</string>
+    <string name="attendance_start_present">Start with everyone present</string>
+    <string name="attendance_start_absent">Start with everyone absent</string>
+    <string name="attendance_start_tip">Then just adjust who was absent. On the scan screen, roll-call mode also marks presence as you scan each QR code.</string>
+    <string name="attendance_counts">Present %1$d · Absent %2$d · Excused %3$d</string>
+    <string name="attendance_counts_unmarked">Present %1$d · Absent %2$d · Excused %3$d · Not recorded %4$d</string>
+    <string name="attendance_all_present">All present</string>
+    <string name="attendance_all_absent">All absent</string>
+    <string name="attendance_delete_day">Delete this roll call</string>
+    <string name="attendance_status_present">Present</string>
+    <string name="attendance_status_absent">Absent</string>
+    <string name="attendance_status_excused">Excused</string>
+    <string name="attendance_delete_confirm">Delete the roll call of %1$s?\n\nThe presences and absences of that day stop counting.</string>
+    <string name="attendance_deleted">Roll call deleted.</string>
+    <string name="attendance_days_title">Days with a roll call</string>
+    <string name="attendance_days_empty">There are no roll calls recorded for this class yet.</string>
+    <string name="attendance_summary_title">Summary per student</string>
+    <string name="attendance_period_hint">Period</string>
+    <string name="attendance_period_current">Current period</string>
+    <string name="attendance_period_closed_on">Closed on %1$s</string>
+    <string name="attendance_summary_days_zero">No class recorded in this period.</string>
+    <string name="attendance_summary_days_one">1 class recorded in this period.</string>
+    <string name="attendance_summary_days_many">%1$d classes recorded in this period.</string>
+    <string name="attendance_summary_note">The absence percentage includes excused ones; above %1$d%% it is highlighted.</string>
+    <string name="attendance_student_detail">Present %1$d · Absent %2$d · Excused %3$d</string>
+    <string name="attendance_save_failed">The roll call could not be saved.</string>
+    <string name="attendance_load_failed">The roll call could not be loaded.</string>
+
+    <!-- Student history -->
+    <string name="history_pdf">Report card</string>
+    <string name="history_print">Print</string>
+    <string name="history_filter_discipline">Discipline</string>
+    <string name="history_all_disciplines">All disciplines</string>
+    <string name="history_filter_period">Period</string>
+    <string name="history_all_periods">All periods</string>
+    <string name="history_current_period">Current period</string>
+    <string name="history_tile_current_points">Points in the current period</string>
+    <string name="history_tile_attendance_one">Attendance in the current period (1 class)</string>
+    <string name="history_tile_attendance_many">Attendance in the current period (%1$d classes)</string>
+    <string name="history_tile_closed_count">Closed periods</string>
+    <string name="history_tile_closed_points">Points in closed periods</string>
+    <string name="history_current_title">Current period</string>
+    <string name="history_not_enrolled">Not enrolled in any class.</string>
+    <string name="history_not_enrolled_discipline">Not enrolled in any class of this discipline.</string>
+    <string name="history_closed_title">Closed periods</string>
+    <string name="history_no_closed">No closed period yet.</string>
+    <string name="history_closed_on">closed on %1$s</string>
+    <string name="history_class_closed">(closed)</string>
+    <string name="history_class_closed_period">(class closed)</string>
+    <string name="history_points_badge">%1$d pts</string>
+    <string name="history_by_category">By category: %1$s</string>
+    <string name="history_no_category">no category</string>
+    <string name="history_attendance">Attendance</string>
+    <string name="history_lessons_one">1 class</string>
+    <string name="history_lessons_many">%1$d classes</string>
+    <string name="history_present_in">present in %1$d (%2$s)</string>
+    <string name="history_absences_one">1 absence</string>
+    <string name="history_absences_many">%1$d absences</string>
+    <string name="history_excused_one">1 excused</string>
+    <string name="history_excused_many">%1$d excused</string>
+    <string name="history_missed_absent">%1$s · absent</string>
+    <string name="history_missed_excused">%1$s · excused</string>
+    <string name="history_no_entries">No points entry recorded.</string>
+    <string name="history_entry_reversal">cancellation</string>
+    <string name="history_entry_reverted">cancelled</string>
+    <string name="history_correct">Correct</string>
+    <string name="history_revert">Cancel</string>
+    <string name="history_revert_confirm">Cancel the entry of %1$s?\n\nThe points go back to what they were. The entry stays in the history, marked as cancelled.</string>
+    <string name="history_reverted_ok">Entry cancelled.</string>
+    <string name="history_corrected_ok">Entry corrected.</string>
+    <string name="history_correct_title">Correct entry</string>
+    <string name="history_correct_points">Points</string>
+    <string name="history_correct_note">Note</string>
+    <string name="history_correct_tag">Category</string>
+    <string name="history_correct_hint">The original entry is cancelled and the corrected one is recorded right after; both stay in the history.</string>
+    <string name="history_correct_need_points">Enter a number of points other than zero.</string>
+    <string name="history_describe_points_one">%1$s point</string>
+    <string name="history_describe_points_many">%1$s points</string>
+    <string name="history_describe_with_note">%1$s (“%2$s”)</string>
+    <string name="history_report_failed">The report card could not be generated.</string>
+    <string name="history_load_failed">The history could not be loaded.</string>
+    <string name="history_loading">Loading…</string>
+    <string name="history_print_job">Report card — %1$s</string>
+
+    <!-- Period comparison -->
+    <string name="compare_title">Compare periods</string>
+    <string name="compare_add_discipline_first">Add a discipline first.</string>
+    <string name="compare_filters">Filters</string>
+    <string name="compare_discipline_hint">Discipline</string>
+    <string name="compare_group_hint">Class</string>
+    <string name="compare_sort_hint">Sort by</string>
+    <string name="compare_all_groups">All classes</string>
+    <string name="compare_sort_name">Name</string>
+    <string name="compare_sort_current">Current points</string>
+    <string name="compare_sort_delta">Change</string>
+    <string name="compare_loading">Loading…</string>
+    <string name="compare_failed">The comparison could not be loaded.</string>
+    <string name="compare_no_columns">This discipline has no closed periods yet. When you close a period, each student\'s score in it shows up here, to compare with the following ones.</string>
+    <string name="compare_no_rows">No student with a recorded score in this selection.</string>
+    <string name="compare_tile_avg_last">Class average in “%1$s”</string>
+    <string name="compare_tile_avg_prev">Average in “%1$s”</string>
+    <string name="compare_tile_avg_change">Change of the average between those two periods</string>
+    <string name="compare_tile_avg_current">Current average (period in progress)</string>
+    <string name="compare_col_student">Student</string>
+    <string name="compare_col_current">Current</string>
+    <string name="compare_col_delta">Change</string>
+    <string name="compare_foot_avg">Class average</string>
+    <string name="compare_foot_min">Lowest score</string>
+    <string name="compare_foot_max">Highest score</string>
+    <string name="compare_foot_count">Students</string>
+    <string name="compare_note_with_prev">“Change” is the score of the last closed period minus the one before it; the “Current” column is the period in progress and is left out of that. Tap a student to see their history.</string>
+    <string name="compare_note_no_prev">The “Current” column is the period in progress. The change between periods shows up once there are two closed periods. Tap a student to see their history.</string>
+
+    <!-- QR code sheet -->
+    <string name="qrsheet_title">QR codes</string>
+    <string name="qrsheet_need_student">Add a student first.</string>
+    <string name="qrsheet_filters">Print QR codes</string>
+    <string name="qrsheet_discipline_hint">Discipline</string>
+    <string name="qrsheet_all_students">All students</string>
+    <string name="qrsheet_hint">Each code is printed with the student\'s first name in full and the rest of the name shortened to initials.</string>
+    <string name="qrsheet_select_all">All</string>
+    <string name="qrsheet_select_none">None</string>
+    <string name="qrsheet_print">Print</string>
+    <string name="qrsheet_share">Share</string>
+    <string name="qrsheet_selected">%1$d of %2$d selected</string>
+    <string name="qrsheet_regenerated_marker">code regenerated</string>
+    <string name="qrsheet_regenerate">Regenerate</string>
+    <string name="qrsheet_none_selected">Select at least one student.</string>
+    <string name="qrsheet_empty_filter">No student is enrolled in this discipline.</string>
+    <string name="qrsheet_pdf_failed">The QR codes PDF could not be generated.</string>
+    <string name="qrsheet_print_job">QR codes</string>
+
+    <!-- Overview -->
+    <string name="overview_title">Overview</string>
+    <string name="overview_add_discipline_first">Add a discipline first.</string>
+    <string name="overview_ranking">Ranking</string>
+    <string name="overview_discipline_hint">Discipline</string>
+    <string name="overview_no_data">No data yet.</string>
+    <string name="overview_chart_title">Points accumulated over time</string>
+    <string name="overview_no_history">No history yet.</string>
+    <string name="overview_chart_description">The sum of every entry of the discipline, from the first to the last.</string>
+    <string name="overview_all_title">Every enrollment</string>
+    <string name="overview_search_hint">Search student by name…</string>
+    <string name="overview_no_match">No student matches “%1$s”.</string>
+
+    <!-- Export everything -->
+    <string name="export_all_action">Export every student</string>
 </resources>

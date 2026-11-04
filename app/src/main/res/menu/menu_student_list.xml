@@ -24,6 +24,13 @@
         app:showAsAction="ifRoom" />
 
     <item
+        android:id="@+id/action_export_all"
+        android:icon="@drawable/ic_share"
+        android:title="@string/export_all_action"
+        android:visible="true"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_import"
         android:icon="@drawable/ic_upload_file"
         android:title="@string/import_action"

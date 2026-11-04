@@ -24,6 +24,7 @@ import android.app.AlertDialog;
 import android.content.pm.PackageManager;
 import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -42,22 +43,24 @@ import androidx.core.content.ContextCompat;
 
 import com.budiyev.android.codescanner.CodeScanner;
 import com.budiyev.android.codescanner.CodeScannerView;
+import com.budiyev.android.codescanner.ScanMode;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.progressindicator.LinearProgressIndicator;
+import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.snackbar.Snackbar;
 
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.dialogs.NoteDialog;
 import org.dedira.qrnotas.dialogs.StudentPickerDialog;
+import org.dedira.qrnotas.model.Attendance;
 import org.dedira.qrnotas.model.ClassGroup;
 import org.dedira.qrnotas.model.Discipline;
 import org.dedira.qrnotas.model.Enrollment;
 import org.dedira.qrnotas.model.GoalProgress;
-import org.dedira.qrnotas.model.PointsHistory;
 import org.dedira.qrnotas.model.Student;
 import org.dedira.qrnotas.model.StudentExportData;
 import org.dedira.qrnotas.util.BitmapConverter;
+import org.dedira.qrnotas.util.GoalViews;
 import org.dedira.qrnotas.util.ThemeColors;
 
 import java.util.ArrayList;
@@ -69,8 +72,9 @@ import java.util.Locale;
  * Bottom-nav "Scan" tab — the home screen, and also the screen the Quick Settings tile jumps
  * straight into. Lets the teacher pick which discipline they're currently teaching, point the
  * camera at a student's QR code (or pick the student manually via {@link #btnPickManually}) to
- * identify them, choose how many points to add/remove, optionally attach a note, and save that
- * change.
+ * identify them, choose how many points to add/remove, optionally attach a note and a category,
+ * and save that change. With "attendance mode" on, scanning instead marks the student present in
+ * today's roll call for their class.
  */
 public class ScanFragment extends BaseFragment {
 
@@ -94,6 +98,12 @@ public class ScanFragment extends BaseFragment {
     private boolean scannerStarted = false;
     private MediaPlayer mediaPlayer;
     private ActivityResultLauncher<String> cameraPermissionLauncher;
+    private TextView txtScanHint;
+    private boolean attendanceMode = false;
+    // In attendance mode the camera keeps seeing the same code; each one is handled once per window.
+    private static final long REPEAT_SCAN_WINDOW_MS = 3000;
+    private String lastScannedCode;
+    private long lastScanAt;
 
     public ScanFragment() {
         super(R.layout.fragment_scan);
@@ -123,6 +133,7 @@ public class ScanFragment extends BaseFragment {
         this.mediaPlayer = MediaPlayer.create(requireContext(), R.raw.qr_scanned);
 
         this.txtName = view.findViewById(R.id.txtName);
+        this.txtScanHint = view.findViewById(R.id.txtScanHint);
         this.imgPhoto = view.findViewById(R.id.imgPhoto);
         this.txtPoints = view.findViewById(R.id.txtPoints);
         this.txtCurrentPoints = view.findViewById(R.id.txtCurrentPoints);
@@ -172,6 +183,90 @@ public class ScanFragment extends BaseFragment {
         scannerView.setOnClickListener(v -> requestCameraAndStartScanning());
         this.mCodeScanner = new CodeScanner(requireContext(), scannerView);
         this.mCodeScanner.setDecodeCallback(result -> requireActivity().runOnUiThread(() -> onQrScanned(result.getText())));
+
+        // Always starts off: a roll call left switched on by accident would silently stop points from being given.
+        MaterialSwitch switchAttendance = view.findViewById(R.id.switchAttendanceMode);
+        switchAttendance.setOnCheckedChangeListener((button, checked) -> setAttendanceMode(checked));
+    }
+
+    /* ------------------------------- Attendance mode -------------------------------- */
+
+    private void setAttendanceMode(boolean enabled) {
+        this.attendanceMode = enabled;
+        this.txtScanHint.setText(enabled ? R.string.attendance_mode_hint : R.string.scan_hint);
+        // A roll call scans one student after another without tapping the camera in between.
+        this.mCodeScanner.setScanMode(enabled ? ScanMode.CONTINUOUS : ScanMode.SINGLE);
+        if (enabled) {
+            if (addPointsOverlay.getVisibility() == View.VISIBLE) resetToStart();
+            requestCameraAndStartScanning();
+        }
+    }
+
+    /** Marks {@code scanned} present in today's roll call of their class in the current discipline, starting the roll call if needed. */
+    private void markPresent(Student scanned) {
+        if (this.currentDisciplineId == null) {
+            promptDisciplineSelection(() -> markPresent(scanned));
+            return;
+        }
+        final String disciplineId = this.currentDisciplineId;
+        database.loadEnrollmentForStudentInDiscipline(scanned.id, disciplineId, (found, enrollment) -> {
+            if (getView() == null) return;
+            if (!found || enrollment == null) {
+                Toast.makeText(requireContext(), getString(R.string.student_not_in_discipline, scanned.name, disciplineName(disciplineId)), Toast.LENGTH_LONG).show();
+                return;
+            }
+            database.loadClassGroup(enrollment.classGroupId, (groupFound, classGroup) -> {
+                if (getView() == null) return;
+                if (!groupFound || classGroup == null) return;
+                if (classGroup.isClosed()) {
+                    Toast.makeText(requireContext(), R.string.enrollment_in_closed_class_warning, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                recordPresence(scanned, classGroup);
+            });
+        });
+    }
+
+    private void recordPresence(Student scanned, ClassGroup classGroup) {
+        final String day = Attendance.today();
+        // Starting is safe to repeat: it only adds the students who have no record for the day yet (as absent).
+        database.startAttendance(classGroup.id, day, (started, rows) -> {
+            if (getView() == null) return;
+            if (!started || rows == null) {
+                Toast.makeText(requireContext(), R.string.attendance_failed, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            for (Attendance row : rows) {
+                if (scanned.id.equals(row.studentId) && row.status == Attendance.STATUS_PRESENT) {
+                    showAttendanceResult(R.string.attendance_already, scanned.name, rows);
+                    return;
+                }
+            }
+            Attendance mark = new Attendance();
+            mark.studentId = scanned.id;
+            mark.status = Attendance.STATUS_PRESENT;
+            database.setAttendance(classGroup.id, day, Collections.singletonList(mark), (saved, updatedRows) -> {
+                if (getView() == null) return;
+                if (!saved || updatedRows == null) {
+                    Toast.makeText(requireContext(), R.string.attendance_failed, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                mediaPlayer.start();
+                showAttendanceResult(R.string.attendance_marked, scanned.name, updatedRows);
+            });
+        });
+    }
+
+    /** "Ana: present (12 of 30)" — how many of the class's day list are marked present so far. */
+    private void showAttendanceResult(int messageRes, String name, List<Attendance> rows) {
+        int present = 0;
+        for (Attendance row : rows) if (row.status == Attendance.STATUS_PRESENT) present++;
+        Snackbar.make(requireView(), getString(messageRes, name, present, rows.size()), Snackbar.LENGTH_SHORT).show();
+    }
+
+    private String disciplineName(String disciplineId) {
+        for (Discipline d : this.disciplines) if (d.id.equals(disciplineId)) return d.name;
+        return "";
     }
 
     /* ------------------------------ Discipline selector ------------------------------ */
@@ -211,10 +306,28 @@ public class ScanFragment extends BaseFragment {
 
     /* --------------------------------- QR scanning ------------------------------------ */
 
-    private void onQrScanned(String studentId) {
+    private void onQrScanned(String code) {
         if (getView() == null) return;
-        mediaPlayer.start();
-        identifyStudent(studentId);
+        long now = SystemClock.elapsedRealtime();
+        if (code.equals(this.lastScannedCode) && now - this.lastScanAt < REPEAT_SCAN_WINDOW_MS) return;
+        this.lastScannedCode = code;
+        this.lastScanAt = now;
+
+        // The code is the student's id until a new one is issued, a random token afterwards; the
+        // database knows which one currently counts (an old, replaced code identifies nobody).
+        database.loadStudentByQrCode(code, (success, scanned) -> {
+            if (getView() == null) return;
+            if (!success || scanned == null) {
+                Toast.makeText(requireContext(), R.string.qr_code_unknown, Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (this.attendanceMode) {
+                markPresent(scanned);
+                return;
+            }
+            mediaPlayer.start();
+            identifyStudent(scanned.id);
+        });
     }
 
     /** Entry point for "Selecionar manualmente". */
@@ -227,7 +340,8 @@ public class ScanFragment extends BaseFragment {
             promptDisciplineSelection(this::pickStudentManually);
             return;
         }
-        new StudentPickerDialog(requireContext(), this.database, picked -> identifyStudent(picked.id)).show();
+        new StudentPickerDialog(requireContext(), this.database,
+                picked -> { if (this.attendanceMode) markPresent(picked); else identifyStudent(picked.id); }).show();
     }
 
     private void identifyStudent(String studentId) {
@@ -240,10 +354,12 @@ public class ScanFragment extends BaseFragment {
     }
 
     private void warnIfIdentifiedAgainToday(String studentId) {
-        database.logScanAndCountToday(studentId, (success, count) -> {
+        // Only points that were actually saved count as a scan, so this just looks (and the
+        // current look-up is the next one if it is confirmed).
+        database.countScansToday(studentId, (success, count) -> {
             if (getView() == null) return;
-            if (success && count != null && count > 1) {
-                Toast.makeText(requireContext(), getString(R.string.repeat_scan_warning, count), Toast.LENGTH_LONG).show();
+            if (success && count != null && count >= 1) {
+                Toast.makeText(requireContext(), getString(R.string.repeat_scan_warning, count + 1), Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -429,29 +545,7 @@ public class ScanFragment extends BaseFragment {
         LayoutInflater inflater = LayoutInflater.from(requireContext());
         for (GoalProgress goal : new ArrayList<>(data.goals)) {
             View row = inflater.inflate(R.layout.item_goal_progress, goalsContainer, false);
-            TextView txtGoalName = row.findViewById(R.id.txtGoalName);
-            TextView txtGoalStatus = row.findViewById(R.id.txtGoalStatus);
-            View imgGoalAchieved = row.findViewById(R.id.imgGoalAchieved);
-            LinearProgressIndicator progress = row.findViewById(R.id.progressGoal);
-
-            txtGoalName.setText(goal.goalName);
-
-            int percent = goal.targetPoints > 0
-                    ? Math.min(100, Math.round(100f * data.points / goal.targetPoints))
-                    : 100;
-            progress.setProgress(percent);
-
-            imgGoalAchieved.setVisibility(goal.achieved ? View.VISIBLE : View.GONE);
-            if (goal.achieved) {
-                txtGoalStatus.setText(R.string.goal_achieved);
-                txtGoalStatus.setTextColor(fetchThemeColor(R.attr.colorSuccess));
-                progress.setIndicatorColor(fetchThemeColor(R.attr.colorSuccess));
-            } else {
-                txtGoalStatus.setText(getString(R.string.goal_remaining, goal.remaining));
-                progress.setIndicatorColor(fetchThemeColor(com.google.android.material.R.attr.colorTertiary));
-                txtGoalStatus.setTextColor(fetchThemeColor(com.google.android.material.R.attr.colorOnSurfaceVariant));
-            }
-
+            GoalViews.bind(requireContext(), row, goal);
             goalsContainer.addView(row);
         }
     }
@@ -499,38 +593,32 @@ public class ScanFragment extends BaseFragment {
         new NoteDialog(requireContext(), this.database, this.extraPoints, this.student.name, this::onNoteConfirmed).show();
     }
 
-    private void onNoteConfirmed(String note) {
+    private void onNoteConfirmed(String note, String tag) {
         if (this.student == null || this.currentEnrollment == null) return;
 
         loadingDialog.show();
 
         final String enrollmentId = this.currentEnrollment.id;
-        final int previousGrades = this.currentEnrollment.grades;
         final int delta = this.extraPoints;
-        final int newGrades = previousGrades + delta;
 
-        database.updateEnrollmentGrades(enrollmentId, newGrades, (success, updatedEnrollment) -> {
+        // The new total and the history entry are saved together, and the total is computed from what
+        // is stored now, not from the copy read when the student was scanned.
+        database.awardPoints(enrollmentId, delta, note, tag, (success, award) -> {
             if (getView() == null) return;
             loadingDialog.dismiss();
 
-            if (!success) {
+            if (!success || award == null) {
                 Toast.makeText(requireContext(), R.string.points_not_saved, Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            this.currentEnrollment = updatedEnrollment;
+            this.currentEnrollment = award.enrollment;
             this.mediaPlayer.start();
+            if (this.student != null) database.logScanAndCountToday(this.student.id, (ok, n) -> { });
 
-            PointsHistory history = new PointsHistory();
-            history.enrollmentId = enrollmentId;
-            history.pointsDelta = delta;
-            history.note = note;
-            history.createdAt = System.currentTimeMillis();
-            database.savePointsHistory(history, (histSuccess, savedHistory) -> {
-            });
-
+            final String historyId = award.history.id;
             Snackbar.make(this.btnContinue, getString(R.string.points_added, delta), Snackbar.LENGTH_LONG)
-                    .setAction(R.string.undo, v -> undoPoints(enrollmentId, previousGrades))
+                    .setAction(R.string.undo, v -> undoPoints(historyId))
                     .show();
 
             resetToStart();
@@ -556,15 +644,17 @@ public class ScanFragment extends BaseFragment {
                 .start();
     }
 
-    private void undoPoints(String enrollmentId, int previousGrades) {
-        database.updateEnrollmentGrades(enrollmentId, previousGrades, (success, updatedEnrollment) -> {
+    /**
+     * Takes back the award just made: its history entry goes away and its points come off the total.
+     * (The previous version put the old total back but left the history entry behind, so the
+     * history no longer added up, and it also overwrote any points given in between.)
+     */
+    private void undoPoints(String historyId) {
+        database.deletePointsAward(historyId, (success, error) -> {
             if (getView() == null) return;
             if (!success) {
                 Toast.makeText(requireContext(), R.string.undo_failed, Toast.LENGTH_SHORT).show();
                 return;
-            }
-            if (this.currentEnrollment != null && this.currentEnrollment.id.equals(enrollmentId)) {
-                this.currentEnrollment = updatedEnrollment;
             }
             Toast.makeText(requireContext(), R.string.undo_done, Toast.LENGTH_SHORT).show();
         });

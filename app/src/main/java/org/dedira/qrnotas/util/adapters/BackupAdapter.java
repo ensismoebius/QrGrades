@@ -115,12 +115,11 @@ public class BackupAdapter extends RecyclerView.Adapter<BackupAdapter.ViewHolder
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         File file = snapshots.get(position);
-        boolean manual = DbBackup.isManual(file);
+        int detailRes = DbBackup.isManual(file) ? R.string.backup_manual_detail
+                : (DbBackup.isScheduled(file) ? R.string.backup_scheduled_detail : R.string.backup_auto_detail);
 
         holder.txtTimestamp.setText(dateFormat.format(new Date(file.lastModified())));
-        holder.txtDetail.setText(context.getString(
-                manual ? R.string.backup_manual_detail : R.string.backup_auto_detail,
-                Formatter.formatShortFileSize(context, file.length())));
+        holder.txtDetail.setText(context.getString(detailRes, Formatter.formatShortFileSize(context, file.length())));
         // Each button click just forwards the tapped file to the screen/activity that owns
         // this adapter, which is expected to perform the actual restore/delete operation.
         holder.btnRestore.setOnClickListener(v -> listener.onRestore(file));

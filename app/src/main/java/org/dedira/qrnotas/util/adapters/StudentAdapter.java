@@ -249,7 +249,7 @@ public class StudentAdapter extends RecyclerView.Adapter<StudentAdapter.StudentV
 
         holder.chkSelect.setOnClickListener(v -> toggleSelection(student.id, holder.getBindingAdapterPosition()));
 
-        holder.btnQrCode.setOnClickListener(v -> new QrCodeDialog(context, student).show());
+        holder.btnQrCode.setOnClickListener(v -> new QrCodeDialog(context, new Database(context), student).show());
 
         holder.btnEditStudent.setOnClickListener(v -> {
             Bundle bundle = new Bundle();

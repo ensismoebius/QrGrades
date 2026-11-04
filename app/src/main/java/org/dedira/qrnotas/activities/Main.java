@@ -34,6 +34,8 @@ import androidx.navigation.ui.NavigationUI;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import org.dedira.qrnotas.R;
+import org.dedira.qrnotas.util.AutoBackup;
+import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.EdgeToEdge;
 
 import java.util.HashSet;
@@ -71,6 +73,9 @@ public class Main extends AppCompatActivity {
         BottomNavigationView bottomNav = findViewById(R.id.bottomNav);
         fixBottomNavHeight(bottomNav);
         NavigationUI.setupWithNavController(bottomNav, navController);
+
+        // Once per launch (not on every rotation): takes the scheduled backup if it is due.
+        if (savedInstanceState == null) AutoBackup.runIfDue(this, new Database(this));
 
         View bottomNavCard = findViewById(R.id.bottomNavCard);
         navController.addOnDestinationChangedListener((controller, destination, arguments) ->

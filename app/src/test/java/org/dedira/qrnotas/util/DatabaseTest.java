@@ -622,18 +622,164 @@ public class DatabaseTest {
         assertEquals("MB", r.value.get(1).name);
     }
 
+    /** A goal whose window covers today, so it is running whenever the test happens to run. */
     private Goal saveGoal(String disciplineId, String name, int targetPoints) throws InterruptedException {
+        return saveGoalBetween(disciplineId, name, targetPoints, "2000-01-01", "2099-12-31").value;
+    }
+
+    private Result<Goal> saveGoalBetween(String disciplineId, String name, int targetPoints, String start, String end)
+            throws InterruptedException {
         Goal g = new Goal();
         g.disciplineId = disciplineId;
         g.name = name;
         g.targetPoints = targetPoints;
+        g.startDate = start;
+        g.endDate = end;
         Result<Goal> r = new Result<>();
         database.saveGoal(g, (success, value) -> {
+            r.success = success;
+            r.value = value;
+            r.done = true;
+        });
+        idle(r);
+        return r;
+    }
+
+    private ArrayList<Goal> goalsOf(String disciplineId) throws InterruptedException {
+        Result<ArrayList<Goal>> r = new Result<>();
+        database.loadGoalsForDiscipline(disciplineId, (success, value) -> {
             r.value = value;
             r.done = true;
         });
         idle(r);
         return r.value;
+    }
+
+    @Test
+    public void saveGoal_withoutBothDatesIsRefusedAndNothingIsStored() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+
+        assertFalse(saveGoalBetween(discipline.id, "R", 10, null, "2026-04-30").success);
+        assertFalse(saveGoalBetween(discipline.id, "R", 10, "2026-02-01", null).success);
+        assertFalse(saveGoalBetween(discipline.id, "R", 10, null, null).success);
+        assertFalse(saveGoalBetween(discipline.id, "R", 10, "", "").success);
+
+        assertTrue(goalsOf(discipline.id).isEmpty());
+    }
+
+    @Test
+    public void saveGoal_refusesAnEndBeforeTheStartAndDaysThatDoNotExist() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+
+        assertFalse(saveGoalBetween(discipline.id, "R", 10, "2026-05-01", "2026-04-30").success);
+        assertFalse(saveGoalBetween(discipline.id, "R", 10, "2026-02-30", "2026-04-30").success);
+        assertFalse(saveGoalBetween(discipline.id, "R", 10, "01/02/2026", "30/04/2026").success);
+        // One single day is a window too.
+        assertTrue(saveGoalBetween(discipline.id, "R", 10, "2026-04-30", "2026-04-30").success);
+
+        assertEquals(1, goalsOf(discipline.id).size());
+    }
+
+    @Test
+    public void saveGoal_storesTheDatesAndEditingKeepsTheIdAndReplacesThem() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+        Goal saved = saveGoalBetween(discipline.id, "MB", 30, "2026-02-01", "2026-04-30").value;
+
+        Goal loaded = goalsOf(discipline.id).get(0);
+        assertEquals("2026-02-01", loaded.startDate);
+        assertEquals("2026-04-30", loaded.endDate);
+        assertTrue(loaded.hasValidDates());
+
+        saved.endDate = "2026-06-30";
+        Result<Goal> edit = new Result<>();
+        database.saveGoal(saved, (success, value) -> {
+            edit.success = success;
+            edit.done = true;
+        });
+        idle(edit);
+        assertTrue(edit.success);
+
+        ArrayList<Goal> goals = goalsOf(discipline.id);
+        assertEquals(1, goals.size());
+        assertEquals(saved.id, goals.get(0).id);
+        assertEquals("2026-02-01", goals.get(0).startDate);
+        assertEquals("2026-06-30", goals.get(0).endDate);
+    }
+
+    @Test
+    public void loadGoalsForDiscipline_listsTheSoonestEndingWindowFirstThenTheEasiestTarget() throws InterruptedException {
+        Discipline discipline = saveDiscipline("BDI");
+        saveGoalBetween(discipline.id, "MB 2", 30, "2026-05-01", "2026-07-31");
+        saveGoalBetween(discipline.id, "MB 1", 30, "2026-02-01", "2026-04-30");
+        saveGoalBetween(discipline.id, "R 1", 10, "2026-02-01", "2026-04-30");
+
+        ArrayList<Goal> goals = goalsOf(discipline.id);
+
+        assertEquals("R 1", goals.get(0).name);
+        assertEquals("MB 1", goals.get(1).name);
+        assertEquals("MB 2", goals.get(2).name);
+    }
+
+    private static long at(int year, int month, int day, int hour) {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.clear();
+        c.set(year, month - 1, day, hour, 0, 0);
+        return c.getTimeInMillis();
+    }
+
+    @Test
+    public void loadExportData_aGoalCountsOnlyThePointsGivenInsideItsWindow() throws InterruptedException {
+        Student student = newStudent("André");
+        Discipline discipline = saveDiscipline("BDI");
+        ClassGroup group = saveClassGroup(discipline.id, "A");
+        Enrollment enrollment = saveEnrollment(student.id, group.id).value;
+        database.updateEnrollmentGrades(enrollment.id, 17, (s, v) -> {
+        });
+        savePointsHistoryAt(enrollment.id, 5, "antes", at(2020, 1, 31, 23));
+        savePointsHistoryAt(enrollment.id, 4, "primeiro dia", at(2020, 2, 1, 0));
+        savePointsHistoryAt(enrollment.id, 3, "meio", at(2020, 3, 15, 12));
+        savePointsHistoryAt(enrollment.id, 2, "último dia", at(2020, 4, 30, 23));
+        savePointsHistoryAt(enrollment.id, 3, "depois", at(2020, 5, 1, 0));
+        saveGoalBetween(discipline.id, "Bimestre", 8, "2020-02-01", "2020-04-30");
+
+        Result<ArrayList<StudentExportData>> r = new Result<>();
+        database.loadExportData(null, (success, value) -> {
+            r.value = value;
+            r.done = true;
+        });
+        idle(r);
+
+        org.dedira.qrnotas.model.GoalProgress goal = r.value.get(0).goals.get(0);
+        assertEquals(9, goal.currentPoints); // 4 + 3 + 2: the two edge days count, the days around them don't
+        assertTrue(goal.achieved);
+        assertEquals(org.dedira.qrnotas.model.GoalProgress.STATE_ENDED, goal.state);
+        assertEquals(17, r.value.get(0).points); // the row's own total is untouched
+    }
+
+    @Test
+    public void loadExportData_aGoalWithoutDatesStillJudgesTheWholeTotal() throws InterruptedException {
+        // A row from before goals had dates: written straight into the table, as the upgrade leaves it.
+        Student student = newStudent("André");
+        Discipline discipline = saveDiscipline("BDI");
+        ClassGroup group = saveClassGroup(discipline.id, "A");
+        Enrollment enrollment = saveEnrollment(student.id, group.id).value;
+        database.updateEnrollmentGrades(enrollment.id, 12, (s, v) -> {
+        });
+        android.database.sqlite.SQLiteDatabase raw = new StudentDbHelper(RuntimeEnvironment.getApplication()).getWritableDatabase();
+        raw.execSQL("INSERT INTO goals (id, discipline_id, name, target_points) VALUES ('old', ?, 'R', 10)", new Object[]{discipline.id});
+
+        Result<ArrayList<StudentExportData>> r = new Result<>();
+        database.loadExportData(null, (success, value) -> {
+            r.value = value;
+            r.done = true;
+        });
+        idle(r);
+
+        org.dedira.qrnotas.model.GoalProgress goal = r.value.get(0).goals.get(0);
+        assertEquals(org.dedira.qrnotas.model.GoalProgress.STATE_OPEN, goal.state);
+        assertEquals(12, goal.currentPoints);
+        assertTrue(goal.achieved);
+        assertFalse(goal.hasDates());
     }
 
     @Test
@@ -719,6 +865,66 @@ public class DatabaseTest {
         idle(r);
 
         assertTrue(r.value.isEmpty());
+    }
+
+    private StudentExportData importRow(String goalName, String start, String end) {
+        StudentExportData data = new StudentExportData();
+        data.studentId = "s1";
+        data.studentName = "André";
+        data.disciplineId = "d1";
+        data.disciplineName = "BDI";
+        data.classGroupId = "c1";
+        data.classGroupName = "A";
+        org.dedira.qrnotas.model.GoalProgress goal = new org.dedira.qrnotas.model.GoalProgress(goalName, 10, 0);
+        goal.startDate = start;
+        goal.endDate = end;
+        data.goals.add(goal);
+        return data;
+    }
+
+    private void importRows(StudentExportData row) throws InterruptedException {
+        Result<Void> r = new Result<>();
+        database.importExportData(Collections.singletonList(row), (success, error) -> {
+            r.success = success;
+            r.done = true;
+        });
+        idle(r);
+        assertTrue(r.success);
+    }
+
+    @Test
+    public void importExportData_keepsAGoalsDatesAndDoesNotDuplicateItOnReimport() throws InterruptedException {
+        importRows(importRow("R", "2026-02-01", "2026-04-30"));
+        importRows(importRow("R", "2026-02-01", "2026-04-30"));
+
+        ArrayList<Goal> goals = goalsOf("d1");
+        assertEquals(1, goals.size());
+        assertEquals("2026-02-01", goals.get(0).startDate);
+        assertEquals("2026-04-30", goals.get(0).endDate);
+
+        // The same goal in a different window is a different goal.
+        importRows(importRow("R", "2026-05-01", "2026-07-31"));
+        assertEquals(2, goalsOf("d1").size());
+    }
+
+    @Test
+    public void importExportData_aFileFromBeforeDatesDoesNotBringBackAnUndatedCopy() throws InterruptedException {
+        importRows(importRow("R", "2026-02-01", "2026-04-30"));
+
+        importRows(importRow("R", null, null));
+
+        ArrayList<Goal> goals = goalsOf("d1");
+        assertEquals(1, goals.size());
+        assertEquals("2026-02-01", goals.get(0).startDate);
+    }
+
+    @Test
+    public void importExportData_aGoalWithNonsenseDatesComesInWithoutAWindow() throws InterruptedException {
+        importRows(importRow("R", "ontem", "amanhã"));
+        importRows(importRow("MB", "2026-05-01", "2026-04-30"));
+
+        for (Goal g : goalsOf("d1")) assertFalse(g.hasDates());
+        assertEquals(2, goalsOf("d1").size());
     }
 
     @Test

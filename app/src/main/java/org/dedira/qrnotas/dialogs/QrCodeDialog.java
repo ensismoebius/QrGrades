@@ -19,6 +19,7 @@
 
 package org.dedira.qrnotas.dialogs;
 
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -31,9 +32,11 @@ import android.view.Window;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.model.Student;
+import org.dedira.qrnotas.util.Database;
 import org.dedira.qrnotas.util.QrCode;
 
 /**
@@ -42,17 +45,22 @@ import org.dedira.qrnotas.util.QrCode;
  * <p>
  * Scanning this QR code with the app's scanner (see {@link org.dedira.qrnotas.services.QrScanTileService}
  * or the in-app scanner) is how the student is identified when awarding points.
- * This dialog itself is purely a "display and share" screen — it generates the
- * QR image from the student's id and lets the user tap it to share/export it
- * via the normal Android share sheet.
+ * This dialog is mostly a "display and share" screen — it generates the QR image from
+ * the student's current code ({@link Student#qrCode()}) and lets the user tap it to
+ * share/export it via the normal Android share sheet. Students lose their printed codes
+ * often, so it can also issue a new code: the old one stops working at once.
  */
 public class QrCodeDialog extends Dialog {
     private final Context mContext;
+    private final Database database;
     private final Student student;
+    private Bitmap qrCodeBitmap;
+    private ImageView imgQr;
 
-    public QrCodeDialog(Context context, Student student) {
+    public QrCodeDialog(Context context, Database database, Student student) {
         super(context);
         mContext = context;
+        this.database = database;
         this.student = student;
     }
 
@@ -78,17 +86,43 @@ public class QrCodeDialog extends Dialog {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         }
 
-        // Render the student's unique id as a scannable QR code image.
-        Bitmap qrCodeBitmap = QrCode.generateQRCode(student.id);
+        // Render the student's current code (their id, until a new one is issued) as a scannable QR image.
+        this.qrCodeBitmap = QrCode.generateQRCode(student.qrCode());
 
         TextView txtName = inflateView.findViewById(R.id.txtQrDialogName);
-        ImageView imgQr = inflateView.findViewById(R.id.imgQrDialog);
+        this.imgQr = inflateView.findViewById(R.id.imgQrDialog);
         txtName.setText(student.name);
         imgQr.setImageBitmap(qrCodeBitmap);
 
         // Tapping the QR image lets the user share/export it (e.g. save, send via
-        // messaging apps) through the standard Android share mechanism.
+        // messaging apps) through the standard Android share mechanism. The lambda reads the
+        // field, so it always shares the code currently on screen, even after a new one was issued.
         imgQr.setOnClickListener(v -> QrCode.share(mContext, qrCodeBitmap));
+        inflateView.findViewById(R.id.btnQrDialogRegenerate).setOnClickListener(v -> confirmRegenerate());
         inflateView.findViewById(R.id.btnQrDialogClose).setOnClickListener(v -> dismiss());
+    }
+
+    /** Asks first: the printed code stops working the moment the new one is issued. */
+    private void confirmRegenerate() {
+        new AlertDialog.Builder(mContext)
+                .setTitle(R.string.regenerate_qr_title)
+                .setMessage(mContext.getString(R.string.regenerate_qr_message, student.name))
+                .setPositiveButton(R.string.regenerate_qr_confirm, (dialog, which) -> regenerate())
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void regenerate() {
+        database.regenerateQrToken(student.id, (success, updated) -> {
+            if (!success || updated == null) {
+                Toast.makeText(mContext, R.string.regenerate_qr_failed, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            // The caller's Student object follows, so the list behind this dialog is up to date without a reload.
+            student.qrToken = updated.qrToken;
+            qrCodeBitmap = QrCode.generateQRCode(student.qrCode());
+            imgQr.setImageBitmap(qrCodeBitmap);
+            Toast.makeText(mContext, mContext.getString(R.string.regenerate_qr_done, student.name), Toast.LENGTH_LONG).show();
+        });
     }
 }

@@ -100,7 +100,7 @@
     <string name="save_failed">Falha ao salvar.</string>
     <string name="entity_deleted">Excluído.</string>
     <string name="discipline_has_groups">"Exclua as turmas desta disciplina primeiro."</string>
-    <string name="manage_groups">Gerenciar turmas</string>
+    <string name="manage_groups">Gerenciar grupos</string>
     <string name="manage_goals">Gerenciar metas</string>
     <string name="view_leaderboard">Ranking</string>
     <string name="leaderboard_title">Ranking — %1$s</string>
@@ -153,15 +153,29 @@
     <string name="goal_name_hint">Nome da meta</string>
     <string name="goal_target_hint">Pontos necessários</string>
     <string name="goal_target_points">%1$d pts</string>
-    <string name="progress_title">Progresso</string>
+    <string name="progress_title">Histórico</string>
     <string name="current_points_label">Pontos atuais</string>
-    <string name="discipline_class_format">%1$s — %2$s</string>
-    <string name="no_goals_for_discipline">"Nenhuma meta cadastrada para esta disciplina ainda."</string>
     <string name="goal_achieved">Alcançada!</string>
     <string name="goal_remaining">Faltam %1$d</string>
-    <string name="history_title">Histórico</string>
-    <string name="no_history_yet">Nenhum ponto registrado ainda.</string>
-    <string name="no_enrollments_yet">"Não matriculado(a) em nenhuma disciplina ainda."</string>
+    <string name="goal_start_hint">Início (primeiro dia que conta)</string>
+    <string name="goal_end_hint">Fim (último dia que conta)</string>
+    <string name="goal_window_help">Só contam os pontos lançados entre essas duas datas, inclusive.</string>
+    <string name="goal_target_required">Informe os pontos necessários.</string>
+    <string name="goal_dates_order">O fim não pode ser anterior ao início.</string>
+    <string name="goal_window_state_active">Em andamento</string>
+    <string name="goal_window_state_upcoming">Futura</string>
+    <string name="goal_window_state_ended">Encerrada</string>
+    <string name="goal_window_line">"%1$s – %2$s · %3$s"</string>
+    <string name="goal_window_line_stacked">"%1$s – %2$s\n%3$s"</string>
+    <string name="goal_without_dates">"Sem datas — edite a meta para definir início e fim"</string>
+    <string name="goal_missed">Não alcançada</string>
+    <string name="goal_upcoming">Futura</string>
+    <string name="goal_ends_today">termina hoje</string>
+    <string name="goal_ends_tomorrow">termina amanhã</string>
+    <string name="goal_ends_in_days">termina em %1$d dias</string>
+    <string name="goal_not_started">ainda não começou</string>
+    <string name="goal_ended">encerrada</string>
+    <string name="goal_points_of">"%1$d de %2$d pts"</string>
 
     <!-- Export / selection -->
     <string name="select_students">Selecionar alunos</string>
@@ -230,4 +244,334 @@
     <string name="web_server_password_hint">Senha</string>
     <string name="web_server_start">Iniciar</string>
     <string name="web_server_password_too_short">"A senha deve ter pelo menos 4 caracteres."</string>
+
+    <!-- Categorias de pontos e correções -->
+    <string name="reversal_note">"Estorno: %1$s"</string>
+    <string name="reversal_note_blank">Estorno de um lançamento anterior</string>
+    <string-array name="default_tags">
+        <item>Participação</item>
+        <item>Atividade</item>
+        <item>Prova</item>
+        <item>Comportamento</item>
+        <item>Bônus</item>
+    </string-array>
+
+    <!-- Boletim do aluno (PDF) -->
+    <string name="report_title">Boletim do aluno</string>
+    <string name="report_generated_on">"Gerado em %1$s"</string>
+    <string name="report_current_period">Período atual</string>
+    <string name="report_closed_on">"Encerrado em %1$s"</string>
+    <string name="report_closed_period_heading">"%1$s — encerrado em %2$s"</string>
+    <string name="report_no_enrollments">Não está matriculado(a) em nenhuma turma.</string>
+    <string name="report_class_closed">" (turma encerrada)"</string>
+    <string name="report_points">"%1$d pontos"</string>
+    <string name="report_goals">Metas</string>
+    <string name="report_goal_achieved">"%1$s — atingida (meta %2$d)"</string>
+    <string name="report_goal_remaining">"%1$s — faltam %3$d (meta %2$d)"</string>
+    <string name="report_goal_window">"%1$s (%2$s – %3$s)"</string>
+    <string name="report_goal_missed">"%1$s — não atingida (%3$d de %2$d)"</string>
+    <string name="report_goal_upcoming">"%1$s — ainda não começou (meta %2$d)"</string>
+    <string name="report_attendance">Frequência</string>
+    <string name="report_attendance_summary">"Presenças: %1$d · Faltas: %2$d · Justificadas: %3$d — %4$d%% de presença"</string>
+    <string name="report_attendance_none">Nenhuma chamada registrada.</string>
+    <string name="report_by_category">Por categoria</string>
+    <string name="report_no_category">Sem categoria</string>
+    <string name="report_history">Histórico de pontos</string>
+    <string name="report_no_history">Nenhum lançamento de pontos registrado.</string>
+    <string name="report_col_date">Data</string>
+    <string name="report_col_points">Pontos</string>
+    <string name="report_col_category">Categoria</string>
+    <string name="report_col_note">Observação</string>
+    <string name="report_cancelled">(estornado)</string>
+    <string name="report_page">"Página %1$d"</string>
+
+    <!-- Novo código QR para quem perdeu o seu -->
+    <string name="regenerate_qr">Novo código QR</string>
+    <string name="regenerate_qr_title">Gerar um novo código QR?</string>
+    <string name="regenerate_qr_message">"O código QR impresso de %1$s deixará de funcionar imediatamente. Depois, imprima o novo código e entregue ao aluno."</string>
+    <string name="regenerate_qr_confirm">Gerar</string>
+    <string name="regenerate_qr_done">"Novo código gerado para %1$s. O anterior não funciona mais."</string>
+    <string name="regenerate_qr_failed">Não foi possível gerar um novo código.</string>
+    <string name="qr_code_unknown">Código QR não reconhecido. Se este aluno recebeu um novo código, o antigo deixou de funcionar.</string>
+
+    <!-- Categoria de um lançamento de pontos -->
+    <string name="note_dialog_tag_hint">Categoria (opcional)</string>
+
+    <!-- Modo chamada na tela de leitura -->
+    <string name="attendance_mode">Modo chamada</string>
+    <string name="attendance_mode_hint">Modo chamada: aponte para o código QR de cada aluno</string>
+    <string name="attendance_marked">"%1$s: presente (%2$d de %3$d)"</string>
+    <string name="attendance_already">"%1$s já estava presente (%2$d de %3$d)"</string>
+    <string name="attendance_failed">Não foi possível registrar a presença.</string>
+
+    <!-- Backups agendados -->
+    <string name="auto_backup_title">Backup automático</string>
+    <string name="auto_backup_daily">Diário · mantém os 7 últimos</string>
+    <string name="auto_backup_weekly">Semanal · mantém os 7 últimos</string>
+    <string name="auto_backup_off">Desligado</string>
+    <string name="backup_scheduled_detail">"Agendado · %1$s"</string>
+
+    <!-- More hub: tools that mirror the browser page -->
+    <string name="hub_attendance">Frequência</string>
+    <string name="hub_attendance_subtitle">Faça a chamada e veja as faltas por período</string>
+    <string name="hub_batch_points">Lançar pontos em lote</string>
+    <string name="hub_batch_points_subtitle">Dê pontos a vários alunos de uma só vez</string>
+    <string name="hub_alerts">Alertas e resumo da semana</string>
+    <string name="hub_alerts_subtitle">Quem precisa de atenção esta semana</string>
+    <string name="hub_student_history">Histórico do aluno</string>
+    <string name="hub_student_history_subtitle">Períodos atuais e encerrados, com estorno e boletim</string>
+    <string name="hub_overview">Visão geral</string>
+    <string name="hub_overview_subtitle">Ranking, evolução dos pontos e todas as matrículas</string>
+    <string name="hub_compare_periods">Comparar períodos</string>
+    <string name="hub_compare_periods_subtitle">Os pontos de cada aluno em cada período encerrado</string>
+    <string name="hub_qr_sheet">Códigos QR</string>
+    <string name="hub_qr_sheet_subtitle">Folha para imprimir com o código de cada aluno</string>
+    <string name="show_all_count">Mostrar todos (%1$d)</string>
+    <string name="show_less">Mostrar menos</string>
+
+    <!-- Alerts and weekly summary -->
+    <string name="alerts_title">Alertas e resumo da semana</string>
+    <string name="alerts_filters">Filtros</string>
+    <string name="alerts_filter_discipline">Disciplina</string>
+    <string name="alerts_all_disciplines">Todas as disciplinas</string>
+    <string name="alerts_filter_days">Sem pontos há</string>
+    <string name="alerts_days_option">%1$d dias</string>
+    <string name="alerts_filter_limit">Faltas acima de (%)</string>
+    <string name="alerts_add_discipline_first">Cadastre uma disciplina primeiro.</string>
+    <string name="alerts_loading">Carregando…</string>
+    <string name="alerts_load_failed">Não foi possível carregar os dados.</string>
+    <string name="alerts_missing">faltam %1$d</string>
+    <string name="alerts_points_of_goal">%1$d de %2$d pontos</string>
+    <string name="alerts_goal_line">Meta: %1$s · %2$s</string>
+    <string name="alerts_goal_deadline">até %1$s (%2$s)</string>
+    <string name="alerts_goal_no_deadline">sem prazo</string>
+    <string name="week_title">Resumo da semana</string>
+    <string name="week_description">Os últimos 7 dias, comparados aos 7 anteriores. Lançamentos estornados não entram na conta.</string>
+    <string name="week_empty">Nenhum lançamento de pontos nos últimos 7 dias.</string>
+    <string name="week_empty_prev">Nenhum lançamento de pontos nos últimos 7 dias (nos 7 anteriores houve %1$d).</string>
+    <string name="week_given">Pontos lançados</string>
+    <string name="week_deducted">Pontos descontados</string>
+    <string name="week_students">Alunos pontuados</string>
+    <string name="week_entries">Lançamentos</string>
+    <string name="week_change">Variação vs. semana anterior</string>
+    <string name="week_top">Mais pontos na semana</string>
+    <string name="week_tags">Categorias mais usadas</string>
+    <string name="absences_title">Faltas em excesso</string>
+    <string name="absences_description">Alunos que já passaram de %1$d%% de faltas no período atual (as justificadas contam), considerando turmas com ao menos %2$d aulas registradas.</string>
+    <string name="absences_none">Nenhum aluno acima de %1$d%% de faltas.</string>
+    <string name="absences_detail">%1$s · %2$s</string>
+    <string name="below_title">Abaixo da meta mínima</string>
+    <string name="below_description">Alunos com menos pontos que a menor meta em andamento da disciplina (a meta mínima), do mais distante ao mais próximo. Contam só os pontos dados entre o início e o fim de cada meta.</string>
+    <string name="below_no_goals">Nenhuma disciplina tem metas cadastradas. Crie-as (com início e fim) em Disciplinas › Metas para ver quem está abaixo da meta mínima.</string>
+    <string name="below_no_running">Nenhuma meta está em andamento hoje: as que já terminaram têm resultado final e as futuras ainda não começaram.</string>
+    <string name="below_none">Todos os alunos já atingiram a meta mínima.</string>
+    <string name="near_title">Perto da próxima meta</string>
+    <string name="near_description">Alunos a poucos pontos da próxima meta em andamento que ainda não alcançaram: um incentivo pode fazer a diferença.</string>
+    <string name="near_none">Ninguém está a poucos pontos de uma meta no momento.</string>
+    <string name="inactive_title">Sem pontos recentes</string>
+    <string name="inactive_description">Alunos sem nenhum ponto nos últimos %1$d dias, em turmas onde outros alunos pontuaram nesse período. Turmas paradas (sem lançamentos para ninguém) não entram.</string>
+    <string name="inactive_none">Todos os alunos receberam pontos nesse período.</string>
+    <string name="inactive_never">nunca pontuou</string>
+    <string name="inactive_last_point">Último ponto: %1$s</string>
+    <string name="inactive_days_ago_one">há 1 dia</string>
+    <string name="inactive_days_ago_many">há %1$d dias</string>
+
+    <!-- Bulk points -->
+    <string name="batch_title">Lançar pontos em lote</string>
+    <string name="batch_need_class">Cadastre uma turma e matricule alunos primeiro.</string>
+    <string name="batch_group_hint">Turma</string>
+    <string name="batch_points_hint">Pontos</string>
+    <string name="batch_note_hint">Observação</string>
+    <string name="batch_note_placeholder">ex.: entregou o trabalho</string>
+    <string name="batch_tag_hint">Categoria (opcional)</string>
+    <string name="batch_students">Alunos</string>
+    <string name="batch_select_all">Todos</string>
+    <string name="batch_select_none">Nenhum</string>
+    <string name="batch_select_invert">Inverter</string>
+    <string name="batch_select_present">Presentes hoje</string>
+    <string name="batch_filter_hint">Filtrar por nome…</string>
+    <string name="batch_no_students">Esta turma ainda não tem alunos matriculados.</string>
+    <string name="batch_no_match">Nenhum aluno corresponde a “%1$s”.</string>
+    <string name="batch_preview_selected">%1$d de %2$d alunos selecionados</string>
+    <string name="batch_preview_with_points">%1$s para cada um · %2$s</string>
+    <string name="batch_points_unit_one">%1$s ponto</string>
+    <string name="batch_points_unit_many">%1$s pontos</string>
+    <string name="batch_submit">Lançar</string>
+    <string name="batch_need_points">Informe a quantidade de pontos (diferente de zero).</string>
+    <string name="batch_points_too_big">A quantidade de pontos é grande demais (máximo de %1$d).</string>
+    <string name="batch_need_students">Selecione ao menos um aluno.</string>
+    <string name="batch_too_many">Lote grande demais (máximo de %1$d alunos).</string>
+    <string name="batch_done">Lançamento de %1$s para %2$d alunos.</string>
+    <string name="batch_done_one">Lançamento de %1$s para 1 aluno.</string>
+    <string name="batch_failed">Nenhuma alteração foi feita: não foi possível salvar o lote.</string>
+    <string name="batch_undo">Desfazer</string>
+    <string name="batch_no_attendance_today">Não há chamada registrada hoje para esta turma.</string>
+    <string name="batch_session_title">Lançamentos em lote desta sessão</string>
+    <string name="batch_session_hint">Desfazer cancela cada lançamento do lote; eles continuam no histórico dos alunos, marcados como estornados.</string>
+    <string name="batch_session_details">%1$d alunos</string>
+    <string name="batch_session_details_one">1 aluno</string>
+    <string name="batch_undo_batch">Desfazer lote</string>
+    <string name="batch_undo_confirm">Desfazer o lote de %1$s para %2$d aluno(s)?</string>
+    <string name="batch_undone">Lote desfeito.</string>
+    <string name="batch_undo_partial">%1$d lançamento(s) não puderam ser desfeitos. %2$s</string>
+    <string name="batch_chip_undone">desfeito</string>
+    <string name="revert_error_not_found">O lançamento não existe mais.</string>
+    <string name="revert_error_already">Esse lançamento já foi estornado.</string>
+    <string name="revert_error_reversal">Um estorno não pode ser estornado.</string>
+    <string name="revert_error_closed">O lançamento pertence a um período encerrado; reabra o período para alterá-lo.</string>
+    <string name="revert_error_failed">Não foi possível estornar o lançamento.</string>
+
+    <!-- Attendance screen -->
+    <string name="attendance_title">Frequência</string>
+    <string name="attendance_need_class">Cadastre uma turma e matricule alunos primeiro.</string>
+    <string name="attendance_roll_title">Chamada</string>
+    <string name="attendance_group_hint">Turma</string>
+    <string name="attendance_no_students">Esta turma não tem alunos matriculados.</string>
+    <string name="attendance_not_started">Nenhuma chamada registrada neste dia.</string>
+    <string name="attendance_start_present">Iniciar com todos presentes</string>
+    <string name="attendance_start_absent">Iniciar com todos ausentes</string>
+    <string name="attendance_start_tip">Depois é só ajustar quem faltou. Na tela de escanear, o modo chamada também marca a presença ao ler o código QR.</string>
+    <string name="attendance_counts">Presentes %1$d · Faltas %2$d · Justificadas %3$d</string>
+    <string name="attendance_counts_unmarked">Presentes %1$d · Faltas %2$d · Justificadas %3$d · Sem registro %4$d</string>
+    <string name="attendance_all_present">Todos presentes</string>
+    <string name="attendance_all_absent">Todos ausentes</string>
+    <string name="attendance_delete_day">Excluir esta chamada</string>
+    <string name="attendance_status_present">Presente</string>
+    <string name="attendance_status_absent">Falta</string>
+    <string name="attendance_status_excused">Justificada</string>
+    <string name="attendance_delete_confirm">Excluir a chamada de %1$s?\n\nAs presenças e faltas desse dia deixam de contar.</string>
+    <string name="attendance_deleted">Chamada excluída.</string>
+    <string name="attendance_days_title">Dias com chamada</string>
+    <string name="attendance_days_empty">Ainda não há chamadas registradas para esta turma.</string>
+    <string name="attendance_summary_title">Resumo por aluno</string>
+    <string name="attendance_period_hint">Período</string>
+    <string name="attendance_period_current">Período atual</string>
+    <string name="attendance_period_closed_on">Encerrado em %1$s</string>
+    <string name="attendance_summary_days_zero">Nenhuma aula registrada neste período.</string>
+    <string name="attendance_summary_days_one">1 aula registrada neste período.</string>
+    <string name="attendance_summary_days_many">%1$d aulas registradas neste período.</string>
+    <string name="attendance_summary_note">A porcentagem de faltas inclui as justificadas; acima de %1$d%% fica em destaque.</string>
+    <string name="attendance_student_detail">Presenças %1$d · Faltas %2$d · Justificadas %3$d</string>
+    <string name="attendance_save_failed">Não foi possível salvar a chamada.</string>
+    <string name="attendance_load_failed">Não foi possível carregar a chamada.</string>
+
+    <!-- Student history -->
+    <string name="history_pdf">Boletim</string>
+    <string name="history_print">Imprimir</string>
+    <string name="history_filter_discipline">Disciplina</string>
+    <string name="history_all_disciplines">Todas as disciplinas</string>
+    <string name="history_filter_period">Período</string>
+    <string name="history_all_periods">Todos os períodos</string>
+    <string name="history_current_period">Período atual</string>
+    <string name="history_tile_current_points">Pontos no período atual</string>
+    <string name="history_tile_attendance_one">Presença no período atual (1 aula)</string>
+    <string name="history_tile_attendance_many">Presença no período atual (%1$d aulas)</string>
+    <string name="history_tile_closed_count">Períodos encerrados</string>
+    <string name="history_tile_closed_points">Pontos em períodos encerrados</string>
+    <string name="history_current_title">Período atual</string>
+    <string name="history_not_enrolled">Não está matriculado(a) em nenhuma turma.</string>
+    <string name="history_not_enrolled_discipline">Não está matriculado(a) em nenhuma turma desta disciplina.</string>
+    <string name="history_closed_title">Períodos encerrados</string>
+    <string name="history_no_closed">Nenhum período encerrado ainda.</string>
+    <string name="history_closed_on">encerrado em %1$s</string>
+    <string name="history_class_closed">(encerrada)</string>
+    <string name="history_class_closed_period">(turma encerrada)</string>
+    <string name="history_points_badge">%1$d pts</string>
+    <string name="history_by_category">Por categoria: %1$s</string>
+    <string name="history_no_category">sem categoria</string>
+    <string name="history_attendance">Frequência</string>
+    <string name="history_lessons_one">1 aula</string>
+    <string name="history_lessons_many">%1$d aulas</string>
+    <string name="history_present_in">presente em %1$d (%2$s)</string>
+    <string name="history_absences_one">1 falta</string>
+    <string name="history_absences_many">%1$d faltas</string>
+    <string name="history_excused_one">1 justificada</string>
+    <string name="history_excused_many">%1$d justificadas</string>
+    <string name="history_missed_absent">%1$s · falta</string>
+    <string name="history_missed_excused">%1$s · justificada</string>
+    <string name="history_no_entries">Nenhum lançamento de pontos registrado.</string>
+    <string name="history_entry_reversal">estorno</string>
+    <string name="history_entry_reverted">estornado</string>
+    <string name="history_correct">Corrigir</string>
+    <string name="history_revert">Estornar</string>
+    <string name="history_revert_confirm">Estornar o lançamento de %1$s?\n\nOs pontos voltam ao que eram. O lançamento continua no histórico, marcado como estornado.</string>
+    <string name="history_reverted_ok">Lançamento estornado.</string>
+    <string name="history_corrected_ok">Lançamento corrigido.</string>
+    <string name="history_correct_title">Corrigir lançamento</string>
+    <string name="history_correct_points">Pontos</string>
+    <string name="history_correct_note">Observação</string>
+    <string name="history_correct_tag">Categoria</string>
+    <string name="history_correct_hint">O lançamento original é estornado e o corrigido é registrado em seguida; os dois ficam no histórico.</string>
+    <string name="history_correct_need_points">Informe uma quantidade de pontos diferente de zero.</string>
+    <string name="history_describe_points_one">%1$s ponto</string>
+    <string name="history_describe_points_many">%1$s pontos</string>
+    <string name="history_describe_with_note">%1$s (“%2$s”)</string>
+    <string name="history_report_failed">Não foi possível gerar o boletim.</string>
+    <string name="history_load_failed">Não foi possível carregar o histórico.</string>
+    <string name="history_loading">Carregando…</string>
+    <string name="history_print_job">Boletim — %1$s</string>
+
+    <!-- Period comparison -->
+    <string name="compare_title">Comparar períodos</string>
+    <string name="compare_add_discipline_first">Cadastre uma disciplina primeiro.</string>
+    <string name="compare_filters">Filtros</string>
+    <string name="compare_discipline_hint">Disciplina</string>
+    <string name="compare_group_hint">Turma</string>
+    <string name="compare_sort_hint">Ordenar por</string>
+    <string name="compare_all_groups">Todas as turmas</string>
+    <string name="compare_sort_name">Nome</string>
+    <string name="compare_sort_current">Pontos atuais</string>
+    <string name="compare_sort_delta">Variação</string>
+    <string name="compare_loading">Carregando…</string>
+    <string name="compare_failed">Não foi possível carregar a comparação.</string>
+    <string name="compare_no_columns">Esta disciplina ainda não tem períodos encerrados. Quando você encerrar um período, a pontuação de cada aluno nele passa a aparecer aqui, para comparar com os seguintes.</string>
+    <string name="compare_no_rows">Nenhum aluno com pontuação registrada nesta seleção.</string>
+    <string name="compare_tile_avg_last">Média da turma em “%1$s”</string>
+    <string name="compare_tile_avg_prev">Média em “%1$s”</string>
+    <string name="compare_tile_avg_change">Variação da média entre esses dois períodos</string>
+    <string name="compare_tile_avg_current">Média atual (período em andamento)</string>
+    <string name="compare_col_student">Aluno</string>
+    <string name="compare_col_current">Atual</string>
+    <string name="compare_col_delta">Variação</string>
+    <string name="compare_foot_avg">Média da turma</string>
+    <string name="compare_foot_min">Menor pontuação</string>
+    <string name="compare_foot_max">Maior pontuação</string>
+    <string name="compare_foot_count">Alunos</string>
+    <string name="compare_note_with_prev">“Variação” é a pontuação do último período encerrado menos a do período anterior; a coluna “Atual” é a do período em andamento e fica de fora dessa conta. Toque em um aluno para ver o histórico dele.</string>
+    <string name="compare_note_no_prev">A coluna “Atual” é a do período em andamento. A variação entre períodos aparece quando houver dois períodos encerrados. Toque em um aluno para ver o histórico dele.</string>
+
+    <!-- QR code sheet -->
+    <string name="qrsheet_title">Códigos QR</string>
+    <string name="qrsheet_need_student">Cadastre um aluno primeiro.</string>
+    <string name="qrsheet_filters">Imprimir códigos QR</string>
+    <string name="qrsheet_discipline_hint">Disciplina</string>
+    <string name="qrsheet_all_students">Todos os alunos</string>
+    <string name="qrsheet_hint">Cada código é impresso com o primeiro nome do aluno por extenso e o restante do nome abreviado em iniciais.</string>
+    <string name="qrsheet_select_all">Todos</string>
+    <string name="qrsheet_select_none">Nenhum</string>
+    <string name="qrsheet_print">Imprimir</string>
+    <string name="qrsheet_share">Compartilhar</string>
+    <string name="qrsheet_selected">%1$d de %2$d selecionados</string>
+    <string name="qrsheet_regenerated_marker">código regerado</string>
+    <string name="qrsheet_regenerate">Regerar</string>
+    <string name="qrsheet_none_selected">Selecione ao menos um aluno.</string>
+    <string name="qrsheet_empty_filter">Nenhum aluno matriculado nesta disciplina.</string>
+    <string name="qrsheet_pdf_failed">Não foi possível gerar o PDF dos códigos.</string>
+    <string name="qrsheet_print_job">Códigos QR</string>
+
+    <!-- Overview -->
+    <string name="overview_title">Visão geral</string>
+    <string name="overview_add_discipline_first">Cadastre uma disciplina primeiro.</string>
+    <string name="overview_ranking">Ranking</string>
+    <string name="overview_discipline_hint">Disciplina</string>
+    <string name="overview_no_data">Ainda não há dados.</string>
+    <string name="overview_chart_title">Pontos acumulados ao longo do tempo</string>
+    <string name="overview_no_history">Ainda não há histórico.</string>
+    <string name="overview_chart_description">Soma de todos os lançamentos da disciplina, do primeiro ao último.</string>
+    <string name="overview_all_title">Todas as matrículas</string>
+    <string name="overview_search_hint">Pesquisar aluno pelo nome…</string>
+    <string name="overview_no_match">Nenhum aluno corresponde a “%1$s”.</string>
+
+    <!-- Export everything -->
+    <string name="export_all_action">Exportar todos os alunos</string>
 </resources>

@@ -29,8 +29,12 @@
     </header>
     <nav id="tab-nav">
         <button data-tab="overview" class="active">Visão geral</button>
+        <button data-tab="alerts">Alertas</button>
         <button data-tab="students">Alunos</button>
+        <button data-tab="points">Lançar pontos</button>
+        <button data-tab="attendance">Frequência</button>
         <button data-tab="history">Histórico</button>
+        <button data-tab="periods">Períodos</button>
         <button data-tab="disciplines">Disciplinas</button>
         <button data-tab="classgroups">Turmas</button>
         <button data-tab="goals">Metas</button>
@@ -39,8 +43,12 @@
     </nav>
     <main>
         <section class="tab active" id="tab-overview"></section>
+        <section class="tab" id="tab-alerts"></section>
         <section class="tab" id="tab-students"></section>
+        <section class="tab" id="tab-points"></section>
+        <section class="tab" id="tab-attendance"></section>
         <section class="tab" id="tab-history"></section>
+        <section class="tab" id="tab-periods"></section>
         <section class="tab" id="tab-disciplines"></section>
         <section class="tab" id="tab-classgroups"></section>
         <section class="tab" id="tab-goals"></section>
@@ -50,7 +58,15 @@
 </div>
 
 <div id="modal-root"></div>
+<div id="toast-root" aria-live="polite"></div>
 
+<!-- app.js defines window.QG; each screen below registers itself with it. -->
 <script src="/app.js"></script>
+<script src="/js/insights.js"></script>
+<script src="/js/history.js"></script>
+<script src="/js/points.js"></script>
+<script src="/js/attendance.js"></script>
+<script src="/js/periods.js"></script>
+<script src="/js/alerts.js"></script>
 </body>
 </html>

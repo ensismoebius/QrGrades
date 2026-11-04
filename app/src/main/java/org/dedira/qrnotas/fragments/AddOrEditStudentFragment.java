@@ -200,7 +200,7 @@ public class AddOrEditStudentFragment extends BaseFragment {
                         return;
                     }
                     this.loadedStudent = object;
-                    this.imgQrcode.setImageBitmap(QrCode.generateQRCode(object.id));
+                    this.imgQrcode.setImageBitmap(QrCode.generateQRCode(object.qrCode()));
                     Bitmap loadedPhoto = BitmapConverter.loadBitmap(object.photoPath);
                     if (loadedPhoto != null) this.imgPhoto.setImageBitmap(loadedPhoto);
                     this.txtName.setText(object.name);
@@ -538,9 +538,14 @@ public class AddOrEditStudentFragment extends BaseFragment {
 
     private void finishSave(Student student) {
         this.loadingDialog.dismiss();
-        imgQrcode.setImageBitmap(QrCode.generateQRCode(student.id));
+        imgQrcode.setImageBitmap(QrCode.generateQRCode(student.qrCode()));
         Toast.makeText(requireContext(), getString(R.string.student_saved, student.name), Toast.LENGTH_LONG).show();
-        new QrCodeDialog(requireContext(), student).show();
+        QrCodeDialog dialog = new QrCodeDialog(requireContext(), this.database, student);
+        // A new code may have been issued from the dialog; show the current one when it closes.
+        dialog.setOnDismissListener(d -> {
+            if (getView() != null) imgQrcode.setImageBitmap(QrCode.generateQRCode(student.qrCode()));
+        });
+        dialog.show();
     }
 
     private void shareQrCode() {

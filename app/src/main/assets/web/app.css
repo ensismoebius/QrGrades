@@ -343,7 +343,22 @@ form.inline-form input:focus, form.inline-form select:focus,
     .qr-name {
         color: #000;
     }
+    .card {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        background: #fff;
+        break-inside: avoid;
+    }
+    /* Printing one student's QR code from any screen: show only the sheet built for it. */
+    body.print-single > *:not(#print-sheet) {
+        display: none !important;
+    }
+    body.print-single #print-sheet {
+        display: grid;
+    }
 }
+
+#print-sheet { display: none; }
 
 .chart-svg { width: 100%; height: auto; }
 
@@ -473,3 +488,194 @@ tr.selected { background: var(--md-primary-container); color: var(--md-on-primar
 .muted { color: var(--md-on-surface-variant); font-weight: normal; font-size: 13px; }
 .delta-pos { color: var(--scan-success); font-weight: 600; }
 .delta-neg { color: var(--md-error); font-weight: 600; }
+
+/* ---------------- Toasts ---------------- */
+
+#toast-root {
+    position: fixed;
+    left: 50%;
+    bottom: var(--sp-lg);
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+    width: min(92vw, 460px);
+    z-index: 20;
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-md);
+    padding: var(--sp-sm) var(--sp-md);
+    border-radius: var(--radius-sm);
+    background: var(--md-on-surface);
+    color: var(--md-surface);
+    box-shadow: var(--elevation-raised);
+    font-size: 14px;
+}
+
+.toast.error { background: var(--md-error); color: var(--md-on-error); }
+
+.toast button {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: var(--sp-xs) var(--sp-sm);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.toast button:hover { background: rgba(128, 128, 128, 0.3); }
+
+/* ---------------- Shared small pieces ---------------- */
+
+.btn.small { padding: var(--sp-xs) var(--sp-sm); font-size: 13px; }
+
+a.btn { display: inline-block; text-decoration: none; }
+
+th.num, td.num { text-align: right; white-space: nowrap; }
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-xs) var(--sp-sm);
+    align-items: center;
+    margin: var(--sp-sm) 0;
+}
+
+.chip {
+    display: inline-block;
+    border: none;
+    padding: 2px var(--sp-sm);
+    border-radius: 999px;
+    background: var(--md-secondary-container);
+    color: var(--md-on-secondary-container);
+    font-size: 12px;
+}
+
+.chip.absent { background: var(--md-error-container); color: var(--md-error); }
+.chip.excused { background: var(--md-tertiary-container); color: var(--md-on-tertiary-container); }
+
+button.chip.action { cursor: pointer; font-family: inherit; }
+button.chip.action:hover { filter: brightness(0.95); }
+
+.avatar.small { width: 32px; height: 32px; }
+
+.stat-value.delta-pos { color: var(--scan-success); }
+.stat-value.delta-neg { color: var(--md-error); }
+
+/* ---------------- QR code of a student ---------------- */
+
+.qr-detail {
+    display: flex;
+    gap: var(--sp-md);
+    align-items: center;
+    flex-wrap: wrap;
+    margin: var(--sp-md) 0;
+}
+
+/* White behind the code so it scans in dark mode as well. */
+.qr-thumb {
+    width: 120px;
+    height: 120px;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    background: #fff;
+}
+
+/* ---------------- Student history ---------------- */
+
+.goal-list { margin: var(--sp-sm) 0; display: grid; gap: var(--sp-sm); }
+.goal-head { display: flex; justify-content: space-between; gap: var(--sp-sm); font-size: 13px; margin-bottom: 2px; flex-wrap: wrap; }
+.goal.achieved .goal-head span:first-child { color: var(--scan-success); font-weight: 600; }
+
+.bar {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--md-surface-variant);
+    overflow: hidden;
+}
+
+.bar > span { display: block; height: 100%; background: var(--md-primary); border-radius: 999px; }
+.goal.achieved .bar > span { background: var(--scan-success); }
+.goal.missed .goal-head span:first-child { color: var(--md-error); font-weight: 600; }
+.goal.missed .bar > span { background: var(--md-error); }
+.goal.upcoming { opacity: 0.7; }
+.goal-window { font-size: 12px; margin-bottom: 4px; }
+
+.attendance-line { font-size: 13px; margin: var(--sp-sm) 0; }
+
+table.entries tr.reverted .note,
+table.entries tr.reverted td.delta-pos,
+table.entries tr.reverted td.delta-neg { text-decoration: line-through; }
+table.entries tr.reverted, table.entries tr.reversal { color: var(--md-on-surface-variant); }
+table.entries td.actions { white-space: nowrap; text-align: right; }
+
+/* ---------------- Batch points ---------------- */
+
+.batch-fields {
+    display: grid;
+    grid-template-columns: 110px repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--sp-md);
+}
+
+.batch-fields label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+    font-size: 12px;
+    color: var(--md-on-surface-variant);
+}
+
+.batch-fields input {
+    padding: var(--sp-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--md-outline);
+    background: var(--md-surface);
+    color: var(--md-on-surface);
+    font-size: 14px;
+}
+
+.batch-fields input:focus { outline: none; border-color: var(--md-primary); }
+
+.selection-tools { margin-top: var(--sp-sm); }
+.selection-tools .search-input { flex: 1 1 160px; }
+
+/* ---------------- Attendance ---------------- */
+
+.seg { display: inline-flex; border: 1px solid var(--md-outline); border-radius: var(--radius-sm); overflow: hidden; }
+.seg-opt { cursor: pointer; }
+.seg-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.seg-opt span { display: block; padding: var(--sp-xs) var(--sp-md); font-size: 13px; }
+.seg-opt + .seg-opt span { border-left: 1px solid var(--md-outline); }
+.seg-opt input:focus-visible + span { outline: 2px solid var(--md-primary); outline-offset: -2px; }
+.seg-opt.present input:checked + span { background: var(--scan-success); color: #fff; }
+.seg-opt.absent input:checked + span { background: var(--md-error); color: var(--md-on-error); }
+.seg-opt.excused input:checked + span { background: var(--md-tertiary); color: var(--md-on-tertiary); }
+.seg-opt input:disabled + span { opacity: 0.6; cursor: default; }
+
+.roll-name { width: 100%; }
+
+.days-list { max-height: 280px; overflow-y: auto; }
+
+tr.warn td { color: var(--md-error); }
+
+/* ---------------- Period comparison ---------------- */
+
+table.compare th .muted { font-size: 11px; font-weight: normal; }
+table.compare tfoot th { text-align: left; }
+table.compare tr.foot td, table.compare tr.foot th { background: var(--md-surface); color: var(--md-on-surface-variant); }
+table.compare tr.foot:first-child td, table.compare tr.foot:first-child th { border-top: 2px solid var(--md-surface-variant); }
+
+@media (max-width: 600px) {
+    main { padding: var(--sp-md); }
+    .card { padding: var(--sp-md); }
+    .batch-fields { grid-template-columns: 1fr; }
+}

@@ -34,6 +34,7 @@ import androidx.core.app.NotificationCompat;
 
 import org.dedira.qrnotas.R;
 import org.dedira.qrnotas.activities.Main;
+import org.dedira.qrnotas.util.AutoBackup;
 import org.dedira.qrnotas.util.Database;
 
 import java.io.IOException;
@@ -115,6 +116,8 @@ public class WebServerService extends Service {
         startForeground(NOTIFICATION_ID, buildNotification());
 
         database = new Database(getApplicationContext());
+        // Before anyone can edit through the browser: the backup is queued ahead of every write that follows.
+        AutoBackup.runIfDue(getApplicationContext(), database);
         webServer = new WebServer(getApplicationContext(), database, password);
         try {
             webServer.start();

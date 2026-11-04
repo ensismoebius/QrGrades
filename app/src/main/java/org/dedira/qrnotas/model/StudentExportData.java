@@ -38,6 +38,8 @@ public class StudentExportData {
     public String disciplineName;
     public String classGroupId;
     public String classGroupName;
+    public boolean classGroupClosed; // True once the class group was archived by "Fechar período e turma"; its enrollments no longer take part in day-to-day views.
+    public String qrToken; // The student's regenerated QR secret, carried through export/import so a restore keeps the new printed codes valid; null if never regenerated.
     public int points; // Accumulated points for this enrollment (NOT a 0-100 grade).
     public List<GoalProgress> goals = new ArrayList<>(); // This student's progress towards each Goal defined for the discipline.
     public List<PointsHistory> history = new ArrayList<>(); // Full point-change audit trail for this enrollment.

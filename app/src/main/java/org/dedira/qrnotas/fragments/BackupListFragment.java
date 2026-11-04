@@ -34,6 +34,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import org.dedira.qrnotas.R;
+import org.dedira.qrnotas.util.AutoBackup;
 import org.dedira.qrnotas.util.adapters.BackupAdapter;
 import org.dedira.qrnotas.util.DbBackup;
 import org.dedira.qrnotas.util.Exporter;
@@ -65,6 +66,12 @@ public class BackupListFragment extends BaseFragment {
 
         MaterialToolbar toolbar = view.findViewById(R.id.toolbar);
         toolbar.setTitle(R.string.backups_title);
+        toolbar.inflateMenu(R.menu.menu_backups);
+        toolbar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() != R.id.action_auto_backup) return false;
+            showAutoBackupSettings();
+            return true;
+        });
 
         this.txtEmpty = view.findViewById(R.id.txtEmpty);
         this.txtEmpty.setText(R.string.no_backups_yet);
@@ -127,6 +134,28 @@ public class BackupListFragment extends BaseFragment {
                 Toast.makeText(requireContext(), R.string.backup_failed, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    /** How often the app backs itself up, without being asked. */
+    private void showAutoBackupSettings() {
+        final int[] choices = {AutoBackup.DAILY, AutoBackup.WEEKLY, AutoBackup.OFF};
+        final String[] labels = {
+                getString(R.string.auto_backup_daily),
+                getString(R.string.auto_backup_weekly),
+                getString(R.string.auto_backup_off)
+        };
+        int current = AutoBackup.intervalDays(requireContext());
+        int checked = 0;
+        for (int i = 0; i < choices.length; i++) if (choices[i] == current) checked = i;
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.auto_backup_title)
+                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                    AutoBackup.setIntervalDays(requireContext(), choices[which]);
+                    dialog.dismiss();
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     private void shareSnapshot(File snapshot) {

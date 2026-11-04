@@ -232,6 +232,9 @@ public class StudentListFragment extends BaseFragment {
         } else if (id == R.id.action_export) {
             onExportClicked();
             return true;
+        } else if (id == R.id.action_export_all) {
+            chooseFormatAndExport(null);
+            return true;
         } else if (id == R.id.action_import) {
             importFileLauncher.launch(new String[]{"application/json"});
             return true;
@@ -247,6 +250,7 @@ public class StudentListFragment extends BaseFragment {
         toolbar.getMenu().findItem(R.id.action_select).setVisible(!selectionMode);
         toolbar.getMenu().findItem(R.id.action_select_all).setVisible(selectionMode);
         toolbar.getMenu().findItem(R.id.action_export).setVisible(selectionMode);
+        toolbar.getMenu().findItem(R.id.action_export_all).setVisible(!selectionMode);
         toolbar.getMenu().findItem(R.id.action_import).setVisible(!selectionMode);
         toolbar.getMenu().findItem(R.id.action_import_csv).setVisible(!selectionMode);
 
@@ -277,6 +281,11 @@ public class StudentListFragment extends BaseFragment {
             return;
         }
 
+        chooseFormatAndExport(selectedIds);
+    }
+
+    /** Asks for the file format, then exports the given students ({@code null}: every student, like the browser page's Export). */
+    private void chooseFormatAndExport(@Nullable List<String> studentIds) {
         String[] formats = {
                 getString(R.string.export_format_md),
                 getString(R.string.export_format_pdf),
@@ -285,7 +294,7 @@ public class StudentListFragment extends BaseFragment {
 
         new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.export_format_title)
-                .setItems(formats, (dialog, which) -> runExport(selectedIds, which))
+                .setItems(formats, (dialog, which) -> runExport(studentIds, which))
                 .show();
     }
 
